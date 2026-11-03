@@ -1,0 +1,149 @@
+{
+  "schema_version": 1,
+  "dataset_id": "hand-calculated-step-fixture",
+  "identity": {
+    "model": {
+      "name": "toy-dense-gqa",
+      "num_layers": 4,
+      "hidden_size": 128,
+      "intermediate_size": 512,
+      "num_attention_heads": 8,
+      "num_kv_heads": 2,
+      "head_dim": 16,
+      "vocab_size": 256,
+      "weight_bytes": 2.0,
+      "kv_bytes": 2.0,
+      "activation_bytes": 2.0,
+      "revision": "unspecified",
+      "weight_dtype": "auto",
+      "kv_dtype": "auto",
+      "activation_dtype": "auto"
+    },
+    "devices": [
+      {
+        "id": "gpu0",
+        "memory_bytes": 67108864,
+        "compute_tflops": 1.0,
+        "memory_bandwidth_gbps": 10.0,
+        "name": "toy-device"
+      }
+    ],
+    "parallelism": {
+      "tensor_parallel_size": 1,
+      "pipeline_parallel_size": 1,
+      "stage_layers": [
+        4
+      ],
+      "shard_plan": "megatron_dense_no_sp"
+    },
+    "topology": {
+      "name": "single-node-uncontended",
+      "link_bandwidth_gbps": 20.0,
+      "link_latency_us": 5.0
+    },
+    "runtime": {
+      "name": "fixture-runtime",
+      "version": "fixture-1",
+      "driver_version": "not-applicable",
+      "rocm_version": "not-applicable",
+      "rccl_version": "not-applicable",
+      "timing_boundary": "step_includes_output_and_sampling_v1"
+    },
+    "execution": {
+      "kv_block_tokens": 16,
+      "graph_bytes": 0,
+      "runtime_bytes": 1048576,
+      "communication_buffer_bytes": 0
+    }
+  },
+  "source": {
+    "kind": "test_fixture",
+    "reference": "Hand-calculated test fixture; no GPU measurements."
+  },
+  "records": [
+    {
+      "record_id": "p8",
+      "group_id": "prefill-8",
+      "phase": "prefill",
+      "stage_index": 0,
+      "query_tokens": [
+        8
+      ],
+      "context_lengths": [
+        0
+      ],
+      "duration_ms": 4,
+      "workspace_peak_bytes": 1056768
+    },
+    {
+      "record_id": "p16-a",
+      "group_id": "prefill-16",
+      "phase": "prefill",
+      "stage_index": 0,
+      "query_tokens": [
+        16
+      ],
+      "context_lengths": [
+        0
+      ],
+      "duration_ms": 6,
+      "workspace_peak_bytes": 1064960
+    },
+    {
+      "record_id": "p16-b",
+      "group_id": "prefill-16",
+      "phase": "prefill",
+      "stage_index": 0,
+      "query_tokens": [
+        16
+      ],
+      "context_lengths": [
+        0
+      ],
+      "duration_ms": 6.2,
+      "workspace_peak_bytes": 1064960
+    },
+    {
+      "record_id": "p24",
+      "group_id": "prefill-24",
+      "phase": "prefill",
+      "stage_index": 0,
+      "query_tokens": [
+        24
+      ],
+      "context_lengths": [
+        0
+      ],
+      "duration_ms": 8,
+      "workspace_peak_bytes": 1073152
+    },
+    {
+      "record_id": "d16",
+      "group_id": "decode-16",
+      "phase": "decode",
+      "stage_index": 0,
+      "query_tokens": [
+        1
+      ],
+      "context_lengths": [
+        16
+      ],
+      "duration_ms": 1,
+      "workspace_peak_bytes": 1049600
+    },
+    {
+      "record_id": "d17",
+      "group_id": "decode-17",
+      "phase": "decode",
+      "stage_index": 0,
+      "query_tokens": [
+        1
+      ],
+      "context_lengths": [
+        17
+      ],
+      "duration_ms": 1.2,
+      "workspace_peak_bytes": 1049600
+    }
+  ]
+}

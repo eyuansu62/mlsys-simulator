@@ -93,8 +93,13 @@ def validate_experiment(experiment: Experiment) -> None:
                 f"strategy.model.{name}: only non-quantized 2/4/8-byte storage is "
                 "supported; 8-bit/packed formats and their metadata are not modeled",
             )
-    if not model.name:
-        _invalid("strategy.model.name", "must not be empty")
+    dtype_bytes = {"float16": 2.0, "bfloat16": 2.0, "float32": 4.0, "float64": 8.0}
+    for kind in ("weight", "kv", "activation"):
+        dtype = getattr(model, f"{kind}_dtype")
+        if dtype != "auto" and (dtype not in dtype_bytes or dtype_bytes[dtype] != getattr(model, f"{kind}_bytes")):
+            _invalid(f"strategy.model.{kind}_dtype", "must be auto or an explicit float dtype matching its byte width")
+    if not model.name.strip() or not model.revision.strip():
+        _invalid("strategy.model", "name and revision must not be empty")
     if model.hidden_size != model.num_attention_heads * model.head_dim:
         _invalid("strategy.model", "hidden_size must equal query heads × head_dim")
     if model.num_attention_heads % model.num_kv_heads:
@@ -128,16 +133,31 @@ def validate_experiment(experiment: Experiment) -> None:
     if len(set(ids)) != len(ids) or not all(ids):
         _invalid("infra.devices", "device IDs must be unique and nonempty")
     for i, device in enumerate(infra.devices):
+        if not device.name.strip():
+            _invalid(f"infra.devices[{i}].name", "must not be empty")
         for name in ("memory_bytes", "compute_tflops", "memory_bandwidth_gbps"):
             _positive(getattr(device, name), f"infra.devices[{i}].{name}")
     # Compute/bandwidth differences are conservatively modeled by slowest rank.
     _positive(infra.link_bandwidth_gbps, "infra.link_bandwidth_gbps")
     _positive(infra.link_latency_us, "infra.link_latency_us", zero=True)
+    if not infra.topology.strip():
+        _invalid("infra.topology", "must not be empty")
     for f in fields(memory):
         _positive(getattr(memory, f.name), f"strategy.memory.{f.name}",
                   zero=f.name not in ("kv_block_tokens", "kv_pool_bytes"))
-    if calibration.backend not in ("analytical", "synthetic"):
-        raise SimulationError("UNSUPPORTED_MECHANISM", "measured/lookup backends are not implemented")
+    if calibration.backend not in ("analytical", "synthetic", "profile"):
+        raise SimulationError("UNSUPPORTED_MECHANISM", "supported backends are analytical, synthetic and profile")
+    if calibration.backend == "profile":
+        if calibration.profile_path is None or not calibration.profile_path.strip():
+            _invalid("calibration.profile_path", "profile backend requires a profile file")
+    elif calibration.profile_path is not None or calibration.allow_extrapolation or calibration.allow_test_fixture:
+        _invalid("calibration", "profile file and domain/source overrides require backend=profile")
+    for name in ("runtime_name", "runtime_version", "driver_version", "rocm_version", "rccl_version",
+                 "timing_boundary"):
+        if not getattr(calibration, name).strip():
+            _invalid(f"calibration.{name}", "must not be empty")
+    if calibration.timing_boundary != "step_includes_output_and_sampling_v1":
+        raise SimulationError("UNSUPPORTED_MECHANISM", "unsupported step timing boundary")
     if not calibration.profile_version:
         _invalid("calibration.profile_version", "must not be empty")
     for name in ("compute_efficiency", "bandwidth_efficiency"):
@@ -159,10 +179,28 @@ def validate_experiment(experiment: Experiment) -> None:
         _positive(request.output_tokens, f"{path}.output_tokens")
         if request.timeout_ms is not None:
             _positive(request.timeout_ms, f"{path}.timeout_ms", zero=True)
+    warmup_ids = set()
+    for i, request in enumerate(exp.execution.warmup):
+        path = f"execution.warmup[{i}]"
+        if not request.request_id.strip() or request.request_id in warmup_ids:
+            _invalid(path, "warmup request IDs must be nonempty and unique")
+        warmup_ids.add(request.request_id)
+        _positive(request.arrival_ms, f"{path}.arrival_ms", zero=True)
+        _positive(request.input_tokens, f"{path}.input_tokens")
+        _positive(request.output_tokens, f"{path}.output_tokens")
+        if request.timeout_ms is not None:
+            _positive(request.timeout_ms, f"{path}.timeout_ms", zero=True)
+    if exp.execution.initial_state != "empty_cache":
+        raise SimulationError("UNSUPPORTED_MECHANISM", "only empty_cache initial state is supported")
     for f in fields(exp.evaluation):
         value = getattr(exp.evaluation, f.name)
-        if value is not None:
+        if f.name != "drain" and value is not None:
             _positive(value, f"evaluation.{f.name}", zero=f.name != "measurement_window_ms")
+    if exp.evaluation.max_drain_ms is not None:
+        if exp.evaluation.measurement_window_ms is None or not exp.evaluation.drain:
+            _invalid("evaluation.max_drain_ms", "requires a measurement window and drain=true")
+    if not exp.evaluation.drain and exp.evaluation.measurement_window_ms is None:
+        _invalid("evaluation.drain", "drain=false requires a measurement window")
     _positive(exp.execution.max_simulated_ms, "execution.max_simulated_ms")
     _positive(exp.execution.max_events, "execution.max_events")
 
@@ -223,15 +261,31 @@ def load_experiment(path: str | Path) -> Experiment:
         _invalid(str(source), "experiment must be an object")
     mapping = dict(mapping)
     strategy_root = source.parent
+    calibration_root = source.parent
+    execution_root = source.parent
     for section in ("workload", "infra", "strategy", "calibration", "evaluation", "execution"):
         if isinstance(mapping.get(section), str):
             referenced_path = source.parent / mapping[section]
             mapping[section] = _read(referenced_path)
             if section == "strategy":
                 strategy_root = referenced_path.parent
+            elif section == "calibration":
+                calibration_root = referenced_path.parent
+            elif section == "execution":
+                execution_root = referenced_path.parent
     if isinstance(mapping.get("strategy"), dict):
         strategy = dict(mapping["strategy"])
         if isinstance(strategy.get("model"), str):
             strategy["model"] = _read(strategy_root / strategy["model"])
         mapping["strategy"] = strategy
+    if isinstance(mapping.get("calibration"), dict):
+        calibration = dict(mapping["calibration"])
+        if isinstance(calibration.get("profile_path"), str):
+            calibration["profile_path"] = str((calibration_root / calibration["profile_path"]).resolve())
+        mapping["calibration"] = calibration
+    if isinstance(mapping.get("execution"), dict):
+        execution = dict(mapping["execution"])
+        if isinstance(execution.get("warmup"), str):
+            execution["warmup"] = _read(execution_root / execution["warmup"])
+        mapping["execution"] = execution
     return experiment_from_dict(mapping)

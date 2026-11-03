@@ -42,6 +42,9 @@ class AnalyticalModel:
 
     def __init__(self, experiment: Experiment) -> None:
         validate_experiment(experiment)
+        if experiment.calibration.backend == "profile":
+            raise SimulationError("UNSUPPORTED_MECHANISM",
+                                  "Use create_performance_model for whole-stage profile predictions")
         self.experiment = experiment
 
     def estimate_step(
@@ -147,10 +150,11 @@ class AnalyticalModel:
 def predict_experiment(experiment: Experiment) -> dict[str, Any]:
     """Shape-only C01/C02/C04 report, including analytical PP stage costs."""
     from .memory import MemoryPlanner
+    from .profiles import create_performance_model
 
     validate_experiment(experiment)
     exp, strategy = experiment, experiment.strategy
-    predictor = AnalyticalModel(exp)
+    predictor = create_performance_model(exp)
     planner = MemoryPlanner(exp)
     requests = exp.workload
     queries = [r.input_tokens for r in requests] or [1]
@@ -164,6 +168,7 @@ def predict_experiment(experiment: Experiment) -> dict[str, Any]:
                        "device_ids": [d.id for d in exp.infra.devices[
                            stage * strategy.tensor_parallel_size:(stage + 1) * strategy.tensor_parallel_size]],
                        "prefill_ms": prefill.duration_ms, "decode_step_ms": decode.duration_ms,
+                       "prefill_source": prefill.source, "decode_source": decode.source,
                        "prefill_breakdown": prefill.breakdown,
                        "decode_breakdown": decode.breakdown})
         prefill_total += prefill.duration_ms
@@ -184,9 +189,12 @@ def predict_experiment(experiment: Experiment) -> dict[str, Any]:
     prefill_p2p, decode_p2p = transfer(prefill_payload), transfer(decode_payload)
     isolated_prefill = _finite(prefill_total + prefill_p2p, "isolated prefill duration")
     isolated_decode = _finite(decode_total + decode_p2p, "isolated decode duration")
+    provenance = getattr(predictor, "provenance", None)
     return {"status": "COMPLETED", "mode": "predict", "backend": "simulated",
             "source": exp.calibration.backend, "hardware_validated": False,
-            "profile_version": exp.calibration.profile_version,
+            "profile_version": (provenance["profile_version"] if provenance
+                                else exp.calibration.profile_version),
+            "profile_provenance": dict(provenance) if provenance else None,
             "shape": {"query_tokens": queries, "context_lengths": contexts,
                       "requests_in_batch": len(queries),
                       "within_batch_token_limit": sum(queries) <= strategy.max_batch_tokens,
@@ -195,6 +203,7 @@ def predict_experiment(experiment: Experiment) -> dict[str, Any]:
             "prefill_memory_feasible": memory.ok, "memory_error_code": memory.code,
             "memory_check_details": memory.details,
             "communication": {"pp_boundaries": boundaries,
+                              "p2p_source": "analytical_uncalibrated",
                               "prefill_p2p_bytes_per_rank_per_boundary": prefill_payload,
                               "decode_p2p_bytes_per_rank_per_boundary": decode_payload,
                               "prefill_p2p_ms": prefill_p2p,
@@ -209,5 +218,7 @@ def predict_experiment(experiment: Experiment) -> dict[str, Any]:
                 "Analyzes one phase batch containing every workload row, ignoring arrival times.",
                 "PP activations replicated per TP rank; identical independent links, no contention.",
                 "No sampling/feedback latency included in PP forward path.",
-                "All timings are analytical/synthetic; no measured AMD profile or accuracy claim.",
+                ("Stage timings use the supplied whole-stage profile; PP transfers remain analytical."
+                 if provenance else "Stage timings are analytical/synthetic, without measured calibration."),
+                "Profile calibration does not itself establish held-out hardware prediction accuracy.",
             ]}

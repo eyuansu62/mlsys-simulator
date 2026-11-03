@@ -2,11 +2,11 @@
 
 Construct an :class:`Experiment` directly or load a configuration with
 :func:`load_experiment`, then call :func:`simulate` or :func:`predict_experiment`.
-The package is pre-1.0; changes to this import surface are recorded in the
-changelog. Analytical and synthetic timings are not hardware-validated.
+Changes to this import surface and the versioned data contracts are recorded
+in the changelog. Calibration provenance and hardware validation are separate.
 """
 
-__version__ = "0.1.0"
+__version__ = "1.0.0"
 
 from .config import experiment_from_dict, load_experiment, validate_experiment
 from .engine import SimulationResult, simulate
@@ -26,6 +26,13 @@ from .schema import (
     StepEstimate,
     StrategySpec,
 )
+from .profiles import (ProfileModel, create_performance_model, estimate_profile,
+                       load_dataset, load_profile, profile_identity)
+from .calibration import (calibrate_dataset, split_dataset, validate_holdout,
+                          write_json_exclusive)
+from .comparison import (compare_candidates, compare_runs, comparison_contract,
+                         extract_metrics)
+from .communication_calibration import calibrate_communication, load_communication_dataset
 
 __all__ = [
     "__version__",
@@ -51,4 +58,20 @@ __all__ = [
     "ring_allreduce_ms",
     "simulate",
     "validate_experiment",
+    "ProfileModel",
+    "create_performance_model",
+    "estimate_profile",
+    "load_dataset",
+    "load_profile",
+    "profile_identity",
+    "calibrate_dataset",
+    "split_dataset",
+    "validate_holdout",
+    "write_json_exclusive",
+    "compare_candidates",
+    "compare_runs",
+    "comparison_contract",
+    "extract_metrics",
+    "calibrate_communication",
+    "load_communication_dataset",
 ]

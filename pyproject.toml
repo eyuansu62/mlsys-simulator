@@ -31,6 +31,7 @@ mlsys-sim = "mlsys_sim.cli:main"
 
 [project.urls]
 "Design plan" = "https://gist.github.com/eyuansu62/f91df8b7597801ca4fd91bb3bb8c98cc"
+"Source" = "https://github.com/eyuansu62/mlsys-simulator"
 
 [tool.setuptools]
 packages = ["mlsys_sim"]

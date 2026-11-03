@@ -1,26 +1,38 @@
 # Changelog
 
-## Unreleased
+## 1.0.0
 
-Initial development version, with package version `0.1.0`. No public release has
-been made; license selection remains pending.
+V1 software implementation. The repository remains private while license
+selection is pending; this entry is not a PyPI publication or hardware-accuracy
+claim. Consult validation records for checks actually executed.
 
 ### Added
 
-- CPU-only deterministic serving simulation with FIFO and prefill-first
-  continuous batching.
-- Strict configuration, Dense MHA/GQA macro performance models, TP communication
-  and analytical PP stage reports.
-- Per-rank physical budgets, fixed KV block pools, atomic reservation and
-  request preemption with recomputation.
-- Request timelines, TTFT/TPOT/ITL, goodput, memory diagnostics and reproducible
-  run artifacts.
-- Python library exports, an installable CLI, distribution configuration,
-  contributor documentation and CI checks.
+- Versioned whole-stage timing Profiles with strict model/device/software/layout
+  identity, exact ragged lookup, complete-grid interpolation and explicit
+  exploratory extrapolation.
+- Dataset calibration with repeated-shape means, Workspace maxima, training
+  hashes/membership and immutable version lineage.
+- Grouped holdout splitting and leakage checks, coverage, per-group latency
+  errors and explicit out-of-domain reporting.
+- Saved online run comparisons and candidate rankings, including contract
+  matching, missing metrics, request pairing, SLA agreement and ties.
+- Independent warmup, empty-cache validation, half-open arrival admission and
+  explicit drain controls.
+- Profile-aware Workspace accounting and standalone communication alpha-beta
+  calibration with explicit Infra patches.
+- CLI calibration, comparison and validation workflows, fixture demonstrations,
+  software specification and validation documentation.
 
-### Limits
+### Preserved
 
-- Timing profiles are synthetic or uncalibrated analytical estimates.
-- Measured profiles, AMD validation, online PP, CPU swap, multiple replicas,
-  prefix caching, chunked prefill and quantized storage formats remain future
-  work.
+- CPU deterministic events, FIFO/prefill-first batching, TP memory/communication,
+  fixed KV pools, request preemption and prefix recomputation.
+- Installable Python API/CLI and dependency-free core.
+
+### Evidence and limits
+
+- Shipped measurement-shaped records are test fixtures, not GPU measurements.
+- No AMD measurement or hardware prediction accuracy has been established.
+- Online PP, CPU swap, multiple replicas, Prefix Cache, chunked prefill and
+  quantized storage formats remain outside V1.

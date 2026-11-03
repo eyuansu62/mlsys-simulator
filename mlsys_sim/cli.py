@@ -1,20 +1,28 @@
-"""CLI and immutable, machine-readable experiment output."""
+"""Immutable CLI artifacts for simulation, profiles and validation workflows."""
 
 import argparse
-from dataclasses import asdict
+from dataclasses import asdict, replace
 import hashlib
 import json
 from pathlib import Path
 import sys
+from typing import Any, NoReturn
 
 from . import __version__
 from .config import load_experiment
 from .schema import SimulationError
 
 
-def _write_json(path: Path, value: object) -> None:
-    path.write_text(json.dumps(value, indent=2, sort_keys=True, allow_nan=False)
-                    + "\n", encoding="utf-8")
+def _json(value: Any) -> str:
+    try:
+        return json.dumps(value, sort_keys=True, allow_nan=False, separators=(",", ":"))
+    except (TypeError, ValueError, OverflowError) as exc:
+        raise SimulationError("INVALID_CONFIG", f"Expected finite JSON data: {exc}") from exc
+
+
+def _write_json(path: Path, value: Any) -> None:
+    _json(value)
+    path.write_text(json.dumps(value, indent=2, sort_keys=True, allow_nan=False) + "\n", encoding="utf-8")
 
 
 def _source_hash() -> str:
@@ -25,74 +33,356 @@ def _source_hash() -> str:
     return digest.hexdigest()
 
 
-def execute(mode: str, experiment_path: Path, output_path: Path) -> dict:
-    """Create a fresh run directory; preserve diagnostics on configuration errors."""
+def _fresh_output(path: Path) -> None:
     try:
-        output_path.mkdir(parents=True, exist_ok=False)
+        path.mkdir(parents=True, exist_ok=False)
     except FileExistsError as exc:
-        raise SimulationError("OUTPUT_EXISTS", f"Refusing to overwrite {output_path}") from exc
-    manifest = {
-        "schema_version": 1, "simulator_version": __version__,
-        "source_sha256": _source_hash(), "mode": mode,
-        "backend": "simulated", "experiment_path": str(experiment_path.resolve()),
-    }
+        raise SimulationError("OUTPUT_EXISTS", f"Refusing to overwrite {path}") from exc
+
+
+def _record_input(manifest: dict, path: str | Path, raw: bytes | None = None) -> None:
+    source = Path(path).resolve()
+    content = source.read_bytes() if raw is None else raw
+    entry = {"path": str(source), "sha256": hashlib.sha256(content).hexdigest()}
+    existing = [item for item in manifest.setdefault("input_files", []) if item["path"] != str(source)]
+    manifest["input_files"] = sorted([*existing, entry], key=lambda item: item["path"])
+
+
+def _experiment_inputs(manifest: dict, path: Path, experiment: Any) -> None:
+    from .config import _read
+
+    _record_input(manifest, path)
+    original = _read(path)
+    strategy_root, execution_root = path.parent, path.parent
+    strategy, execution = original.get("strategy", {}), original.get("execution", {})
+    for name in ("workload", "infra", "strategy", "calibration", "evaluation", "execution"):
+        reference = original.get(name)
+        if isinstance(reference, str):
+            referenced = path.parent / reference
+            _record_input(manifest, referenced)
+            if name == "strategy":
+                strategy, strategy_root = _read(referenced), referenced.parent
+            if name == "execution":
+                execution, execution_root = _read(referenced), referenced.parent
+    if isinstance(strategy, dict) and isinstance(strategy.get("model"), str):
+        _record_input(manifest, strategy_root / strategy["model"])
+    if isinstance(execution, dict) and isinstance(execution.get("warmup"), str):
+        _record_input(manifest, execution_root / execution["warmup"])
+    if experiment.calibration.profile_path:
+        _record_input(manifest, experiment.calibration.profile_path)
+
+
+def _read_json(path: Path) -> tuple[Any, bytes]:
+    def unique(pairs):
+        data = {}
+        for key, value in pairs:
+            if key in data:
+                raise SimulationError("INVALID_CONFIG", f"Duplicate JSON key {key!r} in {path}")
+            data[key] = value
+        return data
     try:
-        experiment = load_experiment(experiment_path)
-        expanded = asdict(experiment)
-        canonical = json.dumps(expanded, sort_keys=True, separators=(",", ":"), allow_nan=False)
-        manifest.update({
-            "effective_config": expanded,
-            "config_sha256": hashlib.sha256(canonical.encode()).hexdigest(),
-            "seed": experiment.execution.seed,
-            "calibration_source": experiment.calibration.backend,
-            "profile_version": experiment.calibration.profile_version,
-            "hardware_validated": False,
-        })
-        _write_json(output_path / "manifest.json", manifest)
-        if mode == "simulate":
-            from .engine import simulate
-            simulation = simulate(experiment)
-            result, requests, events = simulation.result, simulation.requests, simulation.events
+        raw = path.read_bytes()
+        payload = json.loads(raw, object_pairs_hook=unique)
+        _json(payload)
+        return payload, raw
+    except (OSError, ValueError) as exc:
+        if isinstance(exc, SimulationError):
+            raise
+        raise SimulationError("INVALID_CONFIG", f"Cannot read {path}: {exc}") from exc
+
+
+def _simulation(args: argparse.Namespace, manifest: dict) -> dict:
+    from .comparison import comparison_contract
+
+    original = load_experiment(args.experiment)
+    _experiment_inputs(manifest, args.experiment, original)
+    expanded = asdict(original)
+    manifest.update({"backend": "simulated", "experiment_path": str(args.experiment.resolve()),
+                     "effective_config": expanded, "seed": original.execution.seed,
+                     "comparison_contract": comparison_contract(original),
+                     "calibration_source": original.calibration.backend,
+                     "profile_version": original.calibration.profile_version})
+    experiment, profile = original, None
+    origin = None
+    if original.calibration.backend == "profile":
+        from .profiles import validate_profile
+
+        if original.calibration.profile_path is None:
+            raise SimulationError("INVALID_CONFIG", "profile_path is required for the profile backend")
+        origin = Path(original.calibration.profile_path).resolve()
+        payload, raw = _read_json(origin)
+        profile = validate_profile(payload, allow_test_fixture=original.calibration.allow_test_fixture)
+        # Timing and workspace both consume this exact immutable copy.
+        snapshot = args.out / "profile.json"
+        with snapshot.open("xb") as stream:
+            stream.write(raw)
+        profile_hash = hashlib.sha256(raw).hexdigest()
+        _record_input(manifest, origin, raw)
+        manifest.update(profile_sha256=profile_hash, profile_snapshot="profile.json",
+                        origin_profile_path=str(origin), profile_version=profile["profile_version"],
+                        calibration_source=("measured_profile" if profile["source"]["kind"] == "measured"
+                                            else "test_fixture_profile"))
+        experiment = replace(original, calibration=replace(original.calibration,
+                                                           profile_path=str(snapshot.resolve())))
+        manifest["config_sha256"] = hashlib.sha256(
+            _json({"experiment": expanded, "profile_sha256": profile_hash}).encode()).hexdigest()
+    else:
+        manifest["config_sha256"] = hashlib.sha256(_json(expanded).encode()).hexdigest()
+    _write_json(args.out / "manifest.json", manifest)
+    if args.mode == "simulate":
+        from .engine import simulate
+
+        run = simulate(experiment)
+        result, requests, events = run.result, run.requests, run.events
+    else:
+        from .performance import predict_experiment
+
+        result, requests, events = predict_experiment(experiment), [], []
+        result.setdefault("status", "COMPLETED")
+        result.setdefault("backend", "simulated")
+    if profile is not None:
+        provenance = result.get("profile_provenance")
+        if isinstance(provenance, dict):
+            provenance.update(origin_profile_path=str(origin), snapshot_file="profile.json")
+            manifest["profile_provenance"] = dict(provenance)
+    for name, rows in (("requests.jsonl", requests), ("events.jsonl", events)):
+        if name == "events.jsonl" and not experiment.execution.detailed_events:
+            continue
+        with (args.out / name).open("w", encoding="utf-8") as stream:
+            for row in rows:
+                stream.write(_json(row) + "\n")
+    return result
+
+
+def _calibrate(args: argparse.Namespace, manifest: dict) -> dict:
+    from .calibration import calibrate_dataset
+    from .profiles import load_dataset, load_profile
+
+    _record_input(manifest, args.dataset)
+    if args.communication:
+        from .communication_calibration import calibrate_communication, load_communication_dataset
+
+        dataset = load_communication_dataset(args.dataset, allow_test_fixture=args.allow_test_fixture)
+    else:
+        dataset = load_dataset(args.dataset, allow_test_fixture=args.allow_test_fixture)
+    parent = None
+    if args.parent_profile is not None:
+        _record_input(manifest, args.parent_profile)
+        if args.communication:
+            parent, _ = _read_json(args.parent_profile)
+            if not isinstance(parent, dict):
+                raise SimulationError("INVALID_ARGUMENT", "Parent profile must be a JSON object")
         else:
-            from .performance import predict_experiment
-            result = predict_experiment(experiment)
-            result.setdefault("status", "COMPLETED")
-            result.setdefault("backend", "simulated")
-            requests, events = [], []
-        _write_json(output_path / "result.json", result)
-        for name, rows in (("requests.jsonl", requests), ("events.jsonl", events)):
-            if name == "events.jsonl" and not experiment.execution.detailed_events:
-                continue
-            with (output_path / name).open("w", encoding="utf-8") as stream:
-                for row in rows:
-                    stream.write(json.dumps(row, sort_keys=True, allow_nan=False) + "\n")
-        (output_path / "logs.txt").write_text(
-            "CPU simulation; timing profiles are not hardware validated.\n", encoding="utf-8")
+            parent = load_profile(args.parent_profile, allow_test_fixture=args.allow_test_fixture)
+    fit = calibrate_communication if args.communication else calibrate_dataset
+    profile = fit(dataset, profile_version=args.profile_version,
+                  parent_profile=parent, allow_test_fixture=args.allow_test_fixture)
+    _write_json(args.out / "dataset.json", dataset)
+    _write_json(args.out / "profile.json", profile)
+    manifest.update(profile_version=profile["profile_version"], source=profile["source"],
+                    dataset_sha256=profile["training"]["dataset_sha256"],
+                    profile_sha256=hashlib.sha256((args.out / "profile.json").read_bytes()).hexdigest())
+    return {"status": "COMPLETED", "mode": "calibrate", "profile_id": profile["profile_id"],
+            "profile_version": profile["profile_version"], "source": profile["source"],
+            "training_record_count": len(profile["training"]["record_ids"]),
+            "shape_count": len(profile.get("samples", [])),
+            "communication_group_count": len(profile.get("groups", [])),
+            "profile_kind": profile.get("kind", "step_profile"),
+            "parent_profile_version": profile["training"]["parent_profile_version"]}
+
+
+def _validate(args: argparse.Namespace, manifest: dict) -> dict:
+    from .calibration import calibrate_dataset, split_dataset, validate_holdout
+    from .profiles import load_dataset, load_profile
+
+    if args.profile is not None and any(value is not None for value in
+                                       (args.holdout_group, args.holdout_fraction, args.seed)):
+        raise SimulationError("INVALID_ARGUMENT", "Existing-profile validation consumes a holdout dataset; "
+                              "split options require --profile-version")
+    _record_input(manifest, args.dataset)
+    dataset = load_dataset(args.dataset, allow_test_fixture=args.allow_test_fixture)
+    _write_json(args.out / "dataset.json", dataset)
+    if args.profile is not None:
+        _record_input(manifest, args.profile)
+        profile = load_profile(args.profile, allow_test_fixture=args.allow_test_fixture)
+        holdout = dataset
+    else:
+        fraction = 0.25 if args.holdout_fraction is None else args.holdout_fraction
+        seed = 42 if args.seed is None else args.seed
+        training, holdout = split_dataset(dataset, holdout_fraction=fraction, seed=seed,
+                                          holdout_groups=args.holdout_group,
+                                          allow_test_fixture=args.allow_test_fixture)
+        profile = calibrate_dataset(training, profile_version=args.profile_version,
+                                    allow_test_fixture=args.allow_test_fixture)
+        _write_json(args.out / "train.json", training)
+        manifest["split"] = {"holdout_fraction": fraction, "seed": seed,
+                             "holdout_groups": args.holdout_group}
+    _write_json(args.out / "holdout.json", holdout)
+    _write_json(args.out / "profile.json", profile)
+    manifest.update(profile_version=profile["profile_version"], source=profile["source"],
+                    profile_sha256=hashlib.sha256((args.out / "profile.json").read_bytes()).hexdigest(),
+                    dataset_sha256=profile["training"]["dataset_sha256"])
+    return validate_holdout(profile, holdout, allow_test_fixture=args.allow_test_fixture,
+                            allow_extrapolation=args.allow_extrapolation)
+
+
+def _comparison_inputs(manifest: dict, predicted: Path, observed: Path) -> None:
+    directory = predicted if predicted.is_dir() else predicted.parent
+    _record_input(manifest, directory / "manifest.json")
+    _record_input(manifest, directory / "result.json" if predicted.is_dir() else predicted)
+    if (directory / "requests.jsonl").exists():
+        _record_input(manifest, directory / "requests.jsonl")
+    _record_input(manifest, observed)
+
+
+def _compare(args: argparse.Namespace, manifest: dict) -> dict:
+    from .comparison import compare_candidates, compare_runs
+
+    if args.pairs is not None:
+        if args.observed is not None:
+            raise SimulationError("INVALID_ARGUMENT", "--observed cannot be combined with --pairs")
+        pairs, raw = _read_json(args.pairs)
+        _record_input(manifest, args.pairs, raw)
+        if not isinstance(pairs, list):
+            raise SimulationError("INVALID_ARGUMENT", "The pairs JSON file must contain an array")
+        resolved = []
+        for pair in pairs:
+            if (not isinstance(pair, dict) or not isinstance(pair.get("predicted"), str)
+                    or not isinstance(pair.get("observed"), str)):
+                raise SimulationError("INVALID_ARGUMENT", "Each pair needs predicted/observed file paths")
+            current = dict(pair)
+            current["predicted"] = str((args.pairs.parent / pair["predicted"]).resolve())
+            current["observed"] = str((args.pairs.parent / pair["observed"]).resolve())
+            _comparison_inputs(manifest, Path(current["predicted"]), Path(current["observed"]))
+            resolved.append(current)
+        return compare_candidates(resolved, metric=args.metric, higher_is_better=not args.lower_is_better,
+                                  allow_test_fixture=args.allow_test_fixture)
+    if args.predicted is None or args.observed is None:
+        raise SimulationError("INVALID_ARGUMENT", "Single-run comparison requires --predicted and --observed")
+    _comparison_inputs(manifest, args.predicted, args.observed)
+    result = compare_runs(args.predicted, args.observed, allow_test_fixture=args.allow_test_fixture)
+    result["focus_metric"] = {"name": args.metric, "higher_is_better": not args.lower_is_better,
+                              "comparison": result["metrics"][args.metric]}
+    return result
+
+
+def _execute(args: argparse.Namespace) -> dict:
+    _fresh_output(args.out)
+    manifest = {"schema_version": 1, "simulator_version": __version__,
+                "source_sha256": _source_hash(), "mode": args.mode,
+                "backend": "simulated" if args.mode in ("simulate", "predict") else "tool",
+                "hardware_validated": False, "input_files": []}
+    try:
+        if args.mode in ("simulate", "predict"):
+            result = _simulation(args, manifest)
+        elif args.mode == "calibrate":
+            result = _calibrate(args, manifest)
+        elif args.mode == "validate":
+            result = _validate(args, manifest)
+        else:
+            result = _compare(args, manifest)
+        result.setdefault("status", "COMPLETED")
+        result.setdefault("hardware_validated", False)
+        _write_json(args.out / "manifest.json", manifest)
+        _write_json(args.out / "result.json", result)
+        (args.out / "logs.txt").write_text(
+            "CPU tool execution; hardware validation is not inferred from supplied records.\n", encoding="utf-8")
         return result
     except (SimulationError, OSError) as exc:
         code = exc.code if isinstance(exc, SimulationError) else "IO_ERROR"
         result = {"status": "FAILED", "error_code": code, "message": str(exc)}
-        _write_json(output_path / "manifest.json", manifest)
-        _write_json(output_path / "result.json", result)
-        (output_path / "logs.txt").write_text(f"{code}: {exc}\n", encoding="utf-8")
+        _write_json(args.out / "manifest.json", manifest)
+        _write_json(args.out / "result.json", result)
+        (args.out / "logs.txt").write_text(f"{code}: {exc}\n", encoding="utf-8")
         return result
 
 
-def main(argv: list[str] | None = None, *, mode: str | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Deterministic CPU LLM serving simulator")
-    if mode is None:
-        parser.add_argument("mode", choices=("simulate", "predict"))
-    parser.add_argument("--experiment", type=Path, required=True)
+def execute(mode: str, experiment_path: Path, output_path: Path) -> dict:
+    """Compatibility entry point for source-checkout simulate/predict commands."""
+    if mode not in ("simulate", "predict"):
+        raise SimulationError("INVALID_ARGUMENT", "execute expects simulate or predict")
+    return _execute(argparse.Namespace(mode=mode, experiment=experiment_path, out=output_path))
+
+
+class _Parser(argparse.ArgumentParser):
+    def error(self, message: str) -> NoReturn:
+        raise SimulationError("INVALID_ARGUMENT", message)
+
+
+def _arguments(parser: argparse.ArgumentParser, mode: str) -> None:
     parser.add_argument("--out", type=Path, required=True)
-    args = parser.parse_args(argv)
-    selected_mode = mode or args.mode
+    if mode in ("simulate", "predict"):
+        parser.add_argument("--experiment", type=Path, required=True)
+        return
+    parser.add_argument("--allow-test-fixture", action="store_true")
+    if mode in ("calibrate", "validate"):
+        parser.add_argument("--dataset", type=Path, required=True)
+        if mode == "calibrate":
+            parser.add_argument("--profile-version", required=True)
+            parser.add_argument("--parent-profile", type=Path)
+            parser.add_argument("--communication", action="store_true")
+        else:
+            profile = parser.add_mutually_exclusive_group(required=True)
+            profile.add_argument("--profile", type=Path)
+            profile.add_argument("--profile-version")
+            parser.add_argument("--holdout-group", action="append")
+            parser.add_argument("--holdout-fraction", type=float, help="Component fraction (default: 0.25)")
+            parser.add_argument("--seed", type=int, help="Deterministic split seed (default: 42)")
+            parser.add_argument("--allow-extrapolation", action="store_true")
+        return
+    source = parser.add_mutually_exclusive_group(required=True)
+    source.add_argument("--predicted", type=Path)
+    source.add_argument("--pairs", type=Path)
+    parser.add_argument("--observed", type=Path)
+    from .comparison import METRIC_UNITS
+    parser.add_argument("--metric", choices=[name for name in METRIC_UNITS
+                                             if name not in ("sla_satisfied", "request_count")],
+                        default="goodput_requests_per_s")
+    parser.add_argument("--lower-is-better", action="store_true")
+
+
+def _requested_output(arguments: list[str]) -> Path | None:
+    for index, value in enumerate(arguments):
+        if value.startswith("--out=") and value[6:]:
+            return Path(value[6:])
+        if value == "--out" and index + 1 < len(arguments) and not arguments[index + 1].startswith("--"):
+            return Path(arguments[index + 1])
+    return None
+
+
+def main(argv: list[str] | None = None, *, mode: str | None = None) -> int:
+    arguments = list(sys.argv[1:] if argv is None else argv)
+    output = _requested_output(arguments)
+    parsed = False
     try:
-        result = execute(selected_mode, args.experiment, args.out)
+        parser = _Parser(description="CPU LLM simulation, calibration and validation tools")
+        modes = ("simulate", "predict", "calibrate", "compare", "validate")
+        if mode is None:
+            commands = parser.add_subparsers(dest="mode", required=True, parser_class=_Parser)
+            for name in modes:
+                _arguments(commands.add_parser(name), name)
+        else:
+            if mode not in modes:
+                raise SimulationError("INVALID_ARGUMENT", f"Unknown mode {mode}")
+            parser.set_defaults(mode=mode)
+            _arguments(parser, mode)
+        args = parser.parse_args(arguments)
+        output, parsed = args.out, True
+        result = _execute(args)
     except (SimulationError, OSError) as exc:
-        result = {"status": "FAILED", "error_code": getattr(exc, "code", "IO_ERROR"),
-                  "message": str(exc)}
+        result = {"status": "FAILED", "error_code": getattr(exc, "code", "IO_ERROR"), "message": str(exc)}
+        if not parsed and output is not None:
+            try:
+                _fresh_output(output)
+                _write_json(output / "manifest.json", {"schema_version": 1, "mode": mode,
+                                                        "simulator_version": __version__})
+                _write_json(output / "result.json", result)
+                (output / "logs.txt").write_text(f"{result['error_code']}: {exc}\n", encoding="utf-8")
+            except (SimulationError, OSError) as output_error:
+                result = {"status": "FAILED", "error_code": getattr(output_error, "code", "IO_ERROR"),
+                          "message": str(output_error)}
     print(json.dumps({"status": result.get("status"),
-                      "result_path": str((args.out / "result.json").resolve()),
+                      "result_path": str((output / "result.json").resolve()) if output is not None else None,
                       "error_code": result.get("error_code"),
                       "next_actions": [] if result.get("status") == "COMPLETED"
                       else ["Inspect result.json and logs.txt; use a fresh output directory."]},
@@ -101,4 +391,4 @@ def main(argv: list[str] | None = None, *, mode: str | None = None) -> int:
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    raise SystemExit(main())

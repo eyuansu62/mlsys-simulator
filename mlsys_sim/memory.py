@@ -47,7 +47,13 @@ class MemoryPlanner:
         self.config = experiment.strategy.memory
         self.allocations: dict[str, int] = {}
         self._ranks: list[_RankBudget] = []
-        self._workspace_peak_bytes = 0
+        self._workspace_peaks: dict[str, int] = {}
+        self._workspace_sources: dict[str, str] = {}
+        self._workspace_last_sources: dict[str, str] = {}
+        self._profile_model = None
+        if experiment.calibration.backend == "profile":
+            from .profiles import ProfileModel
+            self._profile_model = ProfileModel(experiment)
         self._peak_used_blocks = 0
         self._validate_memory_config()
 
@@ -146,9 +152,19 @@ class MemoryPlanner:
         used_after = sum(self._blocks(tokens) for tokens in projected.values())
         workspace = (self.config.workspace_base_bytes
                      + self.config.workspace_bytes_per_token * sum(queries))
-        ranks = []
+        ranks: list[dict] = []
         for rank in self._ranks:
-            budget = rank.fixed_budget_bytes + workspace
+            rank_workspace = workspace
+            workspace_source = "analytical_assumption"
+            if self._profile_model is not None and queries:
+                contexts = ([target - query for target, query in zip(targets.values(), queries)]
+                            if phase == "decode" else [0] * len(queries))
+                observed_workspace = self._profile_model.workspace_bytes(
+                    queries, phase, rank.stage_index, context_lengths=contexts)
+                if observed_workspace is not None:
+                    rank_workspace = observed_workspace
+                    workspace_source = "profile"
+            budget = rank.fixed_budget_bytes + rank_workspace
             physical_ok = budget <= rank.device_memory_bytes
             logical_ok = used_after + self.config.guard_blocks <= rank.pool_blocks
             ranks.append({
@@ -160,7 +176,8 @@ class MemoryPlanner:
                 "proposed_used_blocks": used_after,
                 "additional_blocks": used_after - (0 if alone else used_before),
                 "guard_blocks": self.config.guard_blocks,
-                "workspace_bytes": workspace,
+                "workspace_bytes": rank_workspace,
+                "workspace_source": workspace_source,
                 "required_budget_bytes": budget,
                 "device_memory_bytes": rank.device_memory_bytes,
                 "physical_ok": physical_ok,
@@ -170,7 +187,7 @@ class MemoryPlanner:
             "phase": phase,
             "alone": alone,
             "proposed_allocations": projected,
-            "workspace_bytes": workspace,
+            "workspace_bytes": max((rank["workspace_bytes"] for rank in ranks), default=workspace),
             "ranks": ranks,
         }
         if any(not rank["physical_ok"] for rank in ranks):
@@ -189,9 +206,16 @@ class MemoryPlanner:
         decision = self.check(target_tokens, query_tokens, phase)
         if decision.ok:
             self.allocations.update(target_tokens)
-            self._workspace_peak_bytes = max(
-                self._workspace_peak_bytes, decision.details["workspace_bytes"],
-            )
+            for rank in decision.details["ranks"]:
+                device_id = rank["device_id"]
+                previous = self._workspace_peaks.get(device_id, -1)
+                if rank["workspace_bytes"] > previous:
+                    self._workspace_peaks[device_id] = rank["workspace_bytes"]
+                    self._workspace_sources[device_id] = rank["workspace_source"]
+                elif (rank["workspace_bytes"] == previous
+                      and self._workspace_sources[device_id] != rank["workspace_source"]):
+                    self._workspace_sources[device_id] = "mixed"
+                self._workspace_last_sources[device_id] = rank["workspace_source"]
             used = sum(self._blocks(tokens) for tokens in self.allocations.values())
             self._peak_used_blocks = max(self._peak_used_blocks, used)
         return decision
@@ -210,6 +234,7 @@ class MemoryPlanner:
         snapshots = []
         for rank in self._ranks:
             free = rank.pool_blocks - used
+            workspace_peak = self._workspace_peaks.get(rank.device_id, 0)
             snapshots.append({
                 "device_id": rank.device_id,
                 "stage_index": rank.stage_index,
@@ -229,8 +254,10 @@ class MemoryPlanner:
                 "kv_used_bytes": used * rank.kv_block_bytes,
                 "pool_unusable_tail_bytes": self.config.kv_pool_bytes % rank.kv_block_bytes,
                 "peak_used_blocks": self._peak_used_blocks,
-                "workspace_peak_bytes": self._workspace_peak_bytes,
-                "physical_peak_bytes": rank.physical_reserved_bytes + self._workspace_peak_bytes,
-                "budget_peak_bytes": rank.fixed_budget_bytes + self._workspace_peak_bytes,
+                "workspace_peak_bytes": workspace_peak,
+                "workspace_source": self._workspace_sources.get(rank.device_id, "not_executed"),
+                "workspace_last_source": self._workspace_last_sources.get(rank.device_id, "not_executed"),
+                "physical_peak_bytes": rank.physical_reserved_bytes + workspace_peak,
+                "budget_peak_bytes": rank.fixed_budget_bytes + workspace_peak,
             })
         return snapshots

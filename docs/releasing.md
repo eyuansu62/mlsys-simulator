@@ -1,8 +1,8 @@
 # Release preparation
 
-This checkout is prepared for packaging, but it has no selected license, public
-repository URL or PyPI release. The workflow tests and builds artifacts; it does
-not publish them.
+This checkout has a private GitHub repository and V1 software artifacts. License
+selection and a PyPI release remain pending. The workflow tests and builds
+artifacts; it does not publish them.
 
 ## Resolve release identity
 
@@ -10,8 +10,8 @@ not publish them.
   metadata and both READMEs consistently.
 - Confirm the distribution name `mlsys-simulator` is available and appropriate
   before a PyPI upload. The Python import name is `mlsys_sim`.
-- Choose the repository owner/name and visibility, then add verified repository,
-  issue and release URLs to package metadata. Do not use guessed URLs or badges.
+- Confirm public repository visibility only after the license decision, then
+  update repository and release metadata consistently.
 - Confirm the intended version in `mlsys_sim.__version__` and update the
   changelog. A local version number is not a published release.
 

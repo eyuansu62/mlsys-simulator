@@ -22,6 +22,10 @@ class ModelSpec:
     weight_bytes: float = 2.0
     kv_bytes: float = 2.0
     activation_bytes: float = 2.0
+    revision: str = "unspecified"
+    weight_dtype: str = "auto"
+    kv_dtype: str = "auto"
+    activation_dtype: str = "auto"
 
 
 @dataclass(frozen=True)
@@ -30,6 +34,7 @@ class DeviceSpec:
     memory_bytes: int = 64 * 1024 * 1024
     compute_tflops: float = 1.0
     memory_bandwidth_gbps: float = 10.0
+    name: str = "toy-device"
 
 
 @dataclass(frozen=True)
@@ -37,6 +42,7 @@ class InfraSpec:
     devices: tuple[DeviceSpec, ...] = field(default_factory=lambda: (DeviceSpec(),))
     link_bandwidth_gbps: float = 20.0
     link_latency_us: float = 5.0
+    topology: str = "single-node-uncontended"
 
 
 @dataclass(frozen=True)
@@ -89,6 +95,15 @@ class CalibrationSpec:
     prefill_ms: float = 10.0
     decode_ms: float = 1.0
     recompute_ms: float = 10.0
+    profile_path: str | None = None
+    allow_extrapolation: bool = False
+    allow_test_fixture: bool = False
+    runtime_name: str = "unspecified"
+    runtime_version: str = "unspecified"
+    driver_version: str = "unspecified"
+    rocm_version: str = "unspecified"
+    rccl_version: str = "unspecified"
+    timing_boundary: str = "step_includes_output_and_sampling_v1"
 
 
 @dataclass(frozen=True)
@@ -96,6 +111,8 @@ class EvaluationSpec:
     ttft_sla_ms: float | None = None
     tpot_sla_ms: float | None = None
     measurement_window_ms: float | None = None
+    drain: bool = True
+    max_drain_ms: float | None = None
 
 
 @dataclass(frozen=True)
@@ -104,6 +121,8 @@ class ExecutionSpec:
     max_simulated_ms: float = 180000.0
     max_events: int = 1000000
     detailed_events: bool = True
+    initial_state: str = "empty_cache"
+    warmup: tuple[RequestSpec, ...] = ()
 
 
 @dataclass(frozen=True)

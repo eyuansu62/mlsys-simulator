@@ -4,17 +4,16 @@ Scheduling never receives future output lengths. The execution oracle consumes
 those lengths only when committing a newly generated token.
 """
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 import heapq
 import math
 
 from .config import validate_experiment
 from .memory import MemoryPlanner
-from .performance import AnalyticalModel
 from .schema import Experiment, SimulationError
 
 
-TERMINAL = {"COMPLETED", "FAILED", "TIMED_OUT", "UNFINISHED"}
+TERMINAL = {"COMPLETED", "FAILED", "TIMED_OUT", "UNFINISHED", "NOT_ADMITTED"}
 
 
 @dataclass
@@ -70,6 +69,8 @@ def _percentiles(values: list[float]) -> dict[str, float | None]:
 
 class _Simulation:
     def __init__(self, experiment: Experiment):
+        from .profiles import create_performance_model
+
         validate_experiment(experiment)
         if experiment.strategy.pipeline_parallel_size != 1:
             raise SimulationError("UNSUPPORTED_MECHANISM", "PP online DES is not implemented; use predict.")
@@ -77,7 +78,7 @@ class _Simulation:
             raise SimulationError("UNSUPPORTED_MECHANISM", "Online simulation supports exactly one replica.")
         self.exp = experiment
         self.memory = MemoryPlanner(experiment)
-        self.performance = AnalyticalModel(experiment)
+        self.performance = create_performance_model(experiment)
         self.requests = {
             spec.request_id: _Request(spec.request_id, spec.arrival_ms,
                                       spec.input_tokens, spec.priority)
@@ -96,7 +97,26 @@ class _Simulation:
         self.stop_reason: str | None = None
         self.recompute_execution_ms = 0.0
         self.compute_busy_ms = 0.0
+        self.cutoff_ms = experiment.execution.max_simulated_ms
+        self.cutoff_reason = "SIMULATION_TIME_LIMIT"
+        window = experiment.evaluation.measurement_window_ms
+        measurement_cutoff = None
+        if window is not None:
+            if not experiment.evaluation.drain:
+                measurement_cutoff = window
+                measurement_reason = "MEASUREMENT_WINDOW_END"
+            elif experiment.evaluation.max_drain_ms is not None:
+                measurement_cutoff = window + experiment.evaluation.max_drain_ms
+                measurement_reason = "DRAIN_TIME_LIMIT"
+            if measurement_cutoff is not None and measurement_cutoff < self.cutoff_ms:
+                self.cutoff_ms = measurement_cutoff
+                self.cutoff_reason = measurement_reason
         for spec in sorted(experiment.workload, key=lambda item: (item.arrival_ms, item.request_id)):
+            if window is not None and spec.arrival_ms >= window:
+                request = self.requests[spec.request_id]
+                request.status = "NOT_ADMITTED"
+                request.error_code = "OUTSIDE_MEASUREMENT_WINDOW"
+                continue
             self._push(spec.arrival_ms, 2, "REQUEST_ARRIVAL", spec.request_id)
             if spec.timeout_ms is not None:
                 self._push(spec.arrival_ms + spec.timeout_ms, 1, "REQUEST_TIMEOUT", spec.request_id)
@@ -196,6 +216,10 @@ class _Simulation:
         estimate = self.performance.estimate_step(phase, queries, contexts)
         if not math.isfinite(estimate.duration_ms) or estimate.duration_ms <= 0:
             raise SimulationError("INVALID_PERFORMANCE_ESTIMATE", "A step duration must be finite and positive.")
+        completion_time = self.now + estimate.duration_ms
+        if not math.isfinite(completion_time) or completion_time <= self.now:
+            raise SimulationError("INVALID_PERFORMANCE_ESTIMATE",
+                                  "A step must advance representable finite virtual time.")
         decision = self.memory.reserve(targets, queries, phase)
         if not decision.ok:
             raise SimulationError("RESOURCE_STATE_CHANGED", "Atomic reservation changed after scheduling checks.")
@@ -209,8 +233,9 @@ class _Simulation:
                   request_ids=[request.request_id for request in chosen],
                   query_tokens=queries, context_lengths=contexts,
                   duration_ms=estimate.duration_ms, breakdown=estimate.breakdown,
+                  source=estimate.source, assumptions=estimate.assumptions,
                   memory=self.memory.snapshot())
-        self._push(self.now + estimate.duration_ms, 0, "STEP_COMPLETE", step)
+        self._push(completion_time, 0, "STEP_COMPLETE", step)
         return True
 
     def _choose(self, candidates: list[_Request], phase: str,
@@ -337,9 +362,9 @@ class _Simulation:
     def run(self) -> SimulationResult:
         while self.queue:
             when = self.queue[0][0]
-            if when > self.exp.execution.max_simulated_ms:
-                self.now = self.exp.execution.max_simulated_ms
-                self.stop_reason = "SIMULATION_TIME_LIMIT"
+            if when > self.cutoff_ms:
+                self.now = self.cutoff_ms
+                self.stop_reason = self.cutoff_reason
                 break
             self.now = when
             while self.queue and self.queue[0][0] == when:
@@ -353,6 +378,11 @@ class _Simulation:
                 self.handled_events += 1
                 self._handle(kind, payload)
             if self.stop_reason is not None:
+                break
+            if self.now >= self.cutoff_ms:
+                if self.busy is not None or any(request.status not in TERMINAL
+                                                for request in self.requests.values()):
+                    self.stop_reason = self.cutoff_reason
                 break
             if self.busy is None:
                 if self.exp.strategy.scheduler == "fifo":
@@ -412,12 +442,12 @@ class _Simulation:
                 "error_code": request.error_code,
             })
         counts = {"total": len(rows), "completed": 0, "failed": 0,
-                  "timed_out": 0, "unfinished": 0}
+                  "timed_out": 0, "unfinished": 0, "not_admitted": 0}
         for row in rows:
             counts[row["status"].lower()] += 1
         evaluation = self.exp.evaluation
         window = evaluation.measurement_window_ms
-        cohort = rows if window is None else [row for row in rows if row["arrival_ms"] < window]
+        cohort = [row for row in rows if row["status"] != "NOT_ADMITTED"]
         window = self.now if window is None else window
         completed = [row for row in cohort if row["status"] == "COMPLETED"]
         sla_declared = evaluation.ttft_sla_ms is not None or evaluation.tpot_sla_ms is not None
@@ -436,18 +466,35 @@ class _Simulation:
         def rate(value: int) -> float | None:
             return value * 1000 / window if window > 0 else None
 
+        provenance = getattr(self.performance, "provenance", None)
+        profile = getattr(self.performance, "profile", None)
+        calibration_source = self.exp.calibration.backend
+        profile_version = self.exp.calibration.profile_version
+        if profile is not None:
+            calibration_source = ("measured_profile" if profile["source"]["kind"] == "measured"
+                                  else "test_fixture_profile")
+            profile_version = profile["profile_version"]
+        limitations = ["single replica; PP online unsupported",
+                       "homogeneous phase batches; no chunked prefill",
+                       "fixed KV pool; no allocator fragmentation or CPU swap",
+                       "prefill-first admission; pressure drains active requests before recovery"]
+        limitations.insert(0, "profile-backed CPU model; hardware holdout validation is separate"
+                           if profile is not None else "uncalibrated CPU model")
         result = {
             "status": "UNRESOLVED" if self.stop_reason else "COMPLETED",
             "error_code": self.stop_reason,
             "backend": "simulated",
-            "calibration_source": self.exp.calibration.backend,
-            "profile_version": self.exp.calibration.profile_version,
+            "calibration_source": calibration_source,
+            "profile_version": profile_version,
+            "profile_provenance": dict(provenance) if provenance is not None else None,
             "hardware_validated": False,
             "quality_status": "not_evaluated",
             "simulated_ms": self.now,
             "events_processed": self.handled_events,
             "counts": counts,
-            "completion_rate": counts["completed"] / counts["total"] if counts["total"] else None,
+            "admitted_count": len(cohort),
+            "completion_rate_denominator": len(cohort),
+            "completion_rate": counts["completed"] / len(cohort) if cohort else None,
             "evaluation_count": len(cohort),
             "cohort_completion_rate": len(completed) / len(cohort) if cohort else None,
             "latency_ms": {
@@ -460,8 +507,9 @@ class _Simulation:
                 "requests_per_s": rate(len(completed)),
                 "output_tokens_per_s": rate(sum(row["output_tokens_actual"] for row in cohort)),
                 "window_ms": window,
-                "window_rule": "arrival_cohort_with_drain" if evaluation.measurement_window_ms is not None
-                               else "zero_to_simulation_end",
+                "window_rule": ("arrival_cohort_with_drain" if evaluation.drain
+                                else "arrival_cohort_without_drain")
+                               if evaluation.measurement_window_ms is not None else "zero_to_simulation_end",
             },
             "goodput": {
                 "requests_per_s": rate(len(good)),
@@ -477,14 +525,55 @@ class _Simulation:
             "recompute_execution_ms": self.recompute_execution_ms,
             "compute_busy_ms": self.compute_busy_ms,
             "memory": self.memory.snapshot(),
-            "limitations": ["uncalibrated CPU model", "single replica; PP online unsupported",
-                            "homogeneous phase batches; no chunked prefill",
-                            "fixed KV pool; no allocator fragmentation or CPU swap",
-                            "prefill-first admission; pressure drains active requests before recovery"],
+            "measurement_contract": {
+                "arrival_window_ms": [0.0, evaluation.measurement_window_ms]
+                                     if evaluation.measurement_window_ms is not None else None,
+                "arrival_window_rule": "half_open",
+                "drain": evaluation.drain,
+                "max_drain_ms": evaluation.max_drain_ms,
+                "completion_denominator": "requests_eligible_for_arrival_window",
+                "outside_window_in_completion_denominator": False,
+                "failed_timed_out_unfinished_in_completion_denominator": True,
+                "initial_state": self.exp.execution.initial_state,
+            },
+            "limitations": limitations,
         }
         return SimulationResult(result, rows, self.events)
 
 
 def simulate(experiment: Experiment) -> SimulationResult:
     """Run one immutable experiment; never perform GPU execution or wall-clock sleeps."""
-    return _Simulation(experiment).run()
+    validate_experiment(experiment)
+    if experiment.execution.initial_state != "empty_cache":
+        raise SimulationError("UNSUPPORTED_MECHANISM", "Only empty_cache initial state is supported.")
+    warmup = experiment.execution.warmup
+    warmup_summary: dict = {"enabled": bool(warmup), "status": "NOT_REQUESTED",
+                            "cache_effect": "none; measured run starts with empty KV"}
+    if warmup:
+        warmup_experiment = replace(
+            experiment,
+            workload=warmup,
+            evaluation=replace(experiment.evaluation, measurement_window_ms=None,
+                               drain=True, max_drain_ms=None),
+            execution=replace(experiment.execution, warmup=()),
+        )
+        run = _Simulation(warmup_experiment).run()
+        if (run.result["status"] != "COMPLETED"
+                or run.result["counts"]["completed"] != len(warmup)):
+            cause = run.result["error_code"] or next(
+                (row["error_code"] for row in run.requests if row["status"] != "COMPLETED"), None)
+            raise SimulationError("WARMUP_FAILED",
+                                  f"Warmup did not complete before measurement: {cause}; "
+                                  f"counts={run.result['counts']}")
+        warmup_summary.update({
+            "status": "COMPLETED", "request_count": len(warmup),
+            "simulated_ms": run.result["simulated_ms"],
+            "compute_busy_ms": run.result["compute_busy_ms"],
+            "recompute_execution_ms": run.result["recompute_execution_ms"],
+            "calibration_source": run.result["calibration_source"],
+            "profile_version": run.result["profile_version"],
+            "profile_provenance": run.result["profile_provenance"],
+        })
+    measured = _Simulation(experiment).run()
+    measured.result["warmup"] = warmup_summary
+    return measured

@@ -1,0 +1,121 @@
+{
+  "schema_version": 1,
+  "kind": "communication_measurements",
+  "dataset_id": "ring-p2p-hand-fixture",
+  "identity": {
+    "model": {
+      "name": "toy-dense-gqa",
+      "num_layers": 4,
+      "hidden_size": 128,
+      "intermediate_size": 512,
+      "num_attention_heads": 8,
+      "num_kv_heads": 2,
+      "head_dim": 16,
+      "vocab_size": 256,
+      "weight_bytes": 2.0,
+      "kv_bytes": 2.0,
+      "activation_bytes": 2.0,
+      "revision": "unspecified",
+      "weight_dtype": "auto",
+      "kv_dtype": "auto",
+      "activation_dtype": "auto"
+    },
+    "devices": [
+      {
+        "id": "gpu0",
+        "memory_bytes": 67108864,
+        "compute_tflops": 1.0,
+        "memory_bandwidth_gbps": 10.0,
+        "name": "toy-device"
+      },
+      {
+        "id": "gpu1",
+        "memory_bytes": 67108864,
+        "compute_tflops": 1.0,
+        "memory_bandwidth_gbps": 10.0,
+        "name": "toy-device"
+      }
+    ],
+    "parallelism": {
+      "tensor_parallel_size": 2,
+      "pipeline_parallel_size": 1,
+      "stage_layers": [
+        4
+      ],
+      "shard_plan": "megatron_dense_no_sp"
+    },
+    "topology": {
+      "name": "single-node-uncontended",
+      "link_bandwidth_gbps": 20.0,
+      "link_latency_us": 5.0
+    },
+    "runtime": {
+      "name": "unspecified",
+      "version": "unspecified",
+      "driver_version": "unspecified",
+      "rocm_version": "unspecified",
+      "rccl_version": "unspecified",
+      "timing_boundary": "step_includes_output_and_sampling_v1"
+    },
+    "execution": {
+      "kv_block_tokens": 16,
+      "graph_bytes": 0,
+      "runtime_bytes": 1048576,
+      "communication_buffer_bytes": 0
+    }
+  },
+  "source": {
+    "kind": "test_fixture",
+    "reference": "Hand-calculated ring and P2P data, not RCCL measurements."
+  },
+  "records": [
+    {
+      "record_id": "p2p-0",
+      "group_id": "p2p-tp2",
+      "primitive": "p2p",
+      "ranks": 2,
+      "message_bytes": 1024,
+      "duration_ms": 0.0050512000000000005
+    },
+    {
+      "record_id": "p2p-1",
+      "group_id": "p2p-tp2",
+      "primitive": "p2p",
+      "ranks": 2,
+      "message_bytes": 1048576,
+      "duration_ms": 0.057428799999999995
+    },
+    {
+      "record_id": "p2p-2",
+      "group_id": "p2p-tp2",
+      "primitive": "p2p",
+      "ranks": 2,
+      "message_bytes": 4194304,
+      "duration_ms": 0.2147152
+    },
+    {
+      "record_id": "allreduce-0",
+      "group_id": "allreduce-tp2",
+      "primitive": "allreduce",
+      "ranks": 2,
+      "message_bytes": 1024,
+      "duration_ms": 0.0100512
+    },
+    {
+      "record_id": "allreduce-1",
+      "group_id": "allreduce-tp2",
+      "primitive": "allreduce",
+      "ranks": 2,
+      "message_bytes": 1048576,
+      "duration_ms": 0.0624288
+    },
+    {
+      "record_id": "allreduce-2",
+      "group_id": "allreduce-tp2",
+      "primitive": "allreduce",
+      "ranks": 2,
+      "message_bytes": 4194304,
+      "duration_ms": 0.2197152
+    }
+  ]
+}

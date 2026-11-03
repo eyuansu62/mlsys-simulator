@@ -1,0 +1,142 @@
+# Calibration and Profile data
+
+V1 supports externally collected step timing records and versioned lookup
+Profiles. It does not collect GPU measurements. The included `.fixture.json`
+files are hand-calculated tests and never become measured evidence.
+
+## Evidence and identity
+
+Datasets and Profiles declare `source.kind` as `measured` or `test_fixture`, with
+a nonempty `source.reference`. Simulated source data is rejected. Fixtures require
+an explicit `allow_test_fixture` API/config setting or `--allow-test-fixture` CLI
+flag at each relevant boundary; reports retain the fixture source.
+
+Measured records require explicit model revision, device names and Runtime name/
+version, without `unspecified`, `unknown` or toy placeholders. Driver/ROCm/RCCL
+versions must be explicit or say `not-applicable` for an inapplicable component.
+These checks enforce a declared data contract, not independent proof that a
+measurement was collected correctly.
+
+Measured identities must specify `weight_dtype`, `kv_dtype` and `activation_dtype`
+explicitly. `float16` and `bfloat16` are distinct despite sharing a two-byte
+width; explicit dtypes must agree with their byte widths. `auto` is accepted
+for analytical assumptions and fixtures, but cannot identify measured data.
+
+`profile_identity(experiment)` produces the full required identity: model
+specification and revision, ordered devices, topology/link assumptions,
+TP/PP/stage layers and shard plan, Runtime/software versions, timing boundary,
+KV block size and persistent execution assumptions. A mismatch fails with
+`CALIBRATION_MISMATCH`. Profile labels are independent of software versions.
+
+## Dataset schema
+
+A JSON dataset has these fields:
+
+| Field | Meaning |
+| --- | --- |
+| `schema_version` | Integer `1` |
+| `dataset_id` | Nonempty dataset identifier |
+| `identity` | Full identity described above |
+| `source` | `{kind, reference}` with declared provenance |
+| `records` | Nonempty observation list |
+| `notes` | Optional JSON object |
+
+Each observation contains `record_id`, `group_id`, `phase`, `stage_index`,
+`query_tokens`, `context_lengths` and positive finite `duration_ms`.
+`workspace_peak_bytes` is an optional nonnegative integer, or `null` when not
+observed. Record IDs are unique. Phases are `prefill`, `decode` and `recompute`;
+arrays preserve every sequence shape. Decode queries are one Token each;
+unchunked Prefill/recompute use zero prefix context.
+
+Use a group ID for observations that must stay together during validation.
+Repeated exact shapes are connected even when their group IDs differ, preventing
+repeated runs of the same configuration from crossing the fit/holdout boundary.
+The sample dataset under `examples/v1/` illustrates the complete JSON structure.
+
+## Fit a new version
+
+```bash
+mlsys-sim calibrate --dataset examples/v1/step_measurements.fixture.json \
+  --profile-version fixture-v1 --out runs/calibration --allow-test-fixture
+```
+
+The result is a lookup `profile.json` with mean duration for each exact shape,
+maximum observed Workspace for repeats, sample counts, dataset hash and training
+record/group/shape IDs. It also records repeated-observation spread. Total step
+times do not identify six macro coefficients, so fitting does not invent an
+Attention/Linear/Misc attribution.
+
+`--parent-profile FILE` checks matching identity and records version lineage;
+it does not merge old samples into the new dataset. A different version label
+is required. Use a fresh output directory; original datasets, Profiles and run
+artifacts are not overwritten.
+
+To consume a Profile, set `calibration.backend="profile"`, `profile_path`, and
+its `profile_version` in an experiment. Relative Profile paths resolve with the
+configuration loader. Match Runtime/software identity explicitly; keep
+`allow_test_fixture` false for ordinary measured work. The supplied
+`profile_serving.json` deliberately opts into fixture use.
+
+## Lookup and domain policy
+
+Exact matches include phase, stage and the complete query/context arrays.
+Ragged batches require an exact match; equal total Tokens or average context
+length is not a substitute.
+
+Otherwise, a homogeneous Batch may interpolate on `(batch size, query Tokens
+per sequence, context Tokens per sequence)` for a fixed phase and stage. Every
+required corner of the surrounding grid cell must exist. There is no
+nearest-neighbor or analytical timing fallback when a corner or shape is absent.
+
+Out-of-domain queries fail with `OUT_OF_CALIBRATION_DOMAIN` by default. Explicit
+`allow_extrapolation` permits boundary-cell extrapolation only where the needed
+axis samples and corners exist. Nonpositive/non-finite predictions are rejected.
+Step estimates and run provenance record when extrapolation was used; it remains
+exploratory evidence.
+
+Whole-stage timings already include local collective communication, output and
+sampling. Do not add analytical local communication again. Inter-stage PP P2P is
+separate and online PP remains outside V1.
+
+## Workspace and provenance
+
+Exact workspace queries use the maximum observed value for that shape.
+Interpolation uses the maximum of measured corner values, only when all corners
+have workspace observations. This is a stated policy, not a guarantee about an
+unmeasured interior peak. Extrapolated or unobserved workspace is unknown.
+
+When workspace is unknown, Memory Planner uses its labeled analytical
+`base + query_tokens × bytes_per_token` assumption. Missing workspace does not
+mean zero usage or measured feasibility. Timing lookup still follows its strict
+domain policy.
+
+Simulation manifests snapshot Profile identity/hash/version/source and domain
+policy. Profile-backed simulation remains `backend="simulated"`; a measured
+Profile means calibration data was supplied, not that held-out hardware
+validation passed. See [validation](validation-protocol.md) for the next step.
+
+## Calibrate standalone communication
+
+Communication observations use a separate JSON dataset with
+`kind="communication_measurements"`, identity/source metadata and records with
+`record_id`, `group_id`, `primitive`, `ranks`, `message_bytes` and `duration_ms`.
+Supported primitives are `allreduce` and `p2p`. Preserve the algorithm, rank
+count, topology and timing source used by the collector.
+
+For a user-supplied dataset:
+
+```bash
+mlsys-sim calibrate --communication --dataset communication-measurements.json \
+  --profile-version comm-v1 --out runs/communication
+```
+
+The fit separates primitive/rank groups and produces alpha-beta parameters plus
+an `infra_patch` for each group, including link latency and bandwidth. Use
+`calibrate_communication` and `load_communication_dataset` for the equivalent
+Python workflow. Select a matching group's patch explicitly when constructing
+an analytical experiment; a group-specific fit is not a universal network model.
+
+This path does not automatically add fitted communication to a whole-stage step
+Profile, which already includes local collectives. Patching an unrelated
+topology or adding both costs would violate the timing contract. Fixture inputs
+still require explicit opt-in and retain their source kind.

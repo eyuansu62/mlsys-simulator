@@ -1,128 +1,170 @@
 # Python API
 
-The distribution name is `mlsys-simulator`; import the library as `mlsys_sim`.
-The initial development API exposes the existing model and engine without a
-second simulation implementation. API changes before version 1.0 will be
-recorded in the changelog.
+Install distribution `mlsys-simulator` and import `mlsys_sim`. V1 exposes the
+simulation, profile, calibration and comparison functions through this package;
+`mlsys_sim.__version__` is the software version. JSON schema and Profile version
+labels are separate contracts.
 
-## Create and simulate an experiment
+## Simulate and predict
 
 ```python
 from mlsys_sim import CalibrationSpec, Experiment, RequestSpec, simulate
 
 experiment = Experiment(
-    workload=(
-        RequestSpec("short", arrival_ms=0, input_tokens=16, output_tokens=4),
-        RequestSpec("long", arrival_ms=2, input_tokens=32, output_tokens=8),
-    ),
+    workload=(RequestSpec("r1", arrival_ms=0, input_tokens=16, output_tokens=4),),
     calibration=CalibrationSpec(backend="synthetic"),
 )
 run = simulate(experiment)
-
 assert run.result["status"] == "COMPLETED"
-print(run.result["counts"])
 ```
 
 `Experiment` and its nested specifications are frozen dataclasses. Use
-`dataclasses.replace` to derive a changed configuration. Durations use
-milliseconds, storage uses bytes, memory/link bandwidth uses decimal GB/s and
-compute uses TFLOP/s. The core does not access a GPU or sleep in wall-clock time.
+`dataclasses.replace` to derive a configuration. Durations use milliseconds,
+storage uses bytes, bandwidth uses decimal GB/s and compute uses TFLOP/s.
+The simulator does not execute GPU tensors or sleep in wall-clock time.
 
 | Export | Purpose |
 | --- | --- |
-| `Experiment` | Six-part experiment configuration and schema version |
-| `RequestSpec` | Arrival, prompt/output lengths, priority and optional timeout |
-| `ModelSpec`, `DeviceSpec`, `InfraSpec` | Dense model shape and device/link assumptions |
-| `StrategySpec`, `MemoryConfig` | Scheduling, TP/PP layout and memory budgets |
-| `CalibrationSpec` | Analytical coefficients or synthetic phase durations |
-| `EvaluationSpec`, `ExecutionSpec` | SLA/window rules, deterministic seed and run budgets |
-| `SimulationResult` | System result, request rows and event rows |
-| `SimulationError` | Configuration/mechanism error with a machine-readable `code` |
+| `Experiment`, `RequestSpec` | Experiment and replay requests |
+| `ModelSpec`, `DeviceSpec`, `InfraSpec` | Dense model, ordered devices and topology |
+| `StrategySpec`, `MemoryConfig` | Scheduling, TP/PP placement and memory budgets |
+| `CalibrationSpec` | Analytical/synthetic parameters or Profile selection and identity |
+| `EvaluationSpec`, `ExecutionSpec` | SLA, admission window, drain, warmup, initial state and budgets |
+| `SimulationResult` | `result`, `requests` and `events` in memory |
+| `SimulationError` | Error with a machine-readable `code` |
 
-All direct API experiments are validated. Output lengths from the replay input
-are used only by the execution oracle to stop generation, not by scheduling or
-victim selection.
+`load_experiment(path)` reads strict JSON/TOML or optional YAML. Six top-level
+sections may reference files; references resolve relative to the experiment,
+and model references inside a referenced strategy resolve relative to that file.
+`experiment_from_dict(mapping)` validates an inline mapping. Direct dataclass
+calls to simulation are also validated. Future output lengths remain confined
+to the replay execution oracle.
 
-## Load strict configuration
+`predict_experiment(experiment)` analyzes workload rows as one shape batch,
+ignoring arrival times. It reports stage costs, TP/P2P communication, memory
+feasibility and batch-limit flags. It does not produce online queueing or PP SLA
+metrics. Inspect feasibility separately from command execution status.
 
-```python
-from mlsys_sim import experiment_from_dict, load_experiment, simulate
-
-experiment = load_experiment("examples/fifo.json")
-run = simulate(experiment)
-
-small = experiment_from_dict({
-    "workload": [{
-        "request_id": "r1", "arrival_ms": 0,
-        "input_tokens": 16, "output_tokens": 2,
-    }],
-    "calibration": {"backend": "synthetic"},
-})
-```
-
-The parser supports JSON and TOML, plus JSONL request lists and optional YAML
-when PyYAML is installed. Six top-level sections can reference files relative to
-the experiment file. A model reference inside a referenced strategy resolves
-relative to that strategy file. Unknown fields, invalid types, non-finite
-values and unsupported mechanisms fail explicitly.
-
-## Predict a shape
+## Load and use a Profile
 
 ```python
-from mlsys_sim import load_experiment, predict_experiment
+from mlsys_sim import estimate_profile, load_profile
 
-report = predict_experiment(load_experiment("examples/pp2_analytical.json"))
-print(report["stages"])
-print(report["prefill_memory_feasible"])
+# Requires the calibration command shown in the README.
+profile = load_profile("runs/calibration/profile.json", allow_test_fixture=True)
+step = estimate_profile(
+    profile, "prefill", [16], [0], allow_test_fixture=True,
+)
+print(step.duration_ms, step.source)
 ```
 
-`predict_experiment` treats workload rows as one shape batch and ignores their
-arrival times. It reports per-stage service costs, TP/P2P communication and
-per-rank capacity. It does not provide queueing, online PP latency percentiles
-or online goodput. Corresponding `online_metrics` entries are `None` with a
-reason. Batch-limit and memory-feasibility fields must be checked separately
-from the report's execution status.
+`ProfileModel(experiment)` snapshots the configured profile, matches its full
+identity and records hash/version/source/domain provenance. Its `estimate_step`
+accepts phase, query-token array, context-length array and optional stage index.
+`create_performance_model(experiment)` selects `AnalyticalModel` or `ProfileModel`.
+`profile_identity(experiment)` returns the canonical model/device/software/layout
+identity needed by external collectors.
 
-`AnalyticalModel` and `MemoryPlanner` are available for experiments requiring
-step estimates or explicit reservations. Their implementation contracts are
-narrow: homogeneous phase batches, the supported Dense GQA shard plan and a
-fixed KV pool. Callers managing reservations are responsible for safe release
-boundaries; the `simulate` entry point manages that lifecycle itself.
+Profile timings cover the entire stage including local collectives and
+output/sampling. They are not decomposed into fabricated macro costs or added
+again to analytical communication. PP boundary P2P remains separate. Missing
+workspace observations return unknown; Memory Planner may use its explicitly
+labeled analytical workspace assumption. See [calibration](calibration.md).
 
-## Interpret results
+## Calibrate and hold out configurations
 
-`simulate` returns `SimulationResult(result, requests, events)` without writing
-files. The CLI writes those objects and provenance into a new run directory.
+```python
+from mlsys_sim import calibrate_dataset, load_dataset, split_dataset, validate_holdout
 
-- `result["status"]` is `COMPLETED` when the simulation loop finishes, or
-  `UNRESOLVED` when a budget/no-progress condition stops it. Inspect request
-  counts and `sla_satisfied` independently.
-- Request status is `COMPLETED`, `FAILED`, `TIMED_OUT` or `UNFINISHED` at return.
-  Configuration and unsupported-mechanism errors raise `SimulationError`.
-- `TTFT = first_token_ms - arrival_ms`. Completed requests with at least two
-  outputs have `TPOT = (last_token_ms - first_token_ms)/(outputs - 1)`.
-  Single-output TPOT is `None`.
-- ITL includes waiting and recomputation gaps. A resumed request keeps its
-  original first-token timestamp and does not emit historical outputs again.
-- Completion-rate denominators retain failed and unfinished requests.
-  Goodput counts completed requests satisfying all declared SLAs; a request
-  with no applicable TPOT cannot satisfy a declared TPOT SLA.
-- A declared measurement window selects requests by arrival in `[0, window)`
-  and allows their completion during drain. Without one, rate denominators use
-  elapsed simulated time from zero. Window/cohort fields state the rule used.
-- Percentiles use linear interpolation at `(n - 1) × q`; empty samples return
-  `None`. TTFT/TPOT percentiles use completed requests; ITL retains observed
-  intervals from the selected cohort, including failed requests.
+dataset = load_dataset(
+    "examples/v1/step_measurements.fixture.json", allow_test_fixture=True,
+)
+training, holdout = split_dataset(
+    dataset, holdout_groups=["prefill-16"], allow_test_fixture=True,
+)
+profile = calibrate_dataset(
+    training, profile_version="api-holdout-v1", allow_test_fixture=True,
+)
+report = validate_holdout(profile, holdout, allow_test_fixture=True)
+print(report["summary"]["coverage"])
+```
 
-Detailed event logging is observational: disabling it does not alter scheduling
-or metrics. Same-time processing orders completion/release before timeout,
-arrival and new scheduling. Resources referenced by in-flight work remain
-pinned until its safe completion boundary.
+`calibrate_dataset` fits exact-shape mean durations and observed workspace
+maxima, retaining record/group/shape IDs and a dataset hash. Its optional
+`parent_profile` establishes matching identity and version lineage; parent
+samples are not merged and parent data is not mutated. Reusing the parent
+version is rejected.
 
-## Calibration boundary
+`load_communication_dataset` and `calibrate_communication` provide the separate
+primitive/rank-specific communication fitting path. Its generated Infra patches
+are selected explicitly; they are not automatically added to whole-stage step
+timings. See [communication calibration](calibration.md#calibrate-standalone-communication).
 
-`synthetic` fixes each phase's Batch duration for hand-checkable tests.
-`analytical` uses explicit but uncalibrated compute, bandwidth and communication
-assumptions. Neither backend is a measured hardware profile. Actual tensor
-execution, allocator fragmentation, CPU swap and online PP remain outside this
-version's scope.
+`split_dataset` keeps records connected by equal shape **or** group ID together.
+It accepts explicit `holdout_groups` or a seeded `holdout_fraction` of independent
+components. Both partitions must be nonempty. `validate_holdout` rejects overlap
+with profile training records, groups or shapes, then reports coverage,
+MAE/MAPE/bias, group summaries and out-of-domain reasons. It cannot infer online
+SLA or candidate rankings from step records.
+
+`load_dataset` and `load_profile` validate declared source provenance.
+`write_json_exclusive(path, payload)` saves a new JSON artifact without replacing
+an existing one. No fitting or writing API changes a test fixture into measured
+evidence.
+
+## Compare online runs and candidates
+
+```python
+from mlsys_sim import compare_runs
+
+# Requires the profile-serving simulation shown in the README.
+comparison = compare_runs(
+    "runs/profile-serving",
+    "examples/v1/online_observation.fixture.json",
+    allow_test_fixture=True,
+)
+print(comparison["coverage"])
+```
+
+`comparison_contract(experiment)` describes the common workload, model/device/
+software identity, scheduling/memory policy, SLA, warmup, window/drain and timing
+semantics. `compare_runs` requires this contract in the prediction manifest and
+an identical contract in a separately sourced observed-run JSON. A simulated
+result is not an acceptable observation. `extract_metrics(result)` returns the
+supported flat metric map.
+
+`compare_candidates(pairs, metric="goodput_requests_per_s",
+higher_is_better=True)` compares candidate rankings under common workload and
+evaluation conditions. Each pair has `candidate_id`, `predicted` and `observed`
+paths. Reports preserve ties, excluded scores and pairwise ordering agreement.
+Use `higher_is_better=False` for latency metrics. Fixture comparisons additionally
+require `allow_test_fixture=True`.
+
+## Interpret simulation results
+
+`simulate` writes no files. The CLI creates immutable run directories with
+results, request/event rows and provenance.
+
+- Run `COMPLETED` means the loop finished; inspect completion counts, domain
+  coverage and `sla_satisfied` independently. Budget/no-progress termination is
+  `UNRESOLVED`; configuration/mechanism errors raise `SimulationError`.
+- Request outcomes include `COMPLETED`, `FAILED`, `TIMED_OUT`, `UNFINISHED` and
+  `NOT_ADMITTED`. Out-of-window arrivals are not admitted or included in
+  completion-rate denominators. Failed/unfinished admitted requests remain in
+  those denominators.
+- TTFT is first Token minus arrival. Completed requests with at least two
+  outputs have TPOT equal to first-to-last Token time divided by `outputs-1`;
+  single-output TPOT is `None`. ITL includes recovery gaps.
+- Goodput includes completed requests meeting every declared SLA. An inapplicable
+  TPOT cannot meet a declared TPOT SLA. Percentiles use linear interpolation at
+  `(n-1) × q`; empty samples are `None`.
+- `execution.warmup` runs independently and contributes neither measurement rows
+  nor residual KV. Only `initial_state="empty_cache"` is supported.
+- Arrival windows are `[0, measurement_window_ms)`. `drain=False` stops at the
+  window; otherwise admitted work may finish, bounded by `max_drain_ms` when
+  specified. Other execution budgets still apply.
+
+Detailed logging is observational. Same-time handling orders completion/release
+before timeout, arrival and scheduling. In-flight references remain pinned at
+cutoff. Software support, Profile calibration and hardware validation are
+separate; see the [validation protocol](validation-protocol.md).
