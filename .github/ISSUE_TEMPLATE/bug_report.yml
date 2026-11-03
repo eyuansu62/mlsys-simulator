@@ -1,0 +1,29 @@
+name: Bug report
+description: Report a reproducible simulator or packaging problem.
+body:
+  - type: input
+    id: version
+    attributes:
+      label: Simulator and Python versions
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Minimal configuration and command
+      description: Include a small JSON/TOML experiment that reproduces the issue.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual result and diagnostics
+      description: Include error_code, relevant events, and analytical/synthetic source.
+    validations:
+      required: true

@@ -1,0 +1,12 @@
+include README.md README.zh-CN.md CONTRIBUTING.md CHANGELOG.md
+include pyproject.toml requirements-dev.txt simulate.py predict.py
+include mlsys_sim/py.typed
+recursive-include docs *.md
+recursive-include examples *.json
+recursive-include tests *.py
+recursive-include scripts *.py
+prune sample-runs
+prune runs
+prune build
+prune dist
+global-exclude __pycache__ *.py[cod] .DS_Store

@@ -1,0 +1,40 @@
+{
+  "schema_version": 1,
+  "workload": [
+    {
+      "request_id": "r1",
+      "arrival_ms": 0,
+      "input_tokens": 16,
+      "output_tokens": 3
+    },
+    {
+      "request_id": "r2",
+      "arrival_ms": 5,
+      "input_tokens": 32,
+      "output_tokens": 1
+    },
+    {
+      "request_id": "r3",
+      "arrival_ms": 14,
+      "input_tokens": 8,
+      "output_tokens": 2
+    }
+  ],
+  "infra": {},
+  "strategy": {
+    "scheduler": "fifo"
+  },
+  "calibration": {
+    "backend": "synthetic",
+    "prefill_ms": 10,
+    "decode_ms": 2,
+    "recompute_ms": 8
+  },
+  "evaluation": {
+    "ttft_sla_ms": 50,
+    "tpot_sla_ms": 5
+  },
+  "execution": {
+    "seed": 42
+  }
+}

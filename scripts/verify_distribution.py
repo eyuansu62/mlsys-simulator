@@ -1,0 +1,108 @@
+"""Verify distribution contents and an installed wheel outside the checkout."""
+
+import argparse
+import json
+import os
+from pathlib import Path
+import subprocess
+import tarfile
+import tempfile
+import venv
+import zipfile
+
+
+SMOKE_CODE = '''
+from dataclasses import asdict
+from importlib.metadata import metadata, version
+import json
+from pathlib import Path
+import sys
+import mlsys_sim
+from mlsys_sim import (CalibrationSpec, DeviceSpec, Experiment, InfraSpec,
+                       MemoryConfig, RequestSpec, StrategySpec,
+                       predict_experiment, simulate)
+
+assert Path(mlsys_sim.__file__).resolve().is_relative_to(Path(sys.prefix).resolve())
+assert version("mlsys-simulator") == mlsys_sim.__version__
+assert not metadata("mlsys-simulator").get_all("Requires-Dist")
+exp = Experiment(
+    workload=tuple(RequestSpec(name, 0.0, 16, 24) for name in ("a", "b")),
+    strategy=StrategySpec(max_batch_size=2, memory=MemoryConfig(kv_pool_bytes=24576)),
+    calibration=CalibrationSpec(backend="synthetic", prefill_ms=5,
+                                decode_ms=1, recompute_ms=5))
+simulation = simulate(exp)
+assert simulation.result["counts"]["completed"] == 2
+assert simulation.result["preemption_count"] == 1
+assert [row["output_tokens_actual"] for row in simulation.requests] == [24, 24]
+Path("experiment.json").write_text(json.dumps(asdict(exp)))
+pp = Experiment(workload=(RequestSpec("shape", 0.0, 16, 2),),
+                infra=InfraSpec(devices=(DeviceSpec("gpu0"), DeviceSpec("gpu1"))),
+                strategy=StrategySpec(pipeline_parallel_size=2))
+assert predict_experiment(pp)["online_metrics_reason"] == "PP_ONLINE_DES_NOT_IMPLEMENTED"
+Path("pp.json").write_text(json.dumps(asdict(pp)))
+print(json.dumps({"version": mlsys_sim.__version__, "wheel_api": "passed"}))
+'''
+
+
+def run(command: list[str], cwd: Path, env: dict[str, str], expected: int = 0) -> str:
+    result = subprocess.run(command, cwd=cwd, env=env, capture_output=True, text=True, check=False)
+    if result.returncode != expected:
+        raise RuntimeError(f"{command[0]} exited {result.returncode}, expected {expected}\n"
+                           f"{result.stdout}\n{result.stderr}")
+    return result.stdout
+
+
+def verify(dist: Path) -> dict:
+    wheels, sdists = sorted(dist.glob("*.whl")), sorted(dist.glob("*.tar.gz"))
+    if len(wheels) != 1 or len(sdists) != 1:
+        raise ValueError("Expected one wheel and one source distribution in a clean dist directory.")
+    wheel = wheels[0].resolve()
+    with zipfile.ZipFile(wheel) as archive:
+        names = archive.namelist()
+        assert "mlsys_sim/py.typed" in names, "Wheel is missing its typing marker"
+        assert "mlsys_sim/__init__.py" in names
+        assert not any(name.startswith(("tests/", "sample-runs/", "work/")) for name in names)
+        assert archive.testzip() is None
+    with tarfile.open(sdists[0]) as archive:
+        names = {"/".join(member.name.split("/")[1:]) for member in archive.getmembers()}
+        for required in ("pyproject.toml", "README.md", "README.zh-CN.md",
+                         "examples/memory_pressure.json", "tests/test_public_api.py",
+                         "scripts/verify_distribution.py"):
+            assert required in names, f"Source distribution missing {required}"
+        assert not any(name.startswith(("sample-runs/", "work/")) for name in names)
+
+    with tempfile.TemporaryDirectory(prefix="mlsys-installed-") as temporary:
+        outside = Path(temporary)
+        environment = outside / "venv"
+        venv.EnvBuilder(with_pip=True).create(environment)
+        binaries = environment / ("Scripts" if os.name == "nt" else "bin")
+        python = binaries / ("python.exe" if os.name == "nt" else "python")
+        console = binaries / ("mlsys-sim.exe" if os.name == "nt" else "mlsys-sim")
+        env = dict(os.environ)
+        env.pop("PYTHONPATH", None)
+        env.update(PIP_NO_INDEX="1", PIP_DISABLE_PIP_VERSION_CHECK="1")
+        run([str(python), "-I", "-m", "pip", "install", "--no-deps", str(wheel)], outside, env)
+        run([str(python), "-I", "-c", SMOKE_CODE], outside, env)
+        simulated = json.loads(run([str(console), "simulate", "--experiment", "experiment.json",
+                                   "--out", "simulation"], outside, env))
+        assert simulated["status"] == "COMPLETED"
+        prediction = json.loads(run([str(console), "predict", "--experiment", "pp.json",
+                                    "--out", "prediction"], outside, env))
+        assert prediction["status"] == "COMPLETED"
+        failed = json.loads(run([str(console), "simulate", "--experiment", "pp.json",
+                                "--out", "unsupported"], outside, env, expected=2))
+        assert failed["error_code"] == "UNSUPPORTED_MECHANISM"
+        run([str(python), "-I", "-m", "mlsys_sim", "--help"], outside, env)
+    return {"wheel": wheel.name, "sdist": sdists[0].name,
+            "distribution_contents": "passed", "installed_api_and_cli": "passed"}
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--dist", type=Path, default=Path(__file__).resolve().parents[1] / "dist")
+    args = parser.parse_args()
+    print(json.dumps(verify(args.dist), sort_keys=True))
+
+
+if __name__ == "__main__":
+    main()

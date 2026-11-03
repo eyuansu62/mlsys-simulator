@@ -1,0 +1,43 @@
+{
+  "schema_version": 1,
+  "workload": [
+    {
+      "request_id": "short",
+      "arrival_ms": 0.0,
+      "input_tokens": 128,
+      "output_tokens": 16
+    },
+    {
+      "request_id": "medium",
+      "arrival_ms": 0.1,
+      "input_tokens": 256,
+      "output_tokens": 16
+    },
+    {
+      "request_id": "long",
+      "arrival_ms": 0.2,
+      "input_tokens": 384,
+      "output_tokens": 16
+    }
+  ],
+  "infra": {
+    "devices": [
+      {
+        "id": "gpu0"
+      },
+      {
+        "id": "gpu1"
+      }
+    ],
+    "link_bandwidth_gbps": 20,
+    "link_latency_us": 5
+  },
+  "strategy": {
+    "tensor_parallel_size": 2
+  },
+  "calibration": {
+    "backend": "analytical"
+  },
+  "evaluation": {},
+  "execution": {}
+}

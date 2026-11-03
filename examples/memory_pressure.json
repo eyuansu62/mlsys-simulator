@@ -1,0 +1,37 @@
+{
+  "schema_version": 1,
+  "workload": [
+    {
+      "request_id": "a",
+      "arrival_ms": 0,
+      "input_tokens": 16,
+      "output_tokens": 24
+    },
+    {
+      "request_id": "b",
+      "arrival_ms": 0,
+      "input_tokens": 16,
+      "output_tokens": 24
+    }
+  ],
+  "infra": {},
+  "strategy": {
+    "scheduler": "continuous_batching",
+    "max_batch_size": 2,
+    "memory": {
+      "kv_pool_bytes": 24576,
+      "kv_block_tokens": 16
+    }
+  },
+  "calibration": {
+    "backend": "synthetic",
+    "prefill_ms": 5,
+    "decode_ms": 1,
+    "recompute_ms": 5
+  },
+  "evaluation": {
+    "ttft_sla_ms": 10,
+    "tpot_sla_ms": 2
+  },
+  "execution": {}
+}

@@ -1,0 +1,5 @@
+# Development/build tools only; the installed library has no required dependencies.
+build>=1.2
+twine>=6.1
+ruff==0.17.3
+mypy==2.4.1
