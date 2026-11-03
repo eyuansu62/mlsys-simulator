@@ -66,15 +66,16 @@ class CLITests(unittest.TestCase):
         self.assertEqual([row["output_tokens_actual"] for row in rows], [24, 24])
         self.assertTrue(all(rank["used_blocks"] == 0 for rank in result["memory"]))
 
-    def test_pp_is_analytical_only(self):
+    def test_pp_supports_analysis_and_online_simulation(self):
         prediction, output = self.run_cli("pp2_analytical.json", "prediction", "predict.py")
         self.assertEqual(prediction.returncode, 0, prediction.stdout + prediction.stderr)
         self.assertTrue((output / "result.json").exists())
-        simulation, failed = self.run_cli("pp2_analytical.json", "simulation")
-        self.assertEqual(simulation.returncode, 2)
-        result = json.loads((failed / "result.json").read_text())
-        self.assertEqual(result["error_code"], "UNSUPPORTED_MECHANISM")
-        self.assertTrue((failed / "manifest.json").exists())
+        simulation, online = self.run_cli("pp2_analytical.json", "simulation")
+        self.assertEqual(simulation.returncode, 0, simulation.stdout + simulation.stderr)
+        result = json.loads((online / "result.json").read_text())
+        self.assertEqual(result["counts"]["completed"], 3)
+        self.assertIn("pipeline", result)
+        self.assertTrue((online / "manifest.json").exists())
 
     def test_invalid_config_is_machine_readable(self):
         config = self.directory / "bad.json"

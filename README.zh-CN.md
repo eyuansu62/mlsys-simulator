@@ -1,9 +1,9 @@
 # LLM 推理系统模拟器
 
 [English](README.md) · [Python API](docs/api.md) · [校准](docs/calibration.md) ·
-[验证规范](docs/validation-protocol.md) · [系统规范](docs/specification.md)
+[验证规范](docs/validation-protocol.md) · [系统规范](docs/specification.md) · [PP 与 CPU swap](docs/pipeline-and-swap.md)
 
-V1 软件实现覆盖 CPU 在线模拟、解析模型、版本化 Profile、校准、分组留出验证和运行／候选方案比较。当前没有 AMD 实测数据，也未建立真实硬件预测准确率。仓库为[私有仓库](https://github.com/eyuansu62/mlsys-simulator)，许可证待选择，尚未发布 PyPI。
+1.1 版软件覆盖 PP 在线流水线、CPU KV swap、CPU 在线服务模拟、解析模型、版本化 Profile、校准、分组留出验证和运行／候选方案比较。当前没有 AMD 实测数据，也未建立真实硬件预测准确率。仓库为[私有仓库](https://github.com/eyuansu62/mlsys-simulator)，许可证待选择，尚未发布 PyPI。
 
 ## 安装和运行
 
@@ -25,6 +25,16 @@ mlsys-sim predict --experiment examples/pp2_analytical.json --out runs/pp2
 | `memory_pressure.json` | 小 KV pool 触发请求级抢占和重算 |
 | `tp2.json` | 双 rank 分片、通信和在线调度 |
 | `pp2_analytical.json` | 不等长 PP stage 的容量和孤立前向时间分析 |
+
+## PP 与 CPU swap 示例
+
+```bash
+mlsys-sim simulate --experiment examples/v1_1/pp_golden.json --out runs/pp-golden
+mlsys-sim simulate --experiment examples/v1_1/cpu_swap.json --out runs/cpu-swap
+mlsys-sim simulate --experiment examples/v1_1/pp_cpu_swap.json --out runs/pp-cpu-swap
+```
+
+PP 以 stage／microbatch 独立推进，同一请求必须等上一迭代的采样反馈后再进入下一 Decode。CPU swap 模拟有限主机 KV pool 和 D2H／H2D 搬运，恢复时不重算历史 KV。PP 手算例显式关闭 P2P，用于理想流水线对照。这些机制都在 CPU 上计时和记账，不执行真实设备传输，详见 [PP 与 CPU swap](docs/pipeline-and-swap.md)。
 
 ## 校准与验证闭环
 
@@ -62,9 +72,9 @@ print(run.result["counts"])
 
 ## 机制与模型边界
 
-在线引擎支持单卡或单个同步 TP group。FIFO 独占一个请求直至结束；Continuous Batching 在安全 Step 边界优先准入 Prefill，再执行 Decode。每个 Batch 只有一个阶段，不等同于完整 vLLM 调度器。
+在线引擎支持单卡、同步 TP group 和多个 TP group 组成的 PP 流水线。单组 FIFO 独占一个请求直至结束；Continuous Batching 在安全边界重选工作。PP 的每个 microbatch 只有一个 phase，不同 stage 可以推进不同 microbatch；这仍是声明了简化条件的调度器。
 
-首次 Prefill 构建输入 KV 并生成首 Token；最新采样 Token 的 KV 在下一 Decode 才计算。已输出数量和已计算 KV 位置分别记录。每步先检查物理预算和逻辑 KV，再跨 rank 原子预留。压力下限制准入／缩 Batch，必要时暂停低优先级请求、释放 KV，之后重算恢复；历史输出不重复生成，停顿计入延迟。
+首次 Prefill 构建输入 KV 并生成首 Token；最新采样 Token 的 KV 在下一 Decode 才计算。已输出数量和已计算 KV 位置分别记录。每步先检查物理预算和逻辑 KV，再跨 rank 原子预留；PP 在进入 stage 0 前为整个流水线预留 KV，并另计常驻激活 Buffer。压力下限制准入／缩 Batch，必要时在安全边界按配置重算恢复或经 CPU swap 保存／恢复 KV；历史输出不重复生成，停顿计入延迟。PP 回收先排空在途 wave，DMA 期间不启动新的 GPU 工作。
 
 固定 KV pool 释放逻辑 block 不会缩小 GPU 预分配 tensor。Workspace 可使用 Profile 中的观测；缺少数据时明确回退解析假设，不声称实测。张量分配器碎片和 Kernel 周期不做细粒度模拟。
 
@@ -72,11 +82,11 @@ print(run.result["counts"])
 
 Warmup 使用独立时间线，不进入测量指标，也不把 KV 留给测量。当前仅支持 `empty_cache` 初始状态。测量到达窗口为半开区间，窗外请求为 `NOT_ADMITTED`；是否 drain 及最大 drain 时间显式配置。
 
-PP 仅提供解析分析。在线 PP、多副本、CPU swap、Prefix Cache、完整 Chunked Prefill 和量化存储格式仍未实现，并明确拒绝。校准数据接入与留出工具已经实现，不等于真实硬件验证完成，具体见[能力矩阵](docs/coverage-matrix.md)。
+PP 在线模拟已支持 stage 队列、P2P 和反馈依赖；`predict` 仍是形状分析，不输出在线 SLA。多副本、NVMe swap、Prefix Cache、完整 Chunked Prefill 和量化存储格式仍未实现，并明确拒绝。软件功能不等于真实硬件验证完成，具体见[能力矩阵](docs/coverage-matrix.md)。
 
 ## 指标和输出
 
-输出包括 `manifest.json`、`result.json`、`requests.jsonl`、可选 `events.jsonl` 和日志。Manifest 保存展开配置、代码／输入哈希、Profile 来源及比较契约；校准和验证报告保存数据来源、训练／留出成员及覆盖域。
+输出包括 `manifest.json`、`result.json`、`requests.jsonl`、可选 `events.jsonl` 和日志。PP 结果补充各 stage 忙时／空泡和在途进度，swap 结果补充主机占用、DMA 状态及逐请求搬运次数／字节／耗时。Manifest 保存展开配置、代码／输入哈希、Profile 来源及比较契约；校准和验证报告保存数据来源、训练／留出成员及覆盖域。
 
 `TTFT = first_token - arrival`。正常完成且输出至少两个 Token 时，`TPOT = (last_token-first_token)/(outputs-1)`；单 Token 的 TPOT 为 null。ITL 包括抢占与重算停顿，恢复不重置首 Token 时刻。完成率保留已准入请求中的失败、超时和未完成项，排除窗外未准入请求。
 

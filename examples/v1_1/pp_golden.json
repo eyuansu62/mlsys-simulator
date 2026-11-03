@@ -1,0 +1,62 @@
+{
+  "schema_version": 1,
+  "workload": [
+    {
+      "request_id": "r1",
+      "arrival_ms": 0,
+      "input_tokens": 8,
+      "output_tokens": 1
+    },
+    {
+      "request_id": "r2",
+      "arrival_ms": 0,
+      "input_tokens": 8,
+      "output_tokens": 1
+    },
+    {
+      "request_id": "r3",
+      "arrival_ms": 0,
+      "input_tokens": 8,
+      "output_tokens": 1
+    }
+  ],
+  "infra": {
+    "devices": [
+      {
+        "id": "gpu0"
+      },
+      {
+        "id": "gpu1"
+      }
+    ]
+  },
+  "strategy": {
+    "pipeline_parallel_size": 2,
+    "stage_layers": [
+      1,
+      1
+    ],
+    "model": {
+      "num_layers": 2,
+      "hidden_size": 16,
+      "intermediate_size": 32,
+      "num_attention_heads": 2,
+      "num_kv_heads": 1,
+      "head_dim": 8,
+      "vocab_size": 32
+    },
+    "max_batch_size": 3,
+    "max_batch_tokens": 8,
+    "pipeline_microbatch_size": 1,
+    "pipeline_max_inflight_microbatches": 3,
+    "pipeline_p2p": false
+  },
+  "calibration": {
+    "backend": "synthetic",
+    "prefill_ms": 2,
+    "decode_ms": 2,
+    "recompute_ms": 2
+  },
+  "evaluation": {},
+  "execution": {}
+}

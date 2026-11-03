@@ -73,7 +73,12 @@ def _contract(value: Any, name: str, *, measured: bool = False) -> dict:
         _object(contract[field], f"{name}.{field}")
     try:
         identity = validate_identity(contract["identity"], measured=measured)
-        _keys(contract["strategy"], {field.name for field in fields(StrategySpec)}, set(), f"{name}.strategy")
+        # V1 contracts predate these additive policy fields. Their documented
+        # defaults preserve legacy single-group semantics when omitted.
+        added_policy = {"pipeline_microbatch_size", "pipeline_max_inflight_microbatches",
+                        "pipeline_feedback_latency_us", "pipeline_p2p", "swap_fallback"}
+        _keys(contract["strategy"], {field.name for field in fields(StrategySpec)} - added_policy,
+              added_policy, f"{name}.strategy")
         _keys(contract["evaluation"], {field.name for field in fields(EvaluationSpec)}, set(), f"{name}.evaluation")
         _keys(contract["execution"], {field.name for field in fields(ExecutionSpec)}
               - {"detailed_events", "max_events"}, set(), f"{name}.execution")

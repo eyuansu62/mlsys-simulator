@@ -4,45 +4,19 @@ Scheduling never receives future output lengths. The execution oracle consumes
 those lengths only when committing a newly generated token.
 """
 
-from dataclasses import dataclass, field, replace
+from dataclasses import dataclass, replace
 import heapq
 import math
+from typing import TYPE_CHECKING
 
 from .config import validate_experiment
 from .memory import MemoryPlanner
+from .reporting import report_simulation
 from .schema import Experiment, SimulationError
+from .state import RequestState as _Request, SimulationResult, TERMINAL
 
-
-TERMINAL = {"COMPLETED", "FAILED", "TIMED_OUT", "UNFINISHED", "NOT_ADMITTED"}
-
-
-@dataclass
-class SimulationResult:
-    result: dict
-    requests: list[dict]
-    events: list[dict]
-
-
-@dataclass
-class _Request:
-    request_id: str
-    arrival_ms: float
-    input_tokens: int
-    priority: int
-    status: str = "CREATED"
-    generated: int = 0
-    computed: int = 0
-    first_token_ms: float | None = None
-    completion_ms: float | None = None
-    token_times: list[float] = field(default_factory=list)
-    preemptions: int = 0
-    recomputed_tokens: int = 0
-    recompute_ms: float = 0.0
-    memory_wait_ms: float = 0.0
-    blocked_since: float | None = None
-    error_code: str | None = None
-
-
+if TYPE_CHECKING:
+    from .swap import HostSwapManager, SwapTransfer
 @dataclass
 class _Step:
     phase: str
@@ -52,28 +26,13 @@ class _Step:
     start_ms: float
     duration_ms: float
 
-
-def _percentiles(values: list[float]) -> dict[str, float | None]:
-    if not values:
-        return {"p50": None, "p95": None, "p99": None}
-    values = sorted(values)
-
-    def quantile(q: float) -> float:
-        position = (len(values) - 1) * q
-        lower = math.floor(position)
-        upper = math.ceil(position)
-        return values[lower] + (values[upper] - values[lower]) * (position - lower)
-
-    return {"p50": quantile(0.50), "p95": quantile(0.95), "p99": quantile(0.99)}
-
-
 class _Simulation:
     def __init__(self, experiment: Experiment):
         from .profiles import create_performance_model
 
         validate_experiment(experiment)
         if experiment.strategy.pipeline_parallel_size != 1:
-            raise SimulationError("UNSUPPORTED_MECHANISM", "PP online DES is not implemented; use predict.")
+            raise SimulationError("UNSUPPORTED_MECHANISM", "The single-group engine requires PP=1.")
         if experiment.strategy.replicas != 1:
             raise SimulationError("UNSUPPORTED_MECHANISM", "Online simulation supports exactly one replica.")
         self.exp = experiment
@@ -90,6 +49,11 @@ class _Simulation:
         self.sequence = 0
         self.now = 0.0
         self.busy: _Step | None = None
+        self.swap: "HostSwapManager | None" = None
+        self.swap_busy: "SwapTransfer | None" = None
+        if experiment.strategy.preemption == "swap":
+            from .swap import HostSwapManager
+            self.swap = HostSwapManager(experiment, self.memory)
         self.fifo_owner: str | None = None
         self.draining = False
         self.events: list[dict] = []
@@ -135,6 +99,12 @@ class _Simulation:
         request.completion_ms = self.now
         request.error_code = code
         self._end_memory_wait(request)
+        if self.swap is not None:
+            residency = self.swap.state(request.request_id)
+            if residency is not None:
+                self.swap.cancel(request.request_id)
+                if residency in {"SWAPPING_OUT", "SWAPPING_IN"}:
+                    release = False
         if release:
             self.memory.release(request.request_id)
         self._log("REQUEST_FINISH", request_id=request.request_id,
@@ -183,6 +153,26 @@ class _Simulation:
                 self._commit_token(request)
 
     def _handle(self, kind: str, payload: object) -> None:
+        if kind == "SWAP_COMPLETE":
+            from .swap import SwapTransfer
+            if not isinstance(payload, SwapTransfer) or self.swap is None:
+                raise SimulationError("INVALID_EVENT", "Swap completion payload is invalid.")
+            completed = self.swap.complete(payload, self.now)
+            self.swap_busy = None
+            request = self.requests[payload.request_id]
+            request.swap_ms += payload.end_ms - payload.start_ms
+            if payload.direction == "D2H":
+                request.swap_out_count += 1
+                request.swap_out_bytes += payload.bytes
+            else:
+                request.swap_in_count += 1
+                request.swap_in_bytes += payload.bytes
+            self._log("SWAP_COMPLETE", **completed, memory=self.memory.snapshot(),
+                      host=self.swap.snapshot(self.now))
+            if request.status not in TERMINAL:
+                request.status = "SWAPPED" if payload.direction == "D2H" else "DECODING"
+                self.draining = True
+            return
         if kind == "STEP_COMPLETE":
             if not isinstance(payload, _Step):
                 raise SimulationError("INVALID_EVENT", "Step completion payload is invalid.")
@@ -195,7 +185,9 @@ class _Simulation:
             request.status = "WAITING"
             self._log(kind, request_id=request.request_id)
         else:
-            in_flight = self.busy is not None and request in self.busy.requests
+            in_flight = ((self.busy is not None and request in self.busy.requests)
+                         or (self.swap_busy is not None
+                             and self.swap_busy.request_id == request.request_id))
             self._finish(request, "TIMED_OUT", "REQUEST_TIMEOUT", release=not in_flight)
 
     @staticmethod
@@ -297,6 +289,68 @@ class _Simulation:
             self._blocked(request, "KV_CAPACITY_EXCEEDED")
         self.draining = True
 
+    def _transfer(self, transfer: "SwapTransfer") -> None:
+        self.swap_busy = transfer
+        self.draining = True
+        self._log("SWAP_START", request_id=transfer.request_id, direction=transfer.direction,
+                  bytes=transfer.bytes, tokens=transfer.tokens, start_ms=transfer.start_ms,
+                  end_ms=transfer.end_ms, memory=self.memory.snapshot())
+        self._push(transfer.end_ms, 0, "SWAP_COMPLETE", transfer)
+
+    def _swap_victim(self, active: list[_Request]) -> None:
+        """Try safe victims in policy order; smaller feasible copies may win."""
+        if self.swap is None:
+            raise SimulationError("INVALID_SWAP_STATE", "Swap policy has no host manager.")
+        for victim in sorted(active, key=self._victim_key):
+            if victim.preemptions >= self.exp.strategy.max_preemptions_per_request:
+                victim.preemptions += 1
+                self._finish(victim, "FAILED", "PREEMPTION_LIMIT_EXCEEDED")
+                return
+            try:
+                transfer = self.swap.swap_out(victim.request_id, self.now)
+            except SimulationError as exc:
+                if exc.code != "HOST_SWAP_CAPACITY_EXCEEDED":
+                    raise
+                self._log("SWAP_VICTIM_REJECTED", request_id=victim.request_id, error_code=exc.code)
+                continue
+            victim.preemptions += 1
+            victim.status = "SWAPPING_OUT"
+            self._blocked(victim, "KV_CAPACITY_EXCEEDED")
+            self._log("REQUEST_PREEMPTED", request_id=victim.request_id,
+                      recovery="swap", output_tokens_committed=victim.generated,
+                      preemption_count=victim.preemptions)
+            self._transfer(transfer)
+            return
+        if self.exp.strategy.swap_fallback == "recompute":
+            self._log("SWAP_FALLBACK", recovery="recompute", error_code="HOST_SWAP_CAPACITY_EXCEEDED")
+            self._preempt(min(active, key=self._victim_key))
+        else:
+            self.stop_reason = "HOST_SWAP_CAPACITY_EXCEEDED"
+
+    def _restore_swap(self) -> bool:
+        """Restore one request only after resident survivors have drained."""
+        if self.swap is None:
+            return False
+        for request in self._ready("SWAPPED"):
+            tokens = self.swap.stored_tokens(request.request_id)
+            if tokens != request.computed:
+                raise SimulationError("INVALID_SWAP_STATE", "Stored KV prefix differs from committed compute.")
+            alone = self.memory.check({request.request_id: tokens + 1}, [1], "decode", alone=True)
+            if not alone.ok:
+                self._finish(request, "FAILED", alone.code)
+                continue
+            try:
+                transfer = self.swap.swap_in(request.request_id, self.now)
+            except SimulationError as exc:
+                if exc.code != "KV_CAPACITY_EXCEEDED":
+                    raise
+                self._blocked(request, exc.code)
+                continue
+            request.status = "SWAPPING_IN"
+            self._transfer(transfer)
+            return True
+        return False
+
     def _schedule_fifo(self) -> None:
         while self.busy is None:
             owner = self.requests.get(self.fifo_owner) if self.fifo_owner is not None else None
@@ -320,6 +374,8 @@ class _Simulation:
         while self.busy is None:
             active = self._ready("DECODING")
             if not active:
+                if self._restore_swap():
+                    return
                 self.draining = False
             if not self.draining:
                 chosen, queries, targets = self._choose(self._ready("WAITING"), "prefill")
@@ -341,6 +397,11 @@ class _Simulation:
                 if self.exp.strategy.preemption == "none":
                     self.stop_reason = "MEMORY_NO_PROGRESS"
                     return
+                if self.exp.strategy.preemption == "swap":
+                    self._swap_victim(active)
+                    if self.swap_busy is not None or self.stop_reason is not None:
+                        return
+                    continue
                 victim = min(active, key=self._victim_key)
                 self._preempt(victim)
                 continue
@@ -352,7 +413,7 @@ class _Simulation:
                 self.draining = True
                 self._start("recompute", chosen, queries, targets)
                 return
-            ready = self._ready("WAITING") + self._ready("WAITING_RECOMPUTE")
+            ready = self._ready("WAITING") + self._ready("WAITING_RECOMPUTE") + self._ready("SWAPPED")
             if not ready:
                 return
             # No resource-owning work can release anything; waiting is permanent.
@@ -368,7 +429,8 @@ class _Simulation:
                 break
             self.now = when
             while self.queue and self.queue[0][0] == when:
-                if self.busy is None and all(request.status in TERMINAL for request in self.requests.values()):
+                if (self.busy is None and self.swap_busy is None
+                        and all(request.status in TERMINAL for request in self.requests.values())):
                     self.queue.clear()
                     break
                 if self.handled_events >= self.exp.execution.max_events:
@@ -380,18 +442,19 @@ class _Simulation:
             if self.stop_reason is not None:
                 break
             if self.now >= self.cutoff_ms:
-                if self.busy is not None or any(request.status not in TERMINAL
+                if self.busy is not None or self.swap_busy is not None or any(request.status not in TERMINAL
                                                 for request in self.requests.values()):
                     self.stop_reason = self.cutoff_reason
                 break
-            if self.busy is None:
+            if self.busy is None and self.swap_busy is None:
                 if self.exp.strategy.scheduler == "fifo":
                     self._schedule_fifo()
                 else:
                     self._schedule_batch()
             if self.stop_reason is not None:
                 break
-            if all(request.status in TERMINAL for request in self.requests.values()) and self.busy is None:
+            if (all(request.status in TERMINAL for request in self.requests.values())
+                    and self.busy is None and self.swap_busy is None):
                 break
         if any(request.status not in TERMINAL for request in self.requests.values()):
             self.stop_reason = self.stop_reason or "MEMORY_NO_PROGRESS"
@@ -408,6 +471,12 @@ class _Simulation:
             self._log("STEP_INTERRUPTED", phase=self.busy.phase,
                       request_ids=[request.request_id for request in self.busy.requests],
                       elapsed_ms=elapsed, error_code=self.stop_reason)
+        if self.swap_busy is not None:
+            transfer = self.swap_busy
+            elapsed = max(0.0, min(self.now, transfer.end_ms) - transfer.start_ms)
+            self.requests[transfer.request_id].swap_ms += elapsed
+            self._log("SWAP_INTERRUPTED", request_id=transfer.request_id,
+                      direction=transfer.direction, elapsed_ms=elapsed, error_code=self.stop_reason)
         for request in self.requests.values():
             self._end_memory_wait(request)
             if request.status not in TERMINAL:
@@ -416,129 +485,14 @@ class _Simulation:
         return self._report()
 
     def _report(self) -> SimulationResult:
-        rows: list[dict] = []
-        for request in self.requests.values():
-            is_completed = request.status == "COMPLETED"
-            ttft = (None if request.first_token_ms is None
-                    else request.first_token_ms - request.arrival_ms)
-            intervals = [right - left for left, right in
-                         zip(request.token_times, request.token_times[1:])]
-            tpot = (sum(intervals) / len(intervals)
-                    if is_completed and intervals else None)
-            rows.append({
-                "request_id": request.request_id, "status": request.status,
-                "arrival_ms": request.arrival_ms, "first_token_ms": request.first_token_ms,
-                "completion_ms": request.completion_ms,
-                "output_tokens_actual": request.generated,
-                "num_computed_tokens": request.computed,
-                "ttft_ms": ttft, "tpot_ms": tpot, "itl_ms": intervals,
-                "token_times_ms": request.token_times,
-                "end_to_end_ms": (request.completion_ms - request.arrival_ms
-                                  if is_completed and request.completion_ms is not None else None),
-                "preemption_count": request.preemptions,
-                "recomputed_tokens": request.recomputed_tokens,
-                "recompute_ms": request.recompute_ms,
-                "memory_wait_ms": request.memory_wait_ms,
-                "error_code": request.error_code,
-            })
-        counts = {"total": len(rows), "completed": 0, "failed": 0,
-                  "timed_out": 0, "unfinished": 0, "not_admitted": 0}
-        for row in rows:
-            counts[row["status"].lower()] += 1
-        evaluation = self.exp.evaluation
-        window = evaluation.measurement_window_ms
-        cohort = [row for row in rows if row["status"] != "NOT_ADMITTED"]
-        window = self.now if window is None else window
-        completed = [row for row in cohort if row["status"] == "COMPLETED"]
-        sla_declared = evaluation.ttft_sla_ms is not None or evaluation.tpot_sla_ms is not None
+        return report_simulation(self)
 
-        def eligible(row: dict) -> bool:
-            if evaluation.ttft_sla_ms is not None:
-                if row["ttft_ms"] is None or row["ttft_ms"] > evaluation.ttft_sla_ms:
-                    return False
-            if evaluation.tpot_sla_ms is not None:
-                if row["tpot_ms"] is None or row["tpot_ms"] > evaluation.tpot_sla_ms:
-                    return False
-            return True
 
-        good = [row for row in completed if eligible(row)]
-
-        def rate(value: int) -> float | None:
-            return value * 1000 / window if window > 0 else None
-
-        provenance = getattr(self.performance, "provenance", None)
-        profile = getattr(self.performance, "profile", None)
-        calibration_source = self.exp.calibration.backend
-        profile_version = self.exp.calibration.profile_version
-        if profile is not None:
-            calibration_source = ("measured_profile" if profile["source"]["kind"] == "measured"
-                                  else "test_fixture_profile")
-            profile_version = profile["profile_version"]
-        limitations = ["single replica; PP online unsupported",
-                       "homogeneous phase batches; no chunked prefill",
-                       "fixed KV pool; no allocator fragmentation or CPU swap",
-                       "prefill-first admission; pressure drains active requests before recovery"]
-        limitations.insert(0, "profile-backed CPU model; hardware holdout validation is separate"
-                           if profile is not None else "uncalibrated CPU model")
-        result = {
-            "status": "UNRESOLVED" if self.stop_reason else "COMPLETED",
-            "error_code": self.stop_reason,
-            "backend": "simulated",
-            "calibration_source": calibration_source,
-            "profile_version": profile_version,
-            "profile_provenance": dict(provenance) if provenance is not None else None,
-            "hardware_validated": False,
-            "quality_status": "not_evaluated",
-            "simulated_ms": self.now,
-            "events_processed": self.handled_events,
-            "counts": counts,
-            "admitted_count": len(cohort),
-            "completion_rate_denominator": len(cohort),
-            "completion_rate": counts["completed"] / len(cohort) if cohort else None,
-            "evaluation_count": len(cohort),
-            "cohort_completion_rate": len(completed) / len(cohort) if cohort else None,
-            "latency_ms": {
-                "ttft": _percentiles([row["ttft_ms"] for row in completed if row["ttft_ms"] is not None]),
-                "tpot": _percentiles([row["tpot_ms"] for row in completed if row["tpot_ms"] is not None]),
-                "itl": _percentiles([item for row in cohort for item in row["itl_ms"]]),
-                "end_to_end": _percentiles([row["end_to_end_ms"] for row in completed]),
-            },
-            "throughput": {
-                "requests_per_s": rate(len(completed)),
-                "output_tokens_per_s": rate(sum(row["output_tokens_actual"] for row in cohort)),
-                "window_ms": window,
-                "window_rule": ("arrival_cohort_with_drain" if evaluation.drain
-                                else "arrival_cohort_without_drain")
-                               if evaluation.measurement_window_ms is not None else "zero_to_simulation_end",
-            },
-            "goodput": {
-                "requests_per_s": rate(len(good)),
-                "output_tokens_per_s": rate(sum(row["output_tokens_actual"] for row in good)),
-                "eligible_requests": len(good), "window_ms": window,
-                "sla_declared": sla_declared,
-                "rule": "completed_requests_satisfying_all_declared_slas",
-            },
-            "sla_satisfied": (all(eligible(row) for row in completed) and len(completed) == len(cohort)
-                              if sla_declared and cohort else None),
-            "preemption_count": sum(row["preemption_count"] for row in rows),
-            "recomputed_tokens": sum(row["recomputed_tokens"] for row in rows),
-            "recompute_execution_ms": self.recompute_execution_ms,
-            "compute_busy_ms": self.compute_busy_ms,
-            "memory": self.memory.snapshot(),
-            "measurement_contract": {
-                "arrival_window_ms": [0.0, evaluation.measurement_window_ms]
-                                     if evaluation.measurement_window_ms is not None else None,
-                "arrival_window_rule": "half_open",
-                "drain": evaluation.drain,
-                "max_drain_ms": evaluation.max_drain_ms,
-                "completion_denominator": "requests_eligible_for_arrival_window",
-                "outside_window_in_completion_denominator": False,
-                "failed_timed_out_unfinished_in_completion_denominator": True,
-                "initial_state": self.exp.execution.initial_state,
-            },
-            "limitations": limitations,
-        }
-        return SimulationResult(result, rows, self.events)
+def _run_timeline(experiment: Experiment) -> SimulationResult:
+    if experiment.strategy.pipeline_parallel_size > 1:
+        from .pipeline import PipelineSimulation
+        return PipelineSimulation(experiment).run()
+    return _Simulation(experiment).run()
 
 
 def simulate(experiment: Experiment) -> SimulationResult:
@@ -557,7 +511,7 @@ def simulate(experiment: Experiment) -> SimulationResult:
                                drain=True, max_drain_ms=None),
             execution=replace(experiment.execution, warmup=()),
         )
-        run = _Simulation(warmup_experiment).run()
+        run = _run_timeline(warmup_experiment)
         if (run.result["status"] != "COMPLETED"
                 or run.result["counts"]["completed"] != len(warmup)):
             cause = run.result["error_code"] or next(
@@ -573,7 +527,9 @@ def simulate(experiment: Experiment) -> SimulationResult:
             "calibration_source": run.result["calibration_source"],
             "profile_version": run.result["profile_version"],
             "profile_provenance": run.result["profile_provenance"],
+            "pipeline": run.result.get("pipeline"),
+            "swap": run.result.get("swap"),
         })
-    measured = _Simulation(experiment).run()
+    measured = _run_timeline(experiment)
     measured.result["warmup"] = warmup_summary
     return measured

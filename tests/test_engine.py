@@ -7,7 +7,7 @@ import unittest
 from mlsys_sim.engine import simulate
 from mlsys_sim.schema import (
     CalibrationSpec, DeviceSpec, EvaluationSpec, ExecutionSpec, Experiment,
-    InfraSpec, MemoryConfig, RequestSpec, SimulationError, StrategySpec,
+    InfraSpec, MemoryConfig, RequestSpec, StrategySpec,
 )
 
 
@@ -244,12 +244,13 @@ class MetricsAndLimitsTests(unittest.TestCase):
         self.assertEqual(run.result["status"], "COMPLETED")
         self.assertEqual(run.requests[0]["status"], "COMPLETED")
 
-    def test_pp_online_is_rejected(self):
+    def test_pp_online_dispatches_to_stage_simulation(self):
         exp = replace(experiment([request("a")], pipeline_parallel_size=2),
                       infra=InfraSpec(devices=(DeviceSpec("gpu0"), DeviceSpec("gpu1"))))
-        with self.assertRaises(SimulationError) as error:
-            simulate(exp)
-        self.assertEqual(error.exception.code, "UNSUPPORTED_MECHANISM")
+        run = simulate(exp)
+        self.assertEqual(run.result["status"], "COMPLETED")
+        self.assertEqual(run.result["counts"]["completed"], 1)
+        self.assertIn("pipeline", run.result)
 
 
 class InvariantTests(unittest.TestCase):

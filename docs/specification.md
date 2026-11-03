@@ -1,4 +1,4 @@
-# V1 software specification
+# Version 1.1 software specification
 
 The CPU simulator separates system events, performance/communication models and
 calibration data. It has no required third-party runtime dependency and performs
@@ -14,7 +14,7 @@ sections, with strict unknown-field/type/range checks:
 | --- | --- |
 | `workload` | Unique request IDs, nonnegative arrival ms, positive input/output lengths, priority and optional relative timeout |
 | `infra` | Ordered devices, memory bytes, effective compute/bandwidth assumptions and named topology/link parameters |
-| `strategy` | Dense model/revision, one replica, scheduler, TP/PP/stage layers, Batch limits, preemption and memory policy |
+| `strategy` | Dense model/revision, one replica, TP/PP/stage layers, microbatch/inflight/feedback/link policy, Batch limits and preemption/fallback |
 | `calibration` | Analytical/synthetic parameters or Profile path/version, full software identity and explicit fixture/extrapolation policy |
 | `evaluation` | Optional TTFT/TPOT SLA, half-open arrival window, drain and optional drain limit |
 | `execution` | Seed, time/event limits, detailed logging, isolated warmup requests and `empty_cache` initial state |
@@ -26,40 +26,59 @@ are toy assumptions. Measured data needs explicit non-placeholder identities.
 
 ## Event and scheduling semantics
 
-One GPU or one synchronous TP group executes one homogeneous phase Batch at a
-time. FIFO holds one request until it finishes. Continuous batching selects
-Prefill work at safe boundaries before Decode, with a pressure-drain policy for
-recovery. No Prefix Cache, chunked/mixed-phase prefill or multi-replica routing is
-implied by this simplified policy.
+For PP=1, one GPU or synchronous TP group executes one homogeneous phase Batch
+at a time. FIFO holds one request until it finishes. Continuous batching selects
+Prefill at safe boundaries before Decode, with a pressure-drain policy for
+recovery. PP>1 uses independent stage queues/resources and homogeneous
+microbatches; different stages can execute different microbatches concurrently.
+Each stage owns a TP group. No Prefix Cache, chunked/mixed-phase microbatch or
+multi-replica routing is implied by these simplified policies.
 
 The stable heap orders completion/release, timeout, arrival and new scheduling.
 Prefill builds input KV and emits the first output. The latest sampled output is
 processed by the next Decode, so committed output count and computed KV position
 are distinct. The future output target is available only to the execution oracle.
 
-Timeouts do not free in-flight references until their safe boundary. A cutoff
-retains in-flight reservations, reports unfinished requests and accounts for the
-executed fraction of a Step without committing an unfinished Token.
+A PP request has at most one outstanding iteration. The final stage includes
+output/sampling in its service cost, then the request waits
+`pipeline_feedback_latency_us` before its next Decode can launch. KV stays pinned
+through that feedback boundary even after a final Token or timeout. Timeout and
+cutoff handling preserve in-flight references and partial stage progress without
+committing a finished iteration prematurely.
 
 ## Memory and recovery
 
 Each rank maintains separate physical and logical budgets. Physical use includes
 weights, the entire fixed KV pool, persistent Runtime/Graph/communication use,
-Workspace and safety/external constraints. Logical use counts request blocks,
+Workspace, PP activation storage and safety/external constraints. Logical use counts request blocks,
 rounded up by block size. Used KV is not added again to a physically reserved
 pool. GQA replication is part of the per-rank shard plan.
 
 All ranks must pass a candidate reservation before any allocation commits.
+PP conservatively reserves target KV on every stage before launch at stage 0.
+Per-rank persistent activation storage is adjacent stage boundaries multiplied by
+max inflight microbatches, max Batch Tokens, hidden size and activation bytes.
+Endpoints have one boundary, interior stages two and PP=1 none; activations are
+replicated per TP rank. This is separate from collective communication buffers.
 Workspace uses a supported Profile observation when available; otherwise its
 source is explicitly analytical. Releasing request blocks preserves the fixed
 pool's physical allocation and cannot by itself solve a Workspace OOM.
 
-KV pressure limits admission and shrinks Batch work. If no active Decode can
-advance, a safe low-priority/recently arrived victim can release KV and wait for
-recompute. Its known output history remains intact. Recovery rebuilds the prefix
-without re-emitting old outputs; delay and compute cost enter the metrics.
-Impossible single-request shapes and bounded no-progress/preemption conditions
-end explicitly. CPU swap and arbitrary Kernel interruption are outside V1.
+KV pressure limits admission and shrinks Batch work. A safe request-level victim
+can use the selected `none`, `recompute` or `swap` preemption policy. Recompute
+rebuilds the known prefix without re-emitting outputs. Swap retains KV in a
+bounded host pool and restores it without recomputing historical positions.
+Both retain request timing and output history. PP stops new launches and drains
+in-flight stages, links and feedback before reclamation.
+
+CPU swap reserves host capacity before D2H, releases GPU blocks only at D2H
+completion, reserves all GPU destinations before H2D and keeps the host copy until
+H2D completes. Both directions share one serial DMA lane; no new GPU work starts
+during DMA. Copies are block-aligned and aggregated across stages/TP ranks.
+Timeouts and cutoffs retain pending source/destination references. Host-capacity
+failure is explicit; only `swap_fallback="recompute"` allows recompute fallback.
+Impossible shapes and bounded no-progress/preemption conditions end explicitly.
+NVMe and arbitrary Kernel interruption remain unsupported.
 
 ## Performance backends
 
@@ -80,9 +99,17 @@ primitive/rank group and produce an explicit Infra patch. A selected patch must
 match the intended topology and workload model; it is never automatically
 summed with whole-stage Profile timings.
 
-PP analysis reports stage capacity, isolated Batch service time and P2P. It does
-not simulate stage/microbatch queues, bubbles or autoregressive feedback, and
-online PP metrics remain unavailable. `simulate` rejects PP greater than one.
+Online PP uses independent stage compute resources and a serialized activation
+link for each adjacent boundary. TP boundary links are paired and independent,
+with replicated per-rank payload; shared fabric contention is not modeled.
+`pipeline_p2p=False` explicitly disables link cost for ideal teaching cases;
+default `True` includes it. Explicit feedback remains separate from stage costs.
+
+`predict` continues to report stage capacity, isolated service time and P2P only.
+It has no arrival queue, so online metrics are null with
+`SHAPE_ANALYSIS_HAS_NO_ARRIVALS_OR_QUEUEING`. Use `simulate` for the PP timeline.
+Detailed configuration, lifetimes and ideal bubbles are described in
+[pipeline and swap](pipeline-and-swap.md).
 
 ## Warmup and evaluation
 
@@ -105,7 +132,9 @@ linear interpolation; empty/unavailable values remain null.
 ## Data and result contracts
 
 Simulation output retains effective inputs, code/input hashes, Profile snapshot
-and provenance, comparison contract, request/event rows and diagnostics. Output
+and provenance, comparison contract, request/event rows and diagnostics. PP adds
+stage activity/bubble and progress reports; swap adds host/DMA state and
+per-request copy counts, bytes and time. Output
 paths are exclusive. A run can execute successfully while requests fail or SLA
 criteria are missed.
 
@@ -116,3 +145,9 @@ contracts and keeps missing values/ties explicit. Their formats and acceptance
 rules are documented in [calibration](calibration.md) and
 [validation](validation-protocol.md). They establish no hardware evidence that
 has not actually been supplied.
+
+
+Profile JSON remains schema version 1. Comparison contracts include the new
+strategy and memory parameters; supported older contracts using the equivalent
+defaults are normalized for comparison. Non-default PP/swap assumptions must be
+represented, not silently discarded as irrelevant metadata.

@@ -95,8 +95,10 @@ Step estimates and run provenance record when extrapolation was used; it remains
 exploratory evidence.
 
 Whole-stage timings already include local collective communication, output and
-sampling. Do not add analytical local communication again. Inter-stage PP P2P is
-separate and online PP remains outside V1.
+sampling. Do not add analytical local communication again. Inter-stage PP P2P
+and explicit feedback are separate. Version 1.1 can use stage Profiles in its
+[online PP engine](pipeline-and-swap.md); shape-only `predict` still has no online
+queueing or SLA metrics.
 
 ## Workspace and provenance
 

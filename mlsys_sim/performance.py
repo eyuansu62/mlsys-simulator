@@ -178,7 +178,7 @@ def predict_experiment(experiment: Experiment) -> dict[str, Any]:
     decode_payload = len(queries) * strategy.model.hidden_size * strategy.model.activation_bytes
 
     def transfer(payload):
-        if not boundaries:
+        if not boundaries or not strategy.pipeline_p2p:
             return 0.0
         bandwidth = _finite(exp.infra.link_bandwidth_gbps * 1e6, "effective P2P bytes/ms")
         return _finite(boundaries * (exp.infra.link_latency_us / 1000
@@ -203,7 +203,8 @@ def predict_experiment(experiment: Experiment) -> dict[str, Any]:
             "prefill_memory_feasible": memory.ok, "memory_error_code": memory.code,
             "memory_check_details": memory.details,
             "communication": {"pp_boundaries": boundaries,
-                              "p2p_source": "analytical_uncalibrated",
+                              "p2p_source": ("analytical_uncalibrated" if strategy.pipeline_p2p
+                                             else "explicit_ideal_zero_cost"),
                               "prefill_p2p_bytes_per_rank_per_boundary": prefill_payload,
                               "decode_p2p_bytes_per_rank_per_boundary": decode_payload,
                               "prefill_p2p_ms": prefill_p2p,
@@ -212,8 +213,7 @@ def predict_experiment(experiment: Experiment) -> dict[str, Any]:
             "isolated_decode_step_ms": isolated_decode,
             "online_metrics": {"ttft_ms": None, "tpot_ms": None, "p99_ms": None,
                                "goodput_requests_per_s": None},
-            "online_metrics_reason": ("PP_ONLINE_DES_NOT_IMPLEMENTED" if boundaries
-                                      else "SHAPE_ANALYSIS_HAS_NO_ARRIVALS_OR_QUEUEING"),
+            "online_metrics_reason": "SHAPE_ANALYSIS_HAS_NO_ARRIVALS_OR_QUEUEING",
             "assumptions": [
                 "Analyzes one phase batch containing every workload row, ignoring arrival times.",
                 "PP activations replicated per TP rank; identical independent links, no contention.",

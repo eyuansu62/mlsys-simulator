@@ -1,6 +1,6 @@
 # Python API
 
-Install distribution `mlsys-simulator` and import `mlsys_sim`. V1 exposes the
+Install distribution `mlsys-simulator` and import `mlsys_sim`. Version 1.1 exposes the
 simulation, profile, calibration and comparison functions through this package;
 `mlsys_sim.__version__` is the software version. JSON schema and Profile version
 labels are separate contracts.
@@ -27,7 +27,7 @@ The simulator does not execute GPU tensors or sleep in wall-clock time.
 | --- | --- |
 | `Experiment`, `RequestSpec` | Experiment and replay requests |
 | `ModelSpec`, `DeviceSpec`, `InfraSpec` | Dense model, ordered devices and topology |
-| `StrategySpec`, `MemoryConfig` | Scheduling, TP/PP placement and memory budgets |
+| `StrategySpec`, `MemoryConfig` | Scheduling, PP microbatches/feedback, GPU/host budgets and preemption policies |
 | `CalibrationSpec` | Analytical/synthetic parameters or Profile selection and identity |
 | `EvaluationSpec`, `ExecutionSpec` | SLA, admission window, drain, warmup, initial state and budgets |
 | `SimulationResult` | `result`, `requests` and `events` in memory |
@@ -42,8 +42,53 @@ to the replay execution oracle.
 
 `predict_experiment(experiment)` analyzes workload rows as one shape batch,
 ignoring arrival times. It reports stage costs, TP/P2P communication, memory
-feasibility and batch-limit flags. It does not produce online queueing or PP SLA
-metrics. Inspect feasibility separately from command execution status.
+feasibility and batch-limit flags. It supplies no online metrics and reports
+`SHAPE_ANALYSIS_HAS_NO_ARRIVALS_OR_QUEUEING`; use `simulate` for online PP as well
+as single-group serving. Inspect feasibility separately from command execution
+status.
+
+## Configure online PP and swap
+
+```python
+from mlsys_sim import (
+    CalibrationSpec, DeviceSpec, Experiment, InfraSpec, RequestSpec,
+    StrategySpec, simulate,
+)
+
+experiment = Experiment(
+    workload=tuple(RequestSpec(f"r{i}", 0, 8, 1) for i in range(3)),
+    infra=InfraSpec(devices=(DeviceSpec("gpu0"), DeviceSpec("gpu1"))),
+    strategy=StrategySpec(
+        pipeline_parallel_size=2,
+        stage_layers=(2, 2),
+        pipeline_microbatch_size=1,
+        pipeline_max_inflight_microbatches=3,
+        max_batch_tokens=64,
+        pipeline_p2p=False,  # Explicit ideal-link teaching case.
+    ),
+    calibration=CalibrationSpec(backend="synthetic", prefill_ms=2),
+)
+run = simulate(experiment)
+print(run.result["pipeline"])
+```
+
+Each stage owns a TP group and microbatch queue. The same request cannot launch
+another iteration until its sampled Token feedback is available. Final-stage
+Token readiness and the later safe release of feedback references are distinct
+boundaries. All-stage KV and persistent activation storage are budgeted before
+launch; see [PP and swap](pipeline-and-swap.md) for the formula and link policy.
+
+Select CPU swap with `StrategySpec(preemption="swap", memory=MemoryConfig(
+cpu_swap_bytes=...))`. D2H/H2D bandwidth and latency are MemoryConfig fields.
+The host capacity must be positive. `swap_fallback="recompute"` is optional and
+explicit; default `"none"` does not substitute recomputation when host space is
+exhausted. GPU work and DMA do not overlap in the modeled policy.
+
+Request rows add copy counts, bytes, timing and KV residency; `result.swap`
+reports aggregate host/DMA resources, while `result.pipeline` describes stage
+activity and in-flight progress. A cutoff keeps pending ownership instead of
+freeing both copies early. Existing simulation, Profile and metric entry points
+remain the public interface; no caller needs to manage internal engine queues.
 
 ## Load and use a Profile
 

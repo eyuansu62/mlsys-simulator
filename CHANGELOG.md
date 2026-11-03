@@ -1,5 +1,39 @@
 # Changelog
 
+## 1.1.0
+
+Online pipeline-parallel serving and CPU KV swap are modeled in virtual time.
+License selection and hardware-validation status are unchanged; consult the
+validation report and CI runs for checks actually executed.
+
+### Added
+
+- Independent PP stage and microbatch scheduling, stage-local TP groups,
+  serialized boundary links, autoregressive feedback and cutoff progress.
+- Conservative all-stage KV reservation and persistent per-rank activation
+  buffer budgets, including replicated TP boundary payloads.
+- A bounded CPU KV pool and serialized D2H/H2D transfers with safe source/
+  destination ownership through completion, timeout and cutoff.
+- Explicit `preemption="swap"` and opt-in recompute fallback, host-capacity
+  failures, migration metrics and PP/swap examples.
+- Pipeline pressure draining before eviction; no new GPU work starts during
+  modeled DMA. These overlap restrictions are deliberate modeling assumptions.
+
+### Changed
+
+- `simulate` supports online PP; `predict` still performs shape-only analysis
+  and leaves online metrics unavailable.
+- Shared request state and metric reporting preserve single-group interfaces.
+- Comparison contracts include the new strategy/memory defaults while retaining
+  compatibility with supported prior default contracts; Profile JSON remains
+  schema version 1.
+
+### Limits
+
+- No real GPU/CPU DMA, measured transfer validation or hardware accuracy claim.
+- NVMe, multiple replicas, Prefix Cache, chunked prefill and quantized formats
+  remain outside the supported scope.
+
 ## 1.0.0
 
 V1 software implementation. The repository remains private while license

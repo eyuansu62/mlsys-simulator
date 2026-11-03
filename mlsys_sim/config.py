@@ -105,14 +105,24 @@ def validate_experiment(experiment: Experiment) -> None:
     if model.num_attention_heads % model.num_kv_heads:
         _invalid("strategy.model", "query heads must be divisible by KV heads")
     for name in ("tensor_parallel_size", "pipeline_parallel_size", "replicas",
-                 "max_batch_size", "max_batch_tokens", "max_preemptions_per_request"):
+                 "max_batch_size", "max_batch_tokens", "max_preemptions_per_request",
+                 "pipeline_microbatch_size", "pipeline_max_inflight_microbatches"):
         _positive(getattr(strategy, name), f"strategy.{name}")
+    if strategy.pipeline_microbatch_size > strategy.max_batch_size:
+        _invalid("strategy.pipeline_microbatch_size", "cannot exceed max_batch_size")
+    _positive(strategy.pipeline_feedback_latency_us, "strategy.pipeline_feedback_latency_us", zero=True)
     if strategy.replicas != 1:
         raise SimulationError("UNSUPPORTED_MECHANISM", "multiple replicas are not implemented")
     if strategy.scheduler not in ("fifo", "continuous_batching"):
         raise SimulationError("UNSUPPORTED_MECHANISM", "unsupported scheduler")
-    if strategy.preemption not in ("none", "recompute"):
-        raise SimulationError("UNSUPPORTED_MECHANISM", "only none/recompute preemption is supported")
+    if strategy.preemption not in ("none", "recompute", "swap"):
+        raise SimulationError("UNSUPPORTED_MECHANISM", "supported preemption policies are none/recompute/swap")
+    if strategy.swap_fallback not in ("none", "recompute"):
+        raise SimulationError("UNSUPPORTED_MECHANISM", "swap_fallback must be none or recompute")
+    if strategy.swap_fallback != "none" and strategy.preemption != "swap":
+        _invalid("strategy.swap_fallback", "requires preemption=swap")
+    if strategy.preemption == "swap" and memory.cpu_swap_bytes <= 0:
+        _invalid("strategy.memory.cpu_swap_bytes", "swap requires a positive host capacity")
     tp, pp = strategy.tensor_parallel_size, strategy.pipeline_parallel_size
     if tp not in (1, 2, 4):
         raise SimulationError("UNSUPPORTED_MECHANISM", "supported TP degrees are 1, 2, and 4")
@@ -144,7 +154,8 @@ def validate_experiment(experiment: Experiment) -> None:
         _invalid("infra.topology", "must not be empty")
     for f in fields(memory):
         _positive(getattr(memory, f.name), f"strategy.memory.{f.name}",
-                  zero=f.name not in ("kv_block_tokens", "kv_pool_bytes"))
+                  zero=f.name not in ("kv_block_tokens", "kv_pool_bytes", "swap_d2h_bandwidth_gbps",
+                                      "swap_h2d_bandwidth_gbps"))
     if calibration.backend not in ("analytical", "synthetic", "profile"):
         raise SimulationError("UNSUPPORTED_MECHANISM", "supported backends are analytical, synthetic and profile")
     if calibration.backend == "profile":

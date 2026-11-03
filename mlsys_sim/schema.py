@@ -57,6 +57,10 @@ class MemoryConfig:
     other_bytes: int = 0
     safety_margin_bytes: int = 1024 * 1024
     guard_blocks: int = 0
+    cpu_swap_bytes: int = 0
+    swap_d2h_bandwidth_gbps: float = 12.0
+    swap_h2d_bandwidth_gbps: float = 12.0
+    swap_latency_us: float = 10.0
 
 
 @dataclass(frozen=True)
@@ -72,6 +76,11 @@ class StrategySpec:
     preemption: str = "recompute"
     max_preemptions_per_request: int = 100
     memory: MemoryConfig = field(default_factory=MemoryConfig)
+    pipeline_microbatch_size: int = 1
+    pipeline_max_inflight_microbatches: int = 8
+    pipeline_feedback_latency_us: float = 0.0
+    pipeline_p2p: bool = True
+    swap_fallback: str = "none"
 
 
 @dataclass(frozen=True)

@@ -31,6 +31,7 @@ class _RankBudget:
     kv_bytes_per_token: int
     kv_block_bytes: int
     pool_blocks: int
+    pipeline_buffer_reserved_bytes: int
 
 
 def _integer(value: object, name: str, minimum: int = 0) -> int:
@@ -60,6 +61,8 @@ class MemoryPlanner:
         strategy = experiment.strategy
         tp = _integer(strategy.tensor_parallel_size, "tensor_parallel_size", 1)
         pp = _integer(strategy.pipeline_parallel_size, "pipeline_parallel_size", 1)
+        _integer(strategy.pipeline_max_inflight_microbatches, "pipeline_max_inflight_microbatches", 1)
+        _integer(strategy.max_batch_tokens, "max_batch_tokens", 1)
         if len(experiment.infra.devices) < tp * pp:
             raise SimulationError("INVALID_CONFIG", "insufficient devices for TP × PP layout")
         layers = stage_layer_counts(experiment)
@@ -74,10 +77,16 @@ class MemoryPlanner:
                 raise SimulationError("INVALID_CONFIG", "KV bytes per token must be positive")
             block_bytes = kv_per_token * self.config.kv_block_tokens
             weights = rank_weight_bytes(experiment, stage)
+            boundaries = int(stage > 0) + int(stage < pp - 1)
+            pipeline_buffers = int(
+                boundaries * strategy.pipeline_max_inflight_microbatches
+                * strategy.max_batch_tokens * strategy.model.hidden_size
+                * strategy.model.activation_bytes)
             # Safety margin and external users are constraints, not allocations
             # owned by this model. Preserve this distinction in the snapshots.
             physical = (weights + self.config.kv_pool_bytes + self.config.graph_bytes
-                        + self.config.runtime_bytes + self.config.communication_buffer_bytes)
+                        + self.config.runtime_bytes + self.config.communication_buffer_bytes
+                        + pipeline_buffers)
             fixed_budget = (physical + self.config.other_bytes
                             + self.config.safety_margin_bytes)
             for tp_rank in range(tp):
@@ -101,6 +110,7 @@ class MemoryPlanner:
                     kv_bytes_per_token=kv_per_token,
                     kv_block_bytes=block_bytes,
                     pool_blocks=self.config.kv_pool_bytes // block_bytes,
+                    pipeline_buffer_reserved_bytes=pipeline_buffers,
                 ))
 
     def _validate_memory_config(self) -> None:
@@ -110,12 +120,71 @@ class MemoryPlanner:
             "workspace_base_bytes", "workspace_bytes_per_token", "graph_bytes",
             "runtime_bytes", "communication_buffer_bytes", "other_bytes",
             "safety_margin_bytes", "guard_blocks",
+            "cpu_swap_bytes",
         ):
             _integer(getattr(self.config, name), name)
 
     def _blocks(self, tokens: int) -> int:
         block = self.config.kv_block_tokens
         return (tokens + block - 1) // block
+
+    def kv_bytes_for_tokens(self, tokens: int) -> int:
+        """Block-aligned KV copy bytes, summed over all stages and TP ranks.
+
+        This includes replicated GQA KV heads and the unused tail of the last
+        allocated block. It describes copy traffic, not an extra GPU allocation.
+        """
+        tokens = _integer(tokens, "tokens")
+        return self._blocks(tokens) * sum(rank.kv_block_bytes for rank in self._ranks)
+
+    def check_kv(self, target_tokens: Mapping[str, int], alone: bool = False) -> MemoryDecision:
+        """Check only logical KV slots for a DMA destination, without compute.
+
+        GPU physical capacity for the fixed pool is established at construction.
+        No synthetic query or Profile lookup is performed for a byte copy.
+        """
+        if not isinstance(target_tokens, Mapping):
+            raise SimulationError("INVALID_CONFIG", "target_tokens must be a mapping")
+        if type(alone) is not bool:
+            raise SimulationError("INVALID_CONFIG", "alone must be a boolean")
+        targets: dict[str, int] = {}
+        for request_id, tokens in target_tokens.items():
+            if not isinstance(request_id, str) or not request_id:
+                raise SimulationError("INVALID_CONFIG", "request_id must be a nonempty string")
+            targets[request_id] = _integer(tokens, f"target_tokens[{request_id}]", 1)
+            if not alone and tokens < self.allocations.get(request_id, 0):
+                raise SimulationError("INVALID_CONFIG", "KV targets cannot shrink a live allocation")
+        projected = {} if alone else dict(self.allocations)
+        projected.update(targets)
+        used_before = sum(self._blocks(tokens) for tokens in self.allocations.values())
+        used_after = sum(self._blocks(tokens) for tokens in projected.values())
+        ranks = [{"device_id": rank.device_id, "stage_index": rank.stage_index,
+                  "tp_rank": rank.tp_rank, "pool_blocks": rank.pool_blocks,
+                  "used_before_blocks": used_before, "proposed_used_blocks": used_after,
+                  "additional_blocks": used_after - (0 if alone else used_before),
+                  "guard_blocks": self.config.guard_blocks, "workspace_bytes": 0,
+                  "workspace_source": "not_required_for_copy",
+                  "required_budget_bytes": rank.fixed_budget_bytes,
+                  "device_memory_bytes": rank.device_memory_bytes,
+                  "physical_ok": rank.fixed_budget_bytes <= rank.device_memory_bytes,
+                  "logical_ok": used_after + self.config.guard_blocks <= rank.pool_blocks}
+                 for rank in self._ranks]
+        details = {"phase": "kv_copy", "alone": alone, "proposed_allocations": projected,
+                   "workspace_bytes": 0, "ranks": ranks}
+        if any(not rank["physical_ok"] for rank in ranks):
+            return MemoryDecision(False, "STATIC_MEMORY_INFEASIBLE", details)
+        if any(not rank["logical_ok"] for rank in ranks):
+            return MemoryDecision(False, "KV_CAPACITY_EXCEEDED", details)
+        return MemoryDecision(True, None, details)
+
+    def reserve_kv(self, target_tokens: Mapping[str, int]) -> MemoryDecision:
+        """Atomically reserve a copy destination without changing Workspace peaks."""
+        decision = self.check_kv(target_tokens)
+        if decision.ok:
+            self.allocations.update(target_tokens)
+            used = sum(self._blocks(tokens) for tokens in self.allocations.values())
+            self._peak_used_blocks = max(self._peak_used_blocks, used)
+        return decision
 
     def check(
         self,
@@ -244,6 +313,7 @@ class MemoryPlanner:
                 "physical_reserved_bytes": rank.physical_reserved_bytes,
                 "fixed_budget_bytes": rank.fixed_budget_bytes,
                 "kv_pool_reserved_bytes": self.config.kv_pool_bytes,
+                "pipeline_buffer_reserved_bytes": rank.pipeline_buffer_reserved_bytes,
                 "kv_bytes_per_token": rank.kv_bytes_per_token,
                 "kv_block_bytes": rank.kv_block_bytes,
                 "pool_blocks": rank.pool_blocks,

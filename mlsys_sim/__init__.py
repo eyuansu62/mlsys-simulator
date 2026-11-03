@@ -6,7 +6,7 @@ Changes to this import surface and the versioned data contracts are recorded
 in the changelog. Calibration provenance and hardware validation are separate.
 """
 
-__version__ = "1.0.0"
+__version__ = "1.1.0"
 
 from .config import experiment_from_dict, load_experiment, validate_experiment
 from .engine import SimulationResult, simulate
@@ -33,6 +33,7 @@ from .calibration import (calibrate_dataset, split_dataset, validate_holdout,
 from .comparison import (compare_candidates, compare_runs, comparison_contract,
                          extract_metrics)
 from .communication_calibration import calibrate_communication, load_communication_dataset
+from .swap import HostSwapManager, SwapTransfer
 
 __all__ = [
     "__version__",
@@ -74,4 +75,6 @@ __all__ = [
     "extract_metrics",
     "calibrate_communication",
     "load_communication_dataset",
+    "HostSwapManager",
+    "SwapTransfer",
 ]

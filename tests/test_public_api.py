@@ -15,7 +15,6 @@ from mlsys_sim import (
     InfraSpec,
     MemoryPlanner,
     RequestSpec,
-    SimulationError,
     SimulationResult,
     StepEstimate,
     StrategySpec,
@@ -66,17 +65,18 @@ class PublicAPITests(unittest.TestCase):
         self.assertEqual(from_path, from_string)
         self.assertEqual(from_path.strategy.scheduler, "fifo")
 
-    def test_pp_api_reports_analysis_but_rejects_online_simulation(self):
+    def test_pp_api_reports_analysis_and_runs_online(self):
         experiment = replace(
             Experiment(),
             infra=InfraSpec(devices=(DeviceSpec("gpu0"), DeviceSpec("gpu1"))),
             strategy=StrategySpec(pipeline_parallel_size=2),
         )
         report = predict_experiment(experiment)
-        self.assertEqual(report["online_metrics_reason"], "PP_ONLINE_DES_NOT_IMPLEMENTED")
-        with self.assertRaises(SimulationError) as raised:
-            simulate(experiment)
-        self.assertEqual(raised.exception.code, "UNSUPPORTED_MECHANISM")
+        self.assertEqual(report["online_metrics_reason"], "SHAPE_ANALYSIS_HAS_NO_ARRIVALS_OR_QUEUEING")
+        run = simulate(experiment)
+        self.assertEqual(run.result["status"], "COMPLETED")
+        self.assertEqual(run.result["counts"]["total"], 0)
+        self.assertIn("pipeline", run.result)
 
     def test_declared_exports_are_available(self):
         self.assertEqual(len(mlsys_sim.__all__), len(set(mlsys_sim.__all__)))

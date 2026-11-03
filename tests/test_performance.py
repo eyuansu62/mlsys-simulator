@@ -107,7 +107,7 @@ class PerformanceTests(unittest.TestCase):
         self.assertAlmostEqual(result["isolated_prefill_ms"],
                                12 + result["communication"]["prefill_p2p_ms"])
         self.assertTrue(all(v is None for v in result["online_metrics"].values()))
-        self.assertEqual(result["online_metrics_reason"], "PP_ONLINE_DES_NOT_IMPLEMENTED")
+        self.assertEqual(result["online_metrics_reason"], "SHAPE_ANALYSIS_HAS_NO_ARRIVALS_OR_QUEUEING")
         self.assertFalse(result["hardware_validated"])
 
 

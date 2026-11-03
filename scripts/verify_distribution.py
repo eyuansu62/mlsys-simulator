@@ -12,7 +12,7 @@ import zipfile
 
 
 SMOKE_CODE = '''
-from dataclasses import asdict
+from dataclasses import asdict, replace
 from importlib.metadata import metadata, version
 import json
 from pathlib import Path
@@ -38,8 +38,20 @@ Path("experiment.json").write_text(json.dumps(asdict(exp)))
 pp = Experiment(workload=(RequestSpec("shape", 0.0, 16, 2),),
                 infra=InfraSpec(devices=(DeviceSpec("gpu0"), DeviceSpec("gpu1"))),
                 strategy=StrategySpec(pipeline_parallel_size=2))
-assert predict_experiment(pp)["online_metrics_reason"] == "PP_ONLINE_DES_NOT_IMPLEMENTED"
+assert predict_experiment(pp)["online_metrics_reason"] == "SHAPE_ANALYSIS_HAS_NO_ARRIVALS_OR_QUEUEING"
 Path("pp.json").write_text(json.dumps(asdict(pp)))
+swap_exp = replace(exp, strategy=replace(exp.strategy, preemption="swap",
+                    memory=replace(exp.strategy.memory, cpu_swap_bytes=65536)))
+Path("swap.json").write_text(json.dumps(asdict(swap_exp)))
+pp_swap = replace(swap_exp,
+    infra=InfraSpec(devices=(DeviceSpec("gpu0"), DeviceSpec("gpu1"))),
+    strategy=replace(swap_exp.strategy, pipeline_parallel_size=2, max_batch_tokens=64,
+                     pipeline_max_inflight_microbatches=2,
+                     memory=replace(swap_exp.strategy.memory, kv_pool_bytes=12288)))
+Path("pp-swap.json").write_text(json.dumps(asdict(pp_swap)))
+unsupported = asdict(pp)
+unsupported["strategy"]["replicas"] = 2
+Path("unsupported.json").write_text(json.dumps(unsupported))
 profile_base = Experiment(workload=(RequestSpec("profile-demo", 0, 16, 3),),
                           strategy=StrategySpec(scheduler="fifo"))
 records = []
@@ -122,7 +134,17 @@ def verify(dist: Path) -> dict:
         prediction = json.loads(run([str(console), "predict", "--experiment", "pp.json",
                                     "--out", "prediction"], outside, env))
         assert prediction["status"] == "COMPLETED"
-        failed = json.loads(run([str(console), "simulate", "--experiment", "pp.json",
+        online = json.loads(run([str(console), "simulate", "--experiment", "pp.json",
+                                "--out", "pp-online"], outside, env))
+        assert online["status"] == "COMPLETED"
+        for config, output in [("swap.json", "cpu-swap"), ("pp-swap.json", "pp-swap")]:
+            run([str(console), "simulate", "--experiment", config, "--out", output], outside, env)
+            swapped = json.loads((outside / output / "result.json").read_text())
+            assert swapped["counts"]["completed"] == 2
+            assert swapped["recomputed_tokens"] == 0
+            assert swapped["swap"]["completed_transfers_by_direction"]["D2H"] > 0
+            assert swapped["swap"]["host_reserved_bytes"] == 0
+        failed = json.loads(run([str(console), "simulate", "--experiment", "unsupported.json",
                                 "--out", "unsupported"], outside, env, expected=2))
         assert failed["error_code"] == "UNSUPPORTED_MECHANISM"
         run([str(console), "calibrate", "--dataset", "measurements.json", "--profile-version",
@@ -149,6 +171,7 @@ def verify(dist: Path) -> dict:
         run([str(python), "-I", "-m", "mlsys_sim", "--help"], outside, env)
     return {"wheel": wheel.name, "sdist": sdists[0].name,
             "distribution_contents": "passed", "installed_api_and_cli": "passed",
+            "installed_pipeline_and_swap": "passed",
             "installed_calibration_comparison_holdout": "passed"}
 
 

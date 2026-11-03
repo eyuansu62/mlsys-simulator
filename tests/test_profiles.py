@@ -330,7 +330,7 @@ class ProfileModelTests(unittest.TestCase):
                    for phase, query, context in [("prefill", 4, 0), ("decode", 1, 4)]]
         report = predict_experiment(self.experiment(base, profile(samples, base)))
         self.assertAlmostEqual(report["isolated_prefill_ms"], 30 + report["communication"]["prefill_p2p_ms"])
-        self.assertEqual(report["online_metrics_reason"], "PP_ONLINE_DES_NOT_IMPLEMENTED")
+        self.assertEqual(report["online_metrics_reason"], "SHAPE_ANALYSIS_HAS_NO_ARRIVALS_OR_QUEUEING")
 
 
 if __name__ == "__main__":
