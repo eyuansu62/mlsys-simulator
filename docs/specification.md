@@ -1,4 +1,4 @@
-# Version 1.2 software specification
+# Version 1.3 software specification
 
 The CPU simulator separates system events, performance/communication models and
 calibration data. It has no required third-party runtime dependency and performs
@@ -14,7 +14,7 @@ sections, with strict unknown-field/type/range checks:
 | --- | --- |
 | `workload` | Unique request IDs, nonnegative arrival ms, positive input/output lengths, priority, optional relative timeout and explicit prompt token IDs/cache namespace |
 | `infra` | Ordered devices, memory bytes, effective compute/bandwidth assumptions and named topology/link parameters |
-| `strategy` | Dense model/revision, one replica, TP/PP/stage layers, microbatch/inflight/feedback/link policy, Batch/chunk limits, Prefix Cache and preemption/fallback |
+| `strategy` | Dense model/revision, one replica, TP/PP/stage layers, microbatch/inflight/feedback/link policy, Batch/chunk limits, mixed batching, Prefix Cache and preemption/fallback |
 | `calibration` | Analytical/synthetic parameters or Profile path/version, full software identity and explicit fixture/extrapolation policy |
 | `evaluation` | Optional TTFT/TPOT SLA, half-open arrival window, drain and optional drain limit |
 | `execution` | Seed, time/event limits, detailed logging, isolated warmup requests and `empty_cache` initial state |
@@ -26,16 +26,23 @@ are toy assumptions. Measured data needs explicit non-placeholder identities.
 
 ## Event and scheduling semantics
 
-For PP=1, one GPU or synchronous TP group executes one homogeneous phase Batch
-at a time. FIFO holds one request until it finishes. Continuous batching selects
+For PP=1, one GPU or synchronous TP group executes one Batch at a time.
+Homogeneous phase batches remain the default. FIFO holds one request until it finishes. Continuous batching selects
 Prefill at safe boundaries before Decode by default, with a pressure-drain
 policy for recovery. Enabling Chunked Prefill instead gives Decode priority;
 prompt queries retain context and respect the configured per-chunk and Batch
-Token budgets. PP>1 uses independent stage queues/resources and homogeneous
-microbatches; different stages can execute different microbatches concurrently.
+Token budgets. `mixed_batching=true` independently selects ready Decode first,
+then packs Prefill into the remaining sequence/Token budget of the same Batch.
+Without chunking, a complete remaining prompt must fit before it can join.
+During pressure draining, fresh prompts remain restricted. FIFO never mixes
+requests, and recomputation retains a separate homogeneous recovery Batch.
+
+PP>1 uses independent stage queues/resources and opt-in mixed microbatches;
+different stages can execute different microbatches concurrently.
 Each stage owns a TP group. Every prefill chunk is a separate iteration through
-the stages and feedback boundary. Mixed-phase kernels and multi-replica routing
-remain unsupported.
+the stages and feedback boundary. A mixed microbatch records ordered
+`request_phases`, queries and contexts through all stages; each member advances
+according to its own phase. Multi-replica routing remains unsupported.
 
 The stable heap orders completion/release, timeout, arrival and new scheduling.
 Prefill builds input KV and emits the first output only when the final prompt
@@ -106,7 +113,11 @@ NVMe and arbitrary Kernel interruption remain unsupported.
 `synthetic` fixes phase Batch times for tests. `analytical` computes serialized
 Linear/Attention/Misc, output and communication costs using declared effective
 rates. Prefill/recompute preserve actual query and prefix-context lengths;
-Decode preserves each context. Per-chunk stage service conservatively includes
+Decode preserves each context. Mixed stage execution combines the selected
+queries in one macro estimate with ideal common weight reuse and one set of
+launch/collective costs, rather than summing independent phase estimates.
+Synthetic mixed batches use the independent positive `mixed_ms` parameter,
+apportioned by stage layers. Per-chunk stage service conservatively includes
 the declared output/sampling boundary even for an intermediate prompt chunk
 that emits no Token. Synthetic durations apply per phase batch/chunk.
 TP uses the supported Dense shard plan, local KV replication, Ring AllReduce and
@@ -115,7 +126,11 @@ logits AllGather, without communication overlap or shared-link contention.
 `profile` snapshots a versioned whole-stage lookup and checks identity. Ragged
 shapes require exact observations; homogeneous grid interpolation requires every
 corner. Missing timing does not silently fall back to analytical estimates.
-Explicit extrapolation is flagged. Local collectives are already included in
+Mixed shapes require an exact ordered `request_phases`/query/context/stage
+observation, even if exploratory extrapolation is enabled; there is no mixed
+interpolation, homogeneous timing substitution or phase-sum fallback.
+Workspace queries use that same complete shape. Explicit extrapolation for
+supported homogeneous grids is flagged. Local collectives are already included in
 stage times; PP boundary P2P is separate. See [calibration](calibration.md).
 
 Independent communication observations can fit alpha-beta parameters per
@@ -130,7 +145,7 @@ with replicated per-rank payload; shared fabric contention is not modeled.
 default `True` includes it. Explicit feedback remains separate from stage costs.
 
 `predict` continues to report stage capacity, isolated service time and P2P only.
-It performs no prefix lookup or chunk scheduling. It has no arrival queue, so
+It performs no prefix lookup, chunk scheduling or online mixed batching. It has no arrival queue, so
 online metrics are null with
 `SHAPE_ANALYSIS_HAS_NO_ARRIVALS_OR_QUEUEING`. Use `simulate` for the PP timeline.
 Detailed configuration, lifetimes and ideal bubbles are described in
@@ -160,7 +175,8 @@ linear interpolation; empty/unavailable values remain null.
 Simulation output retains effective inputs, code/input hashes, Profile snapshot
 and provenance, comparison contract, request/event rows and diagnostics. PP adds
 stage activity/bubble and progress reports; swap adds host/DMA state and
-per-request copy counts, bytes and time. Prefix/chunk reports add cache
+per-request copy counts, bytes and time. Mixed Batch events preserve member
+roles, and results distinguish joint execution from homogeneous batches. Prefix/chunk reports add cache
 occupancy/reuse and completed prompt work. Output
 paths are exclusive. A run can execute successfully while requests fail or SLA
 criteria are missed.
@@ -176,9 +192,10 @@ has not actually been supplied.
 
 Profile JSON remains schema version 1. Comparison contracts include the new
 strategy and memory parameters; supported older contracts using the equivalent
-defaults are normalized for comparison. Non-default PP/swap/cache/chunk policies
+defaults are normalized for comparison. Non-default PP/swap/cache/chunk/mixed policies
 and supplied prompt identities must be represented, not silently discarded as
 irrelevant metadata.
 
 See [Prefix Cache and Chunked Prefill](prefix-cache-and-chunking.md) for field
 defaults, cache lifecycle, result fields and examples.
+See [mixed batching](mixed-batching.md) for member-phase and joint-Profile contracts.

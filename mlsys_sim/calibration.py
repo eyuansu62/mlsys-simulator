@@ -33,7 +33,8 @@ def _shape(record: dict[str, Any]) -> str:
     from .profiles import shape_key
 
     return shape_key(record["phase"], record["query_tokens"],
-                     record["context_lengths"], record["stage_index"])
+                     record["context_lengths"], record["stage_index"],
+                     request_phases=record.get("request_phases"))
 
 
 def calibrate_dataset(
@@ -81,7 +82,7 @@ def calibrate_dataset(
             "duration_min_ms": min(durations), "duration_max_ms": max(durations),
             "duration_sample_stdev_ms": float(statistics.stdev(durations)) if len(durations) > 1 else None,
         })
-        samples.append({
+        sample = {
             "phase": representative["phase"],
             "stage_index": representative["stage_index"],
             "query_tokens": list(representative["query_tokens"]),
@@ -89,7 +90,10 @@ def calibrate_dataset(
             "duration_ms": duration,
             "workspace_peak_bytes": max(workspace) if workspace else None,
             "sample_count": len(ordered),
-        })
+        }
+        if representative["phase"] == "mixed":
+            sample["request_phases"] = list(representative["request_phases"])
+        samples.append(sample)
     profile = {
         "schema_version": 1,
         "profile_id": f"{data['dataset_id']}:{profile_version}",
@@ -251,6 +255,7 @@ def validate_holdout(
         try:
             estimate = estimate_profile(fit, record["phase"], record["query_tokens"],
                                         record["context_lengths"], record["stage_index"],
+                                        request_phases=record.get("request_phases"),
                                         allow_extrapolation=allow_extrapolation,
                                         allow_test_fixture=allow_test_fixture)
         except SimulationError as exc:

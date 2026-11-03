@@ -21,8 +21,11 @@ Use a new output directory for each experiment.
 Set `strategy.pipeline_parallel_size` and provide devices in stage-major, then
 TP-rank order. `stage_layers` gives each stage's layer count; its sum must match
 the model. A stage owns one synchronous TP group, its own queue and compute
-resource. Microbatches are homogeneous by phase, while different stages can
-process different microbatches concurrently.
+resource. Microbatches are homogeneous by default. Since 1.3,
+`mixed_batching=true` permits Prefill and Decode in one microbatch when its
+sequence and Token budgets allow; `pipeline_microbatch_size` must be at least
+two for an actual mix. Different stages can process different microbatches
+concurrently. See [mixed batching](mixed-batching.md).
 
 | Strategy field | Default | Meaning |
 | --- | --- | --- |
@@ -78,6 +81,10 @@ when a smaller working set is intended.
 Whole-stage Profile times already include local collectives. PP boundary P2P
 and explicit feedback are separate. Profile queries preserve phase, stage and
 microbatch shape, with the same strict domain rules as other execution paths.
+Mixed shapes additionally preserve the ordered `request_phases` array and
+require exact mixed observations. One mixed service is estimated per stage;
+P2P payload still uses all member queries. Prefill members only sample after
+their final input chunk, while Decode members can commit their next output.
 
 ## Read an ideal timeline
 
@@ -168,6 +175,6 @@ swap conservatively copies all block-aligned request KV, including shared
 blocks; it detaches GPU references on safe D2H completion and restores private
 GPU blocks. Retained GPU cache entries remain subject to idle-block LRU. Partial
 prefill/recompute resumes its remaining input rather than entering Decode early.
-NVMe, multiple replicas, mixed-phase kernels and quantized storage remain
+NVMe, multiple replicas and quantized storage remain
 outside the supported scope. Actual transfer measurements and hardware holdout
 validation remain separate work.

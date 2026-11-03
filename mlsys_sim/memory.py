@@ -7,6 +7,8 @@ checked for every TP rank and pipeline stage before any state is committed.
 
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
+
+from .batching import batch_members
 import hashlib
 
 from .layout import rank_kv_bytes_per_token, rank_weight_bytes, stage_layer_counts
@@ -407,6 +409,8 @@ class MemoryPlanner:
         query_tokens: Sequence[int],
         phase: str,
         alone: bool = False,
+        *,
+        request_phases: Sequence[str] | None = None,
     ) -> MemoryDecision:
         """Check a batch without modifying reservations, allocations, or peaks.
 
@@ -415,13 +419,12 @@ class MemoryPlanner:
         A decrease cannot implicitly evict a live request: call ``release`` at
         a safe execution boundary before rebuilding its KV instead.
         """
-        if phase not in {"prefill", "decode", "recompute"}:
-            raise SimulationError("INVALID_CONFIG", f"unsupported memory phase: {phase}")
         if not isinstance(target_tokens, Mapping):
             raise SimulationError("INVALID_CONFIG", "target_tokens must be a mapping")
         if len(target_tokens) != len(query_tokens):
             raise SimulationError("INVALID_CONFIG", "one query length is required per target request")
         queries = [_integer(value, "query_tokens", 1) for value in query_tokens]
+        batch_members(phase, queries, request_phases)
         targets: dict[str, int] = {}
         for request_id, tokens in target_tokens.items():
             if not isinstance(request_id, str) or not request_id:
@@ -430,6 +433,8 @@ class MemoryPlanner:
             if not alone and tokens < self.allocations.get(request_id, 0):
                 raise SimulationError("INVALID_CONFIG", "KV targets cannot shrink a live allocation")
 
+        if any(query > target for query, target in zip(queries, targets.values())):
+            raise SimulationError("INVALID_CONFIG", "A KV target must include its query tokens")
         projected = {} if alone else dict(self.allocations)
         projected.update(targets)
         used_before = self._used_blocks(self.allocations)
@@ -442,8 +447,13 @@ class MemoryPlanner:
             workspace_source = "analytical_assumption"
             if self._profile_model is not None and queries:
                 contexts = [target - query for target, query in zip(targets.values(), queries)]
-                observed_workspace = self._profile_model.workspace_bytes(
-                    queries, phase, rank.stage_index, context_lengths=contexts)
+                if phase == "mixed":
+                    observed_workspace = self._profile_model.workspace_bytes(
+                        queries, phase, rank.stage_index, context_lengths=contexts,
+                        request_phases=request_phases)
+                else:
+                    observed_workspace = self._profile_model.workspace_bytes(
+                        queries, phase, rank.stage_index, context_lengths=contexts)
                 if observed_workspace is not None:
                     rank_workspace = observed_workspace
                     workspace_source = "profile"
@@ -474,6 +484,8 @@ class MemoryPlanner:
             "workspace_bytes": max((rank["workspace_bytes"] for rank in ranks), default=workspace),
             "ranks": ranks,
         }
+        if phase == "mixed":
+            details["request_phases"] = list(request_phases or ())
         if any(not rank["physical_ok"] for rank in ranks):
             return MemoryDecision(False, "WORKSPACE_BUDGET_EXCEEDED", details)
         if any(not rank["logical_ok"] for rank in ranks):
@@ -485,9 +497,11 @@ class MemoryPlanner:
         target_tokens: Mapping[str, int],
         query_tokens: Sequence[int],
         phase: str,
+        *,
+        request_phases: Sequence[str] | None = None,
     ) -> MemoryDecision:
         """Commit a reservation only after every participating rank passes."""
-        decision = self.check(target_tokens, query_tokens, phase)
+        decision = self.check(target_tokens, query_tokens, phase, request_phases=request_phases)
         if decision.ok:
             self._evict_prefix_blocks(decision.details["cache_eviction_blocks"])
             self.allocations.update(target_tokens)

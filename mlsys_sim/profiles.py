@@ -17,6 +17,7 @@ from pathlib import Path
 import re
 from typing import Any, TYPE_CHECKING
 
+from .batching import batch_members
 from .layout import stage_layer_counts
 from .schema import Experiment, SimulationError, StepEstimate
 
@@ -197,37 +198,44 @@ def _source(value: Any, allow_test_fixture: bool) -> dict:
     return dict(source)
 
 
-def _shape(phase: Any, query_tokens: Any, context_lengths: Any, stage_index: Any) -> tuple:
-    if phase not in ("prefill", "decode", "recompute"):
-        _invalid("phase must be prefill, decode or recompute")
+def _shape(phase: Any, query_tokens: Any, context_lengths: Any, stage_index: Any,
+           request_phases: Any = None) -> tuple:
     stage = _integer(stage_index, "stage_index")
     if (not isinstance(query_tokens, (list, tuple)) or not query_tokens
             or not isinstance(context_lengths, (list, tuple)) or len(query_tokens) != len(context_lengths)):
         _invalid("query_tokens/context_lengths must be nonempty arrays of equal length")
     queries = tuple(_integer(value, "query_tokens[]", 1) for value in query_tokens)
     contexts = tuple(_integer(value, "context_lengths[]") for value in context_lengths)
-    if phase == "decode" and any(value != 1 for value in queries):
-        _invalid("decode queries must each contain one token")
-    return phase, stage, queries, contexts
+    members = batch_members(phase, queries, request_phases, error_code="INVALID_PROFILE")
+    return phase, stage, queries, contexts, members
 
 
 def shape_key(phase: str, query_tokens: Sequence[int], context_lengths: Sequence[int],
-              stage_index: int = 0) -> str:
-    phase, stage, queries, contexts = _shape(phase, query_tokens, context_lengths, stage_index)
-    return json.dumps([phase, stage, list(queries), list(contexts)], separators=(",", ":"))
+              stage_index: int = 0, *, request_phases: Sequence[str] | None = None) -> str:
+    phase, stage, queries, contexts, members = _shape(
+        phase, query_tokens, context_lengths, stage_index, request_phases)
+    key = [phase, stage, list(queries), list(contexts)]
+    if phase == "mixed":
+        key.append(list(members))
+    return json.dumps(key, separators=(",", ":"))
 
 
 def _observation(value: Any, *, profile: bool, stage_count: int) -> dict:
     required = {"phase", "stage_index", "query_tokens", "context_lengths", "duration_ms"}
     required |= {"sample_count"} if profile else {"record_id", "group_id"}
-    row = _object(value, required, {"workspace_peak_bytes"}, "sample" if profile else "record")
-    phase, stage, queries, contexts = _shape(row["phase"], row["query_tokens"],
-                                            row["context_lengths"], row["stage_index"])
+    row = _object(value, required, {"workspace_peak_bytes", "request_phases"}, "sample" if profile else "record")
+    if row["phase"] != "mixed" and "request_phases" in row:
+        _invalid("request_phases metadata is only valid for mixed observations")
+    phase, stage, queries, contexts, members = _shape(
+        row["phase"], row["query_tokens"], row["context_lengths"],
+        row["stage_index"], row.get("request_phases"))
     if stage >= stage_count:
         _invalid("Observation stage_index exceeds the identity pipeline stage count")
     result: dict[str, Any] = {"phase": phase, "stage_index": stage, "query_tokens": list(queries),
               "context_lengths": list(contexts), "duration_ms": _number(row["duration_ms"], "duration_ms"),
               "workspace_peak_bytes": None}
+    if phase == "mixed":
+        result["request_phases"] = list(members)
     workspace = row.get("workspace_peak_bytes")
     if workspace is not None:
         result["workspace_peak_bytes"] = _integer(workspace, "workspace_peak_bytes")
@@ -286,7 +294,8 @@ def validate_profile(data: dict, *, allow_test_fixture: bool = False) -> dict:
     samples = [_observation(row, profile=True,
                             stage_count=identity["parallelism"]["pipeline_parallel_size"])
                for row in value["samples"]]
-    keys = [shape_key(row["phase"], row["query_tokens"], row["context_lengths"], row["stage_index"])
+    keys = [shape_key(row["phase"], row["query_tokens"], row["context_lengths"], row["stage_index"],
+                      request_phases=row.get("request_phases"))
             for row in samples]
     if len(set(keys)) != len(keys):
         _invalid("Duplicate profile sample shape; aggregate repeated measurements first")
@@ -375,14 +384,17 @@ def _axis_weights(value: int, axis: list[int], allow_extrapolation: bool) -> tup
 
 def estimate_profile(profile: dict, phase: str, query_tokens: Sequence[int],
                      context_lengths: Sequence[int], stage_index: int = 0, *,
+                     request_phases: Sequence[str] | None = None,
                      allow_extrapolation: bool = False, allow_test_fixture: bool = False) -> StepEstimate:
-    """Lookup or interpolate only a complete homogeneous grid cell."""
+    """Lookup mixed shapes exactly; interpolate only homogeneous phase grids."""
     if type(allow_extrapolation) is not bool:
         _invalid("allow_extrapolation must be a boolean")
     profile = validate_profile(profile, allow_test_fixture=allow_test_fixture)
-    key = shape_key(phase, query_tokens, context_lengths, stage_index)
+    key = shape_key(phase, query_tokens, context_lengths, stage_index,
+                    request_phases=request_phases)
     samples = [row for row in profile["samples"] if row["phase"] == phase and row["stage_index"] == stage_index]
-    indexed = {shape_key(row["phase"], row["query_tokens"], row["context_lengths"], stage_index): row
+    indexed = {shape_key(row["phase"], row["query_tokens"], row["context_lengths"], stage_index,
+                         request_phases=row.get("request_phases")): row
                for row in samples}
     exact = indexed.get(key)
     extrapolated = False
@@ -390,6 +402,9 @@ def estimate_profile(profile: dict, phase: str, query_tokens: Sequence[int],
         duration, workspace, contributors = exact["duration_ms"], exact["workspace_peak_bytes"], [key]
         method = "exact"
     else:
+        if phase == "mixed":
+            raise SimulationError("OUT_OF_CALIBRATION_DOMAIN",
+                                  "Mixed batches require an exact query/context/ordered-phase stage sample")
         coordinate = _coordinate({"query_tokens": query_tokens, "context_lengths": context_lengths})
         grid = {point: row for row in samples if (point := _coordinate(row)) is not None}
         if coordinate is None or not grid:
@@ -470,20 +485,26 @@ class ProfileModel:
         return deepcopy(self._profile)
 
     def estimate_step(self, phase: str, query_tokens: Sequence[int], context_lengths: Sequence[int],
-                      stage_index: int = 0) -> StepEstimate:
+                      stage_index: int = 0, *, request_phases: Sequence[str] | None = None) -> StepEstimate:
         result = estimate_profile(self._profile, phase, query_tokens, context_lengths, stage_index,
+                                  request_phases=request_phases,
                                   allow_extrapolation=self.experiment.calibration.allow_extrapolation,
                                   allow_test_fixture=self.experiment.calibration.allow_test_fixture)
         self.provenance["extrapolation_used"] |= result.breakdown["profile"]["extrapolated"]
         return result
 
     def workspace_bytes(self, query_tokens: Sequence[int], phase: str, stage_index: int = 0,
-                        context_lengths: Sequence[int] | None = None) -> int | None:
+                        context_lengths: Sequence[int] | None = None, *,
+                        request_phases: Sequence[str] | None = None) -> int | None:
+        batch_members(phase, query_tokens, request_phases, error_code="INVALID_PROFILE")
         if context_lengths is None:
+            if phase == "mixed":
+                raise SimulationError("INVALID_CONFIG", "Mixed workspace requires explicit context_lengths")
             if phase == "decode":
                 return None
             context_lengths = [0] * len(query_tokens)
         result = estimate_profile(self._profile, phase, query_tokens, context_lengths, stage_index,
+                                  request_phases=request_phases,
                                   allow_extrapolation=self.experiment.calibration.allow_extrapolation,
                                   allow_test_fixture=self.experiment.calibration.allow_test_fixture)
         return result.breakdown["profile"]["workspace_peak_bytes"]

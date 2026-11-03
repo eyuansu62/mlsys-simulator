@@ -93,9 +93,11 @@ def report_simulation(sim: Any) -> SimulationResult:
                               else "test_fixture_profile")
         profile_version = profile["profile_version"]
     limitations = list(getattr(sim, "limitations", [
-        "single replica; homogeneous phase batches; no mixed prefill/decode kernel",
+        ("single replica; joint prefill/decode service model" if sim.exp.strategy.mixed_batching
+         else "single replica; homogeneous phase batches"),
         "fixed KV pool; allocator fragmentation is not simulated",
-        ("decode-first scheduling with bounded prefill chunks" if sim.exp.strategy.chunked_prefill
+        ("decode-first scheduling with mixed serving batches" if sim.exp.strategy.mixed_batching else
+         "decode-first scheduling with bounded prefill chunks" if sim.exp.strategy.chunked_prefill
          else "prefill-first admission; pressure drains active requests before recovery"),
     ]))
     limitations.insert(0, "profile-backed CPU model; hardware holdout validation is separate"
@@ -151,7 +153,19 @@ def report_simulation(sim: Any) -> SimulationResult:
             "completed_chunks": sum(row["prefill_chunks"] for row in rows),
             "computed_tokens": sum(row["prefill_computed_tokens"] for row in rows),
             "reused_prefix_tokens": sum(row["prefix_cached_tokens"] for row in rows),
-            "batch_policy": "homogeneous_phase_batches",
+            "batch_policy": ("decode_first_mixed_batches" if sim.exp.strategy.mixed_batching
+                             else "homogeneous_phase_batches"),
+        },
+        "batching": {
+            "mixed_batching": sim.exp.strategy.mixed_batching,
+            "mixed_batches_admitted": getattr(sim, "mixed_batch_count", 0),
+            "mixed_batches_completed": getattr(sim, "mixed_batch_completed_count", 0),
+            "mixed_compute_busy_ms": getattr(sim, "mixed_compute_busy_ms", 0.0),
+            "compute_busy_ms_semantics": ("aggregate_stage_time" if
+                sim.exp.strategy.pipeline_parallel_size > 1 else "single_group_time"),
+            "policy": ("decode_first_then_prefill_with_remaining_budget" if
+                       sim.exp.strategy.mixed_batching else "homogeneous_phase_batches"),
+            "recompute_policy": "homogeneous_recovery_batches",
         },
         "memory": sim.memory.snapshot(),
         "measurement_contract": {

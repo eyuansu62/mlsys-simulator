@@ -4,6 +4,7 @@ from collections.abc import Sequence
 import math
 from typing import Any
 
+from .batching import batch_members
 from .config import validate_experiment
 from .layout import layer_parameters, local_kv_heads, stage_layer_counts
 from .schema import Experiment, SimulationError, StepEstimate
@@ -53,12 +54,12 @@ class AnalyticalModel:
         query_tokens: Sequence[int],
         context_lengths: Sequence[int],
         stage_index: int = 0,
+        *,
+        request_phases: Sequence[str] | None = None,
     ) -> StepEstimate:
         exp = self.experiment
         strategy, profile, infra = exp.strategy, exp.calibration, exp.infra
         model, tp = strategy.model, strategy.tensor_parallel_size
-        if phase not in ("prefill", "decode", "recompute"):
-            raise SimulationError("INVALID_CONFIG", f"invalid phase {phase!r}")
         queries, contexts = tuple(query_tokens), tuple(context_lengths)
         if not queries or len(queries) != len(contexts):
             raise SimulationError("INVALID_CONFIG", "query/context arrays must be nonempty and equal length")
@@ -66,8 +67,7 @@ class AnalyticalModel:
             raise SimulationError("INVALID_CONFIG", "query lengths must be positive integers")
         if any(type(c) is not int or c < 0 for c in contexts):
             raise SimulationError("INVALID_CONFIG", "context lengths must be nonnegative integers")
-        if phase == "decode" and any(q != 1 for q in queries):
-            raise SimulationError("INVALID_CONFIG", "decode must process one query per sequence")
+        members = batch_members(phase, queries, request_phases)
         counts = stage_layer_counts(exp)
         if type(stage_index) is not int or not 0 <= stage_index < len(counts):
             raise SimulationError("INVALID_CONFIG", "invalid stage index")
@@ -94,7 +94,7 @@ class AnalyticalModel:
                     "overhead_ms": overhead_ms,
                     "duration_ms": max(compute_ms, memory_ms) + overhead_ms}
 
-        # Ideal weight reuse across all queries in this phase batch.
+        # One joint batch reuses weights across both serving phases when mixed.
         linear_flops = 2 * layers * local_params["linear"] * tokens
         linear_bytes = (layers * local_params["linear"] * model.weight_bytes
                         + 4 * layers * tokens * model.hidden_size * model.activation_bytes)
@@ -138,6 +138,9 @@ class AnalyticalModel:
                                        "logits_allgather_ms": logits_gather_ms},
                      "framework": {"duration_ms": framework_ms}}
         duration = sum(part["duration_ms"] for part in breakdown.values())
+        if phase == "mixed":
+            breakdown["batch"] = {"phase": phase, "request_phases": list(members),
+                                  "shared_macro_execution": True}
         _finite(duration, "performance estimate")
         return StepEstimate(duration, breakdown, "analytical_uncalibrated", (
             "Uncalibrated effective compute/bandwidth and serialized macro operations.",

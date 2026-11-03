@@ -9,6 +9,7 @@ import heapq
 import math
 from typing import TYPE_CHECKING
 
+from .batching import batch_members, batch_phase
 from .config import validate_experiment
 from .memory import MemoryPlanner
 from .reporting import report_simulation
@@ -25,6 +26,7 @@ class _Step:
     targets: dict[str, int]
     start_ms: float
     duration_ms: float
+    request_phases: tuple[str, ...] = ()
 
 class _Simulation:
     def __init__(self, experiment: Experiment):
@@ -61,6 +63,9 @@ class _Simulation:
         self.stop_reason: str | None = None
         self.recompute_execution_ms = 0.0
         self.compute_busy_ms = 0.0
+        self.mixed_batch_count = 0
+        self.mixed_batch_completed_count = 0
+        self.mixed_compute_busy_ms = 0.0
         self.cutoff_ms = experiment.execution.max_simulated_ms
         self.cutoff_reason = "SIMULATION_TIME_LIMIT"
         window = experiment.evaluation.measurement_window_ms
@@ -136,21 +141,26 @@ class _Simulation:
         self.compute_busy_ms += step.duration_ms
         if step.phase == "recompute":
             self.recompute_execution_ms += step.duration_ms
+        if step.phase == "mixed":
+            self.mixed_batch_completed_count += 1
+            self.mixed_compute_busy_ms += step.duration_ms
         self._log("STEP_COMPLETE", phase=step.phase,
-                  request_ids=[request.request_id for request in step.requests])
-        for request, query in zip(step.requests, step.queries):
+                  request_ids=[request.request_id for request in step.requests],
+                  **({"request_phases": list(step.request_phases)} if step.phase == "mixed" else {}))
+        members = step.request_phases or (step.phase,) * len(step.requests)
+        for request, query, member in zip(step.requests, step.queries, members):
             if request.status in TERMINAL:
                 # A timed-out in-flight request stays pinned until this boundary.
                 self.memory.release(request.request_id)
                 self._log("DEFERRED_KV_RELEASE", request_id=request.request_id)
                 continue
             request.computed = step.targets[request.request_id]
-            if self.exp.strategy.prefix_cache and step.phase in {"prefill", "recompute"}:
+            if self.exp.strategy.prefix_cache and member in {"prefill", "recompute"}:
                 published = self.memory.publish_prefix(request.request_id, request.computed)
                 self._log("PREFIX_CACHE_PUBLISH", request_id=request.request_id,
-                          phase=step.phase, published_blocks=published,
+                          phase=member, published_blocks=published,
                           computed_tokens=request.computed)
-            if step.phase == "recompute":
+            if member == "recompute":
                 request.recomputed_tokens += query
                 request.recompute_ms += step.duration_ms
                 if request.computed < request.recompute_target:
@@ -158,7 +168,7 @@ class _Simulation:
                 else:
                     request.recompute_target = 0
                     request.status = self._continuation_status(request)
-            elif step.phase == "prefill":
+            elif member == "prefill":
                 request.prefill_chunks += 1
                 request.prefill_computed_tokens += query
                 request.status = self._continuation_status(request)
@@ -220,30 +230,35 @@ class _Simulation:
         return sorted(candidates, key=self._serving_key)
 
     def _start(self, phase: str, chosen: list[_Request], queries: list[int],
-               targets: dict[str, int]) -> bool:
+               targets: dict[str, int], request_phases: tuple[str, ...] | None = None) -> bool:
+        members = batch_members(phase, queries, request_phases)
         contexts = [targets[request.request_id] - query for request, query in zip(chosen, queries)]
-        estimate = self.performance.estimate_step(phase, queries, contexts)
+        estimate = self.performance.estimate_step(phase, queries, contexts,
+                                                   request_phases=request_phases)
         if not math.isfinite(estimate.duration_ms) or estimate.duration_ms <= 0:
             raise SimulationError("INVALID_PERFORMANCE_ESTIMATE", "A step duration must be finite and positive.")
         completion_time = self.now + estimate.duration_ms
         if not math.isfinite(completion_time) or completion_time <= self.now:
             raise SimulationError("INVALID_PERFORMANCE_ESTIMATE",
                                   "A step must advance representable finite virtual time.")
-        decision = self.memory.reserve(targets, queries, phase)
+        decision = self.memory.reserve(targets, queries, phase, request_phases=request_phases)
         if not decision.ok:
             raise SimulationError("RESOURCE_STATE_CHANGED", "Atomic reservation changed after scheduling checks.")
-        for request in chosen:
+        for request, member in zip(chosen, members):
             self._end_memory_wait(request)
             request.status = {"prefill": "PREFILL", "decode": "DECODING",
-                              "recompute": "RECOMPUTING"}[phase]
-        step = _Step(phase, chosen, queries, targets, self.now, estimate.duration_ms)
+                              "recompute": "RECOMPUTING"}[member]
+        step = _Step(phase, chosen, queries, targets, self.now, estimate.duration_ms, members)
         self.busy = step
+        if phase == "mixed":
+            self.mixed_batch_count += 1
         self._log("STEP_START", phase=phase,
                   request_ids=[request.request_id for request in chosen],
                   query_tokens=queries, context_lengths=contexts,
                   duration_ms=estimate.duration_ms, breakdown=estimate.breakdown,
                   source=estimate.source, assumptions=estimate.assumptions,
-                  memory=self.memory.snapshot())
+                  memory=self.memory.snapshot(),
+                  **({"request_phases": list(members)} if phase == "mixed" else {}))
         self._push(completion_time, 0, "STEP_COMPLETE", step)
         return True
 
@@ -463,6 +478,9 @@ class _Simulation:
                 return
 
     def _schedule_batch(self) -> None:
+        if self.exp.strategy.mixed_batching:
+            self._schedule_mixed()
+            return
         if self.exp.strategy.chunked_prefill:
             self._schedule_chunked()
             return
@@ -572,6 +590,131 @@ class _Simulation:
                 self.stop_reason = "MEMORY_NO_PROGRESS"
             return
 
+    def _choose_mixed(self) -> tuple[list[_Request], list[int], dict[str, int], tuple[str, ...]]:
+        """Build a decode-first batch, then check its actual joint Workspace.
+
+        Logical KV checks do not invent homogeneous Profile queries for members
+        that will execute in one mixed stage. A failed admission never retains a
+        provisional cache hit. Resource pressure may trim the last member, but
+        missing timing/Profile evidence propagates without a timing fallback.
+        """
+        strategy = self.exp.strategy
+        chosen: list[_Request] = []
+        queries: list[int] = []
+        targets: dict[str, int] = {}
+        phases: list[str] = []
+        candidates = [(request, "decode") for request in self._ready("DECODING")]
+        candidates.extend((request, "prefill") for request in self._ready("PREFILLING"))
+        if not self.draining:
+            candidates.extend((request, "prefill") for request in self._ready("WAITING"))
+        for request, member in candidates:
+            available = strategy.max_batch_tokens - sum(queries)
+            if len(chosen) >= strategy.max_batch_size or available <= 0:
+                break
+            if member == "prefill" and request.status == "WAITING":
+                self._prefix_lookup(request)
+            query, target = self._iteration(request, member, available)
+            if query <= 0:
+                self._abandon_prefix(request)
+                continue
+            if query > strategy.max_batch_tokens:
+                self._abandon_prefix(request)
+                self._finish(request, "FAILED", "BATCH_TOKEN_LIMIT_EXCEEDED")
+                continue
+            required = request.input_tokens if member == "prefill" else target
+            alone = self.memory.check_kv({request.request_id: required}, alone=True)
+            if not alone.ok:
+                self._abandon_prefix(request)
+                self._finish(request, "FAILED", alone.code)
+                continue
+            if query > available:
+                self._abandon_prefix(request)
+                continue
+            trial_targets = {**targets, request.request_id: target}
+            decision = self.memory.check_kv(trial_targets)
+            if not decision.ok:
+                self._abandon_prefix(request)
+                self._blocked(request, decision.code)
+                continue
+            chosen.append(request)
+            queries.append(query)
+            targets = trial_targets
+            phases.append(member)
+
+        while chosen:
+            phase = batch_phase(phases)
+            request_phases = tuple(phases) if phase == "mixed" else None
+            decision = self.memory.check(targets, queries, phase, request_phases=request_phases)
+            if decision.ok:
+                return chosen, queries, targets, tuple(phases)
+            request = chosen[-1]
+            if len(chosen) == 1:
+                alone = self.memory.check(targets, queries, phase, alone=True,
+                                           request_phases=request_phases)
+                if not alone.ok:
+                    self._abandon_prefix(request)
+                    self._finish(request, "FAILED", alone.code)
+                else:
+                    self._abandon_prefix(request)
+                    self._blocked(request, decision.code)
+            else:
+                self._abandon_prefix(request)
+                self._blocked(request, decision.code)
+            targets.pop(request.request_id)
+            chosen.pop()
+            queries.pop()
+            phases.pop()
+        return [], [], {}, ()
+
+    def _schedule_mixed(self) -> None:
+        """Give decode the first slots and use remaining budget for prompt work."""
+        while self.busy is None and self.swap_busy is None:
+            before = sum(request.status in TERMINAL for request in self.requests.values())
+            chosen, queries, targets, phases = self._choose_mixed()
+            if chosen:
+                phase = batch_phase(phases)
+                self._start(phase, chosen, queries, targets, phases if phase == "mixed" else None)
+                return
+            # Recovery remains homogeneous and owns its existing drain turn.
+            recovering = [request for request in self._ready("WAITING_RECOMPUTE")
+                          if request.computed > 0]
+            chosen, queries, targets = self._choose(recovering, "recompute")
+            if chosen:
+                self._start("recompute", chosen, queries, targets)
+                return
+            residents = [request for request in self.requests.values()
+                         if request.status not in TERMINAL and request.request_id in self.memory.allocations]
+            if not residents:
+                if self._restore_swap():
+                    return
+                chosen, queries, targets = self._choose(self._ready("WAITING_RECOMPUTE"),
+                                                        "recompute", single=True)
+                if chosen:
+                    self.draining = True
+                    self._start("recompute", chosen, queries, targets)
+                    return
+                if self.draining:
+                    self.draining = False
+                    continue
+            if sum(request.status in TERMINAL for request in self.requests.values()) > before:
+                continue
+            residents = [request for request in self.requests.values()
+                         if request.status not in TERMINAL and request.request_id in self.memory.allocations]
+            if residents:
+                if self.exp.strategy.preemption == "none":
+                    self.stop_reason = "MEMORY_NO_PROGRESS"
+                    return
+                if self.exp.strategy.preemption == "swap":
+                    self._swap_victim(residents)
+                    if self.swap_busy is not None or self.stop_reason is not None:
+                        return
+                else:
+                    self._preempt(min(residents, key=self._victim_key))
+                continue
+            if any(request.status not in TERMINAL | {"CREATED"} for request in self.requests.values()):
+                self.stop_reason = "MEMORY_NO_PROGRESS"
+            return
+
     def run(self) -> SimulationResult:
         while self.queue:
             when = self.queue[0][0]
@@ -616,13 +759,17 @@ class _Simulation:
             # executed work without committing its unfinished token/KV state.
             elapsed = max(0.0, min(self.now - self.busy.start_ms, self.busy.duration_ms))
             self.compute_busy_ms += elapsed
+            if self.busy.phase == "mixed":
+                self.mixed_compute_busy_ms += elapsed
             if self.busy.phase == "recompute":
                 self.recompute_execution_ms += elapsed
                 for request in self.busy.requests:
                     request.recompute_ms += elapsed
             self._log("STEP_INTERRUPTED", phase=self.busy.phase,
                       request_ids=[request.request_id for request in self.busy.requests],
-                      elapsed_ms=elapsed, error_code=self.stop_reason)
+                      elapsed_ms=elapsed, error_code=self.stop_reason,
+                      **({"request_phases": list(self.busy.request_phases)}
+                         if self.busy.phase == "mixed" else {}))
         if self.swap_busy is not None:
             transfer = self.swap_busy
             elapsed = max(0.0, min(self.now, transfer.end_ms) - transfer.start_ms)
@@ -681,6 +828,7 @@ def simulate(experiment: Experiment) -> SimulationResult:
             "profile_provenance": run.result["profile_provenance"],
             "pipeline": run.result.get("pipeline"),
             "swap": run.result.get("swap"),
+            "batching": run.result.get("batching"),
         })
     measured = _run_timeline(experiment)
     measured.result["warmup"] = warmup_summary

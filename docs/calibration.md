@@ -44,11 +44,33 @@ A JSON dataset has these fields:
 Each observation contains `record_id`, `group_id`, `phase`, `stage_index`,
 `query_tokens`, `context_lengths` and positive finite `duration_ms`.
 `workspace_peak_bytes` is an optional nonnegative integer, or `null` when not
-observed. Record IDs are unique. Phases are `prefill`, `decode` and `recompute`;
+observed. Record IDs are unique. Phases are `prefill`, `decode`, `recompute` and `mixed`;
 arrays preserve every sequence shape. Decode queries are one Token each.
 Prefill/recompute context is the number of KV positions already present before
 the query, including a cached prefix or earlier chunks. A complete uncached
 prompt starts at zero; later chunks need their actual nonzero context.
+
+Mixed observations additionally require `request_phases`, with one ordered
+`prefill` or `decode` entry per query and both roles present. Every Decode query
+is one Token; a one-Token Prefill retains its explicit role. Homogeneous records
+omit `request_phases`. For example, a record in a valid fixture dataset can be:
+
+```json
+{
+  "record_id": "mixed-1",
+  "group_id": "mixed-shape-a",
+  "phase": "mixed",
+  "stage_index": 0,
+  "request_phases": ["decode", "prefill"],
+  "query_tokens": [1, 4],
+  "context_lengths": [32, 8],
+  "duration_ms": 2.5,
+  "workspace_peak_bytes": 4096
+}
+```
+
+The enclosing dataset still needs full identity and explicit source provenance.
+This illustrative record is not a measurement.
 
 Use a group ID for observations that must stay together during validation.
 Repeated exact shapes are connected even when their group IDs differ, preventing
@@ -85,6 +107,14 @@ Exact matches include phase, stage and the complete query/context arrays.
 Ragged batches require an exact match; equal total Tokens or average context
 length is not a substitute.
 
+Mixed lookup also matches the complete ordered member-phase array. It is
+exact-only: no interpolation or extrapolation, and no substitution from
+homogeneous Prefill/Decode records. This remains true when
+`allow_extrapolation=true`. Mixed samples retain `request_phases` during fitting,
+and shape provenance/holdout leakage checks include those roles. The legacy
+homogeneous shape key remains unchanged; mixed keys append a fifth role-array
+element under schema version `1`.
+
 Otherwise, a homogeneous Batch may interpolate on `(batch size, query Tokens
 per sequence, context Tokens per sequence)` for a fixed phase and stage. Every
 required corner of the surrounding grid cell must exist. There is no
@@ -110,6 +140,13 @@ an unsupported context fails instead of silently using a zero-context record.
 Analytical chunk estimates use the same conservative output-cost convention;
 synthetic durations are fixed per phase batch/chunk. See
 [Prefix Cache and chunking](prefix-cache-and-chunking.md).
+
+Mixed batches use a single whole-stage timing/Workspace observation for the
+joint shape, including local collectives. An analytical mixed estimate assumes
+common weight reuse and one set of macro launches/collectives. Synthetic mixed
+service uses independent `calibration.mixed_ms`, rather than adding or taking
+the maximum of the pure-phase settings. These are declared model policies;
+collect matching mixed records to calibrate a particular Runtime.
 
 ## Workspace and provenance
 

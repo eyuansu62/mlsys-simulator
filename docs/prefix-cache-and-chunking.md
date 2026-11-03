@@ -100,8 +100,10 @@ latest sampled Token is processed by the next Decode, as in unchunked serving.
 
 With continuous batching, enabling chunking gives ready Decode work priority
 at scheduling boundaries, then continues or admits prompt work. Batches and PP
-microbatches remain homogeneous by phase. This implements interleaving through
-separate batches, rather than a mixed prefill/decode kernel. FIFO continues to
+microbatches remain homogeneous by default. Since 1.3, the independent
+`mixed_batching=true` policy packs Decode and Prefill into the same stage
+execution while preserving member roles and shared budgets. See
+[mixed batching](mixed-batching.md) for its exact Profile contract. FIFO continues to
 hold its owner until completion, even when that owner's prompt is chunked.
 
 Recomputation can also be chunked. It rebuilds previously computed KV progress
@@ -170,7 +172,7 @@ or chunking assumptions cannot silently compare as the same experiment.
 The high-level mechanisms are also described by the primary
 [vLLM Prefix Cache documentation](https://docs.vllm.ai/en/latest/features/automatic_prefix_caching/)
 and [chunked-prefill tuning documentation](https://docs.vllm.ai/en/latest/configuration/optimization/).
-The ownership, homogeneous-batch scheduling, timing and no-overlap rules above
+The ownership, scheduling, timing and no-overlap rules above
 are this simulator's declared policies, not a claim of Runtime equivalence.
 There is no supplied hardware validation of cache overhead, chunk latency or
 the resulting throughput/SLA predictions.

@@ -11,6 +11,7 @@ import heapq
 import math
 from typing import Any
 
+from .batching import batch_members, batch_phase
 from .config import validate_experiment
 from .memory import MemoryPlanner
 from .profiles import create_performance_model
@@ -28,6 +29,7 @@ class _Wave:
     contexts: tuple[int, ...]
     targets: dict[str, int]
     estimates: tuple[StepEstimate, ...]
+    request_phases: tuple[str, ...]
 
 
 @dataclass(frozen=True)
@@ -88,6 +90,9 @@ class PipelineSimulation:
         self.fifo_owner: str | None = None
         self.compute_busy_ms = 0.0
         self.recompute_execution_ms = 0.0
+        self.mixed_batch_count = 0
+        self.mixed_batch_completed_count = 0
+        self.mixed_compute_busy_ms = 0.0
         self.feedback_delay_ms = experiment.strategy.pipeline_feedback_latency_us / 1000
         if (not math.isfinite(self.feedback_delay_ms)
                 or (experiment.strategy.pipeline_feedback_latency_us > 0 and self.feedback_delay_ms <= 0)):
@@ -99,7 +104,9 @@ class PipelineSimulation:
             self.swap = HostSwapManager(experiment, self.memory)
         self.limitations = [
             "one replica; stage groups and paired TP links are independently serialized",
-            "homogeneous phase microbatches; chunked prefill does not mix decode in one kernel",
+            ("decode-first mixed prefill/decode microbatches; recomputation stays homogeneous"
+             if experiment.strategy.mixed_batching else
+             "homogeneous phase microbatches; enable mixed_batching to combine prefill and decode"),
             "prefix sharing requires explicit token identities; no shared-link contention",
             "all-stage KV reservation and persistent activation-buffer bounds are conservative",
             "pressure recovery quiesces waves; DMA and GPU execution do not overlap",
@@ -286,30 +293,117 @@ class PipelineSimulation:
             targets = trial
         return chosen, queries, targets
 
-    def _admit(self, phase: str, chosen: list[RequestState], queries: list[int], targets: dict) -> None:
+    def _choose_serving(self, active: list[RequestState], partial: list[RequestState],
+                        fresh: list[RequestState]) -> tuple[list[RequestState], list[int], dict, list[str]]:
+        """Assemble one real batch before querying its joint Workspace/Profile.
+
+        Decode owns the first sequence and token slots. Logical KV checks keep
+        candidate selection independent of any unexecuted homogeneous timing
+        shape. Only the actual selected role vector queries compute Workspace.
+        """
+        strategy = self.exp.strategy
+        maximum = min(strategy.max_batch_size, strategy.pipeline_microbatch_size)
+        chosen: list[RequestState] = []
+        queries: list[int] = []
+        targets: dict[str, int] = {}
+        members: list[str] = []
+        candidates = [(request, "decode") for request in active]
+        candidates += [(request, "prefill") for request in partial]
+        if not self.draining:
+            candidates += [(request, "prefill") for request in fresh]
+        for request, member in candidates:
+            if request.status in TERMINAL or request.request_id in targets:
+                continue
+            available = strategy.max_batch_tokens - sum(queries)
+            if len(chosen) >= maximum or available <= 0:
+                break
+            if member == "prefill" and request.status == "WAITING":
+                self._lookup_prefix(request)
+            query, target = self._iteration(request, member, available)
+            if query > strategy.max_batch_tokens:
+                self._abandon_prefix(request)
+                self._finish(request, "FAILED", "BATCH_TOKEN_LIMIT_EXCEEDED")
+                continue
+            if query <= 0 or query > available:
+                self._abandon_prefix(request)
+                continue
+            required = request.input_tokens if member == "prefill" else target
+            alone = self.memory.check_kv({request.request_id: required}, alone=True)
+            if not alone.ok:
+                self._abandon_prefix(request)
+                self._finish(request, "FAILED", alone.code)
+                continue
+            trial = {**targets, request.request_id: target}
+            decision = self.memory.check_kv(trial)
+            if not decision.ok:
+                self._abandon_prefix(request)
+                self._blocked(request, decision.code)
+                continue
+            chosen.append(request)
+            queries.append(query)
+            targets = trial
+            members.append(member)
+        while chosen:
+            phase = batch_phase(members)
+            roles = members if phase == "mixed" else None
+            decision = self.memory.check(targets, queries, phase, request_phases=roles)
+            if decision.ok:
+                return chosen, queries, targets, members
+            # Resource pressure can reduce a real proposed batch; timing-domain
+            # errors are exceptions and must never trigger a pure-phase fallback.
+            request = chosen[-1]
+            if len(chosen) == 1:
+                alone = self.memory.check(targets, queries, phase, alone=True,
+                                          request_phases=roles)
+                self._abandon_prefix(request)
+                if not alone.ok:
+                    self._finish(request, "FAILED", alone.code)
+                else:
+                    self._blocked(request, decision.code)
+            else:
+                self._abandon_prefix(request)
+                self._blocked(request, decision.code)
+            targets.pop(request.request_id)
+            chosen.pop()
+            queries.pop()
+            members.pop()
+        return [], [], {}, []
+
+    @staticmethod
+    def _member_metadata(wave: _Wave) -> dict:
+        return {"request_phases": list(wave.request_phases)} if wave.phase == "mixed" else {}
+
+    def _admit(self, phase: str, chosen: list[RequestState], queries: list[int], targets: dict,
+               request_phases: list[str] | None = None) -> None:
+        members = batch_members(phase, queries, request_phases)
         contexts = tuple(targets[r.request_id] - query for r, query in zip(chosen, queries))
-        estimates = tuple(self.performance.estimate_step(phase, queries, contexts, stage)
+        estimates = tuple(self.performance.estimate_step(phase, queries, contexts, stage,
+                          request_phases=members if phase == "mixed" else None)
                           for stage in range(self.pp))
         for estimate in estimates:
             if not math.isfinite(estimate.duration_ms) or estimate.duration_ms <= 0:
                 raise SimulationError("INVALID_PERFORMANCE_ESTIMATE", "Stage duration must be positive and finite")
-        decision = self.memory.reserve(targets, queries, phase)
+        decision = self.memory.reserve(targets, queries, phase,
+                                       request_phases=members if phase == "mixed" else None)
         if not decision.ok:
             raise SimulationError("RESOURCE_STATE_CHANGED", "Pipeline admission reservation changed")
         wave = _Wave(self.next_wave_id, phase, tuple(r.request_id for r in chosen),
-                     tuple(queries), contexts, targets, estimates)
+                     tuple(queries), contexts, targets, estimates, members)
         self.next_wave_id += 1
+        if phase == "mixed":
+            self.mixed_batch_count += 1
         self.waves[wave.wave_id] = wave
-        for request in chosen:
+        for request, member in zip(chosen, members):
             self._end_wait(request)
-            request.status = {"prefill": "PREFILL", "decode": "DECODING", "recompute": "RECOMPUTING"}[phase]
+            request.status = {"prefill": "PREFILL", "decode": "DECODING", "recompute": "RECOMPUTING"}[member]
             self.pending_requests[request.request_id] = wave.wave_id
         self.stage_queues[0].append(wave.wave_id)
         self.stage_ready_at[wave.wave_id, 0] = self.now
         self.peak_waves = max(self.peak_waves, len(self.waves))
         self._log("MICROBATCH_ADMITTED", microbatch_id=wave.wave_id, phase=phase,
                   request_ids=list(wave.requests), query_tokens=list(queries),
-                  context_lengths=list(contexts), memory=self.memory.snapshot())
+                  context_lengths=list(contexts), memory=self.memory.snapshot(),
+                  **self._member_metadata(wave))
 
     def _start_stages(self) -> None:
         if self.swap_transfer is not None:
@@ -330,7 +424,8 @@ class PipelineSimulation:
                       request_ids=list(wave.requests), query_tokens=list(wave.queries),
                       context_lengths=list(wave.contexts), duration_ms=duration,
                       source=wave.estimates[stage].source, breakdown=wave.estimates[stage].breakdown,
-                      assumptions=wave.estimates[stage].assumptions)
+                      assumptions=wave.estimates[stage].assumptions,
+                      **self._member_metadata(wave))
             self._push(end, 0, "STAGE_COMPLETE", task)
 
     def _stage_complete(self, task: _StageTask) -> None:
@@ -341,6 +436,8 @@ class PipelineSimulation:
         self.stage_busy_ms[task.stage] += elapsed
         self.compute_busy_ms += elapsed
         wave = self.waves[task.wave_id]
+        if wave.phase == "mixed":
+            self.mixed_compute_busy_ms += elapsed
         if wave.phase == "recompute":
             self.recompute_execution_ms += elapsed
             for name in wave.requests:
@@ -348,16 +445,19 @@ class PipelineSimulation:
         for name in wave.requests:
             self.stage_progress[name][task.stage] = wave.targets[name]
         self._log("STAGE_COMPLETE", microbatch_id=wave.wave_id, stage=task.stage,
-                  phase=wave.phase, request_ids=list(wave.requests))
+                  phase=wave.phase, request_ids=list(wave.requests),
+                  **self._member_metadata(wave))
         if task.stage == self.pp - 1:
-            for name, query in zip(wave.requests, wave.queries):
+            if wave.phase == "mixed":
+                self.mixed_batch_completed_count += 1
+            for name, query, member in zip(wave.requests, wave.queries, wave.request_phases):
                 request = self.requests[name]
                 if request.status in TERMINAL:
                     continue
                 request.computed = wave.targets[name]
-                if wave.phase == "recompute":
+                if member == "recompute":
                     request.recomputed_tokens += query
-                elif wave.phase == "prefill":
+                elif member == "prefill":
                     request.prefill_chunks += 1
                     request.prefill_computed_tokens += query
                     self._log("PREFILL_CHUNK_COMPLETE", microbatch_id=wave.wave_id,
@@ -377,7 +477,7 @@ class PipelineSimulation:
                 raise SimulationError("INVALID_EVENT_TIME", "Feedback must have representable finite time")
             self.feedback_pending[wave.wave_id] = end
             self._log("FEEDBACK_START", microbatch_id=wave.wave_id, request_ids=list(wave.requests),
-                      duration_ms=delay)
+                      duration_ms=delay, **self._member_metadata(wave))
             self._push(end, 0, "FEEDBACK_COMPLETE", wave.wave_id)
             return
         model, infra = self.exp.strategy.model, self.exp.infra
@@ -402,10 +502,10 @@ class PipelineSimulation:
     def _feedback_complete(self, wave_id: int) -> None:
         wave = self.waves.pop(wave_id)
         self.feedback_pending.pop(wave_id)
-        for name in wave.requests:
+        for name, member in zip(wave.requests, wave.request_phases):
             self.pending_requests.pop(name)
             request = self.requests[name]
-            if (self.exp.strategy.prefix_cache and wave.phase in {"prefill", "recompute"}
+            if (self.exp.strategy.prefix_cache and member in {"prefill", "recompute"}
                     and request.status in {"WAITING_FEEDBACK", "COMPLETED"}):
                 published = self.memory.publish_prefix(name, request.computed)
                 self._log("PREFIX_CACHE_PUBLISH", request_id=name, published_blocks=published,
@@ -414,10 +514,11 @@ class PipelineSimulation:
                 self.memory.release(name)
                 self._log("DEFERRED_KV_RELEASE", request_id=name, microbatch_id=wave_id)
             else:
-                if wave.phase == "recompute" and request.computed >= request.recompute_target:
+                if member == "recompute" and request.computed >= request.recompute_target:
                     request.recompute_target = 0
                 request.status = self._continuation_status(request)
-        self._log("FEEDBACK_COMPLETE", microbatch_id=wave_id, request_ids=list(wave.requests))
+        self._log("FEEDBACK_COMPLETE", microbatch_id=wave_id, request_ids=list(wave.requests),
+                  **self._member_metadata(wave))
 
     def _recompute(self, request: RequestState) -> None:
         request.preemptions += 1
@@ -532,26 +633,36 @@ class PipelineSimulation:
                     and not self._ready("WAITING_RECOMPUTE")):
                 self.draining = False
             fresh = self._ready("WAITING") if owner is None else [r for r in owner if r.status == "WAITING"]
-            if self.exp.strategy.chunked_prefill:
+            if self.exp.strategy.mixed_batching and owner is None:
+                chosen, queries, targets, members = self._choose_serving(active, partial, fresh)
+                if chosen:
+                    phase = batch_phase(members)
+                    self._admit(phase, chosen, queries, targets,
+                                members if phase == "mixed" else None)
+                    continue
+                if fresh and any(r.status == "WAITING" for r in fresh):
+                    self.draining = True
+            else:
+                if self.exp.strategy.chunked_prefill:
+                    chosen, queries, targets = self._choose(active, "decode")
+                    if chosen:
+                        self._admit("decode", chosen, queries, targets)
+                        continue
+                chosen, queries, targets = self._choose(partial, "prefill")
+                if chosen:
+                    self._admit("prefill", chosen, queries, targets)
+                    continue
+                if fresh and not self.draining:
+                    chosen, queries, targets = self._choose(fresh, "prefill")
+                    if chosen:
+                        self._admit("prefill", chosen, queries, targets)
+                        continue
+                    if any(r.status == "WAITING" for r in fresh):
+                        self.draining = True
                 chosen, queries, targets = self._choose(active, "decode")
                 if chosen:
                     self._admit("decode", chosen, queries, targets)
                     continue
-            chosen, queries, targets = self._choose(partial, "prefill")
-            if chosen:
-                self._admit("prefill", chosen, queries, targets)
-                continue
-            if fresh and not self.draining:
-                chosen, queries, targets = self._choose(fresh, "prefill")
-                if chosen:
-                    self._admit("prefill", chosen, queries, targets)
-                    continue
-                if any(r.status == "WAITING" for r in fresh):
-                    self.draining = True
-            chosen, queries, targets = self._choose(active, "decode")
-            if chosen:
-                self._admit("decode", chosen, queries, targets)
-                continue
             active = ([r for r in self.requests.values()
                        if r.status in {"DECODING", "PREFILLING"}
                        and r.request_id not in self.pending_requests] if owner is None else
@@ -675,12 +786,15 @@ class PipelineSimulation:
             self.stage_busy_ms[task.stage] += elapsed
             self.compute_busy_ms += elapsed
             wave = self.waves[task.wave_id]
+            if wave.phase == "mixed":
+                self.mixed_compute_busy_ms += elapsed
             if wave.phase == "recompute":
                 self.recompute_execution_ms += elapsed
                 for name in wave.requests:
                     self.requests[name].recompute_ms += elapsed
             self._log("STAGE_INTERRUPTED", stage=task.stage, microbatch_id=task.wave_id,
-                      elapsed_ms=elapsed, error_code=self.stop_reason)
+                      elapsed_ms=elapsed, error_code=self.stop_reason,
+                      **self._member_metadata(wave))
         for transfer in self.transfers.values():
             self.link_busy_ms[transfer.boundary] += max(0.0, min(self.now, transfer.end_ms) - transfer.start_ms)
         # Waiting that ends at a budget boundary is still elapsed resource wait.

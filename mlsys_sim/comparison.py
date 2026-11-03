@@ -78,7 +78,7 @@ def _contract(value: Any, name: str, *, measured: bool = False) -> dict:
         added_policy = {"pipeline_microbatch_size", "pipeline_max_inflight_microbatches",
                         "pipeline_feedback_latency_us", "pipeline_p2p", "swap_fallback",
                         "prefix_cache", "prefix_cache_max_blocks", "chunked_prefill",
-                        "prefill_chunk_tokens"}
+                        "prefill_chunk_tokens", "mixed_batching"}
         _keys(contract["strategy"], {field.name for field in fields(StrategySpec)} - added_policy,
               added_policy, f"{name}.strategy")
         _keys(contract["evaluation"], {field.name for field in fields(EvaluationSpec)}, set(), f"{name}.evaluation")

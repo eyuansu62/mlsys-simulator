@@ -1,6 +1,6 @@
 # Python API
 
-Install distribution `mlsys-simulator` and import `mlsys_sim`. Version 1.2 exposes the
+Install distribution `mlsys-simulator` and import `mlsys_sim`. Version 1.3 exposes the
 simulation, profile, calibration and comparison functions through this package;
 `mlsys_sim.__version__` is the software version. JSON schema and Profile version
 labels are separate contracts.
@@ -47,7 +47,8 @@ feasibility and batch-limit flags. It supplies no online metrics and reports
 as single-group serving. Inspect feasibility separately from command execution
 status.
 
-`predict_experiment` does not perform prefix lookups or chunk scheduling. Its
+`predict_experiment` does not perform prefix lookups, chunk scheduling or online
+mixed batching. Its
 shape remains the complete input batch even when those online policies are
 enabled; compare online policies through `simulate`.
 
@@ -94,6 +95,58 @@ admission cannot proceed. Schedulers use this to release temporary cache pins
 and permit a later lookup retry. It must not be used to release KV that has
 already launched; those references require the normal safe completion/recovery
 boundary. Cache snapshots report these rollbacks as `abandoned_lookups`.
+
+## Configure mixed Prefill/Decode batches
+
+```python
+from mlsys_sim import CalibrationSpec, Experiment, RequestSpec, StrategySpec, simulate
+
+experiment = Experiment(
+    workload=(RequestSpec("decode-owner", 0, 4, 3),
+              RequestSpec("prompt", 1, 8, 2)),
+    strategy=StrategySpec(
+        mixed_batching=True, chunked_prefill=True, prefill_chunk_tokens=4,
+        max_batch_size=2, max_batch_tokens=5,
+    ),
+    calibration=CalibrationSpec(
+        backend="synthetic", prefill_ms=2, decode_ms=1, mixed_ms=3,
+    ),
+)
+run = simulate(experiment)
+```
+
+`mixed_batching` defaults to `False` and does not imply chunking. Continuous
+batching selects Decode first, then packs eligible Prefill into the same stage
+execution. Without chunking, the whole remaining prompt must fit the available
+Token budget. FIFO preserves its single owner, and a one-sequence batch cannot
+mix phases. For PP, set `pipeline_microbatch_size` to at least two to permit a
+mixed microbatch. Recompute retains its own homogeneous recovery boundary.
+
+`CalibrationSpec.mixed_ms` defaults to positive `10.0` milliseconds and controls
+only synthetic mixed service. Analytical mixed service uses one joint macro
+estimate; it does not sum standalone prefill and decode times. Profile mixed
+queries supply keyword-only `request_phases`, for example:
+
+```python
+step = model.estimate_step(
+    "mixed", [1, 4], [32, 8], stage_index=0,
+    request_phases=["decode", "prefill"],
+)
+```
+
+Both serving roles are required and each Decode query must equal one. A
+one-Token Prefill is still Prefill; query length cannot replace role metadata.
+`estimate_profile` and `ProfileModel.workspace_bytes` accept the same
+`request_phases` keyword. `MemoryPlanner.check` and `reserve` use it when checking
+a complete joint Workspace and committing all member KV targets atomically.
+Only mixed calls accept this metadata. Mixed Profiles require exact ordered
+roles, queries, contexts and stage; missing shapes raise
+`OUT_OF_CALIBRATION_DOMAIN` even when homogeneous extrapolation is enabled.
+
+Prefix lookup rollback, safe cache publication, PP feedback and CPU swap pinning
+apply per member. Intermediate Prefill chunks never produce an output merely
+because another member decoded in that batch. See [mixed batching](mixed-batching.md)
+for the complete record and lifecycle contract.
 
 ## Configure online PP and swap
 
@@ -153,7 +206,8 @@ print(step.duration_ms, step.source)
 
 `ProfileModel(experiment)` snapshots the configured profile, matches its full
 identity and records hash/version/source/domain provenance. Its `estimate_step`
-accepts phase, query-token array, context-length array and optional stage index.
+accepts phase, query-token array, context-length array and optional stage index,
+plus keyword-only `request_phases` for mixed queries.
 `create_performance_model(experiment)` selects `AnalyticalModel` or `ProfileModel`.
 `profile_identity(experiment)` returns the canonical model/device/software/layout
 identity needed by external collectors.

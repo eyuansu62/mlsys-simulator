@@ -25,6 +25,10 @@ from mlsys_sim import (CalibrationSpec, DeviceSpec, Experiment, InfraSpec,
 assert Path(mlsys_sim.__file__).resolve().is_relative_to(Path(sys.prefix).resolve())
 assert version("mlsys-simulator") == mlsys_sim.__version__
 assert not metadata("mlsys-simulator").get_all("Requires-Dist")
+mixed_model = mlsys_sim.AnalyticalModel(Experiment(
+    calibration=CalibrationSpec(backend="synthetic", mixed_ms=3)))
+assert mixed_model.estimate_step("mixed", [1, 4], [8, 0],
+    request_phases=["decode", "prefill"]).duration_ms == 3
 exp = Experiment(
     workload=tuple(RequestSpec(name, 0.0, 16, 24) for name in ("a", "b")),
     strategy=StrategySpec(max_batch_size=2, memory=MemoryConfig(kv_pool_bytes=24576)),
@@ -116,6 +120,7 @@ def verify(dist: Path) -> dict:
         names = archive.namelist()
         assert "mlsys_sim/py.typed" in names, "Wheel is missing its typing marker"
         assert "mlsys_sim/__init__.py" in names
+        assert "mlsys_sim/batching.py" in names
         assert not any(name.startswith(("tests/", "sample-runs/", "work/")) for name in names)
         assert archive.testzip() is None
     with tarfile.open(sdists[0]) as archive:
@@ -124,6 +129,8 @@ def verify(dist: Path) -> dict:
                          "examples/memory_pressure.json", "tests/test_public_api.py",
                          "examples/v1/step_measurements.fixture.json", "calibrate.py", "validate.py",
                          "examples/v1_2/prefix_cache.json", "docs/prefix-cache-and-chunking.md",
+                         "examples/v1_3/mixed_batching.json", "examples/v1_3/pp_mixed_cache_swap.json",
+                         "docs/mixed-batching.md",
                          "scripts/verify_distribution.py"):
             assert required in names, f"Source distribution missing {required}"
         assert not any(name.startswith(("sample-runs/", "work/")) for name in names)
@@ -140,6 +147,20 @@ def verify(dist: Path) -> dict:
         env.update(PIP_NO_INDEX="1", PIP_DISABLE_PIP_VERSION_CHECK="1")
         run([str(python), "-I", "-m", "pip", "install", "--no-deps", str(wheel)], outside, env)
         run([str(python), "-I", "-c", SMOKE_CODE], outside, env)
+        for example, completed in (("mixed_batching", 2), ("pp_mixed_cache_swap", 5)):
+            source = Path(__file__).resolve().parents[1] / "examples" / "v1_3" / f"{example}.json"
+            config = outside / f"{example}.json"
+            config.write_bytes(source.read_bytes())
+            run([str(console), "simulate", "--experiment", str(config), "--out", example], outside, env)
+            mixed = json.loads((outside / example / "result.json").read_text())
+            assert mixed["counts"]["completed"] == completed
+            assert mixed["batching"]["mixed_batches_completed"] > 0
+            if completed == 5:
+                assert mixed["prefix_cache"]["hit_tokens"] == 12
+                assert mixed["prefix_cache"]["attached_block_references"] == 0
+                assert mixed["swap"]["completed_transfers_by_direction"] == {"D2H": 1, "H2D": 1}
+                assert mixed["swap"]["host_reserved_bytes"] == 0
+                assert mixed["recomputed_tokens"] == 0
         simulated = json.loads(run([str(console), "simulate", "--experiment", "experiment.json",
                                    "--out", "simulation"], outside, env))
         assert simulated["status"] == "COMPLETED"
@@ -195,6 +216,7 @@ def verify(dist: Path) -> dict:
             "distribution_contents": "passed", "installed_api_and_cli": "passed",
             "installed_pipeline_and_swap": "passed",
             "installed_prefix_cache_and_chunking": "passed",
+            "installed_mixed_batches_pipeline_cache_and_swap": "passed",
             "installed_calibration_comparison_holdout": "passed"}
 
 

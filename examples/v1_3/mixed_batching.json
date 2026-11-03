@@ -1,0 +1,31 @@
+{
+  "schema_version": 1,
+  "workload": [
+    {
+      "request_id": "decode-owner",
+      "arrival_ms": 0,
+      "input_tokens": 4,
+      "output_tokens": 3
+    },
+    {
+      "request_id": "prompt",
+      "arrival_ms": 1,
+      "input_tokens": 8,
+      "output_tokens": 2
+    }
+  ],
+  "strategy": {
+    "mixed_batching": true,
+    "chunked_prefill": true,
+    "prefill_chunk_tokens": 4,
+    "max_batch_size": 2,
+    "max_batch_tokens": 5
+  },
+  "calibration": {
+    "backend": "synthetic",
+    "prefill_ms": 2,
+    "decode_ms": 1,
+    "recompute_ms": 2,
+    "mixed_ms": 3
+  }
+}

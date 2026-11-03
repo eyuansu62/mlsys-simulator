@@ -8,10 +8,11 @@ request timelines, per-rank memory accounting and service metrics.
 [Calibration](docs/calibration.md) · [Validation protocol](docs/validation-protocol.md) ·
 [Specification](docs/specification.md) · [PP and CPU swap](docs/pipeline-and-swap.md) ·
 [Prefix Cache and Chunked Prefill](docs/prefix-cache-and-chunking.md) ·
+[Mixed batching](docs/mixed-batching.md) ·
 [Contributing](CONTRIBUTING.md)
 
-**Version 1.2 software scope:** serving simulation with Prefix Cache, Chunked
-Prefill, online PP and optional CPU KV swap, analytical models, versioned lookup
+**Version 1.3 software scope:** serving simulation with mixed Prefill/Decode
+batches, Prefix Cache, Chunked Prefill, online PP and optional CPU KV swap, analytical models, versioned lookup
 profiles, calibration, grouped holdout evaluation and run/candidate comparison.
 No AMD measurements have been supplied or hardware accuracy established. The
 repository is [private](https://github.com/eyuansu62/mlsys-simulator), the license
@@ -80,8 +81,24 @@ blocks. Retained blocks share the fixed GPU pool and unreferenced blocks are
 evicted in LRU order. Chunking retains prefix context, limits query work per
 iteration and emits the first output only after the final prompt chunk. In
 continuous batching, enabling chunking gives Decode priority at each scheduling
-boundary; batches remain homogeneous by phase. See the
+boundary. Batches are homogeneous unless mixed batching is explicitly enabled. See the
 [configuration and resource contract](docs/prefix-cache-and-chunking.md).
+
+## Run mixed Prefill/Decode batches
+
+```bash
+mlsys-sim simulate --experiment examples/v1_3/mixed_batching.json --out runs/mixed-batching
+mlsys-sim simulate --experiment examples/v1_3/pp_mixed_cache_swap.json --out runs/pp-mixed-cache-swap
+```
+
+Set `strategy.mixed_batching=true` to pack ready Decode queries first, then use
+remaining Batch Token budget for Prefill in the same stage execution. Chunking
+is optional; without it, only a complete remaining prompt that fits can join.
+PP uses the same member-specific progress and feedback rules, and cache/swap
+ownership is retained through safe boundaries. Synthetic mixed service uses the
+separate `calibration.mixed_ms` value. Profile-backed mixed execution requires
+exact query/context arrays and ordered `request_phases`; pure-phase times cannot
+stand in for missing mixed measurements. See [mixed batching](docs/mixed-batching.md).
 
 ## Exercise the calibration loop
 
@@ -135,12 +152,14 @@ rebuilds KV or swaps it through a bounded CPU pool, preserving output history an
 accounting for recovery latency. PP pressure drains in-flight waves before
 reclaiming request KV; DMA stalls new GPU work under a conservative no-overlap
 policy.
-Continuous batching is prefill-first by default and decode-first with chunking.
+Continuous batching is prefill-first by default and decode-first with chunking
+or mixed batching. FIFO retains its single-request owner and does not mix work.
 
 The `synthetic` backend uses fixed phase durations; `analytical` uses uncalibrated
 compute/bandwidth assumptions. The `profile` backend checks model, device,
 software, layout and timing identities, then uses exact shapes or complete
-homogeneous interpolation cells. Out-of-domain requests fail unless exploratory
+homogeneous interpolation cells. Mixed shapes require exact role-aware samples;
+they do not interpolate or extrapolate. Other out-of-domain requests fail unless exploratory
 extrapolation is explicitly enabled. Whole-stage profile times already include
 local collectives; those costs are not added twice.
 
@@ -150,7 +169,7 @@ behavior and budgets are explicit. See the [specification](docs/specification.md
 
 `simulate` models online PP stage queues, P2P transfers and feedback dependencies.
 `predict` remains shape-only analysis and never supplies online SLA metrics.
-Multiple replicas, NVMe swap, mixed-phase kernels and quantized storage
+Multiple replicas, NVMe swap and quantized storage
 formats remain outside this version. Allocator fragmentation, kernel cycles and
 live CUDA/HIP or host DMA execution are not simulated.
 The [capability matrix](docs/coverage-matrix.md) separates software support from
@@ -163,7 +182,8 @@ Simulation output includes `manifest.json`, `result.json`, `requests.jsonl`,
 optional `events.jsonl`, and `logs.txt`. Pipeline runs add per-stage activity and
 progress diagnostics; swap-enabled runs add host/DMA resources and per-request
 copy counters, byte counts and timing. Prefix/chunk runs expose cache occupancy,
-reuse and actual prompt work. Manifests retain effective configuration,
+reuse and actual prompt work. Mixed runs record member phases and joint-batch
+execution diagnostics. Manifests retain effective configuration,
 code/input hashes, comparison contracts and profile provenance. Calibration and
 validation preserve dataset lineage and fit/holdout membership. A completed
 command can still report failed requests, incomplete domain coverage or missed

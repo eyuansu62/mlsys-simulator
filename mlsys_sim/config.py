@@ -178,7 +178,7 @@ def validate_experiment(experiment: Experiment) -> None:
             _invalid(f"calibration.{name}", "must be in (0, 1]")
     for name in ("launch_overhead_us", "framework_overhead_us"):
         _positive(getattr(calibration, name), f"calibration.{name}", zero=True)
-    for name in ("prefill_ms", "decode_ms", "recompute_ms"):
+    for name in ("prefill_ms", "decode_ms", "recompute_ms", "mixed_ms"):
         _positive(getattr(calibration, name), f"calibration.{name}")
     request_ids = set()
     def validate_prompt(request, path):

@@ -1,5 +1,32 @@
 # Changelog
 
+## 1.3.0 — 2026-11-04
+
+Prefill and Decode can share a stage batch while retaining their separate
+progress, output and KV ownership rules. This extends the existing CPU model;
+hardware-validation and license-selection status remain unchanged.
+
+### Added
+
+- Opt-in `mixed_batching` with Decode-first packing, shared sequence/Token
+  budgets and member-specific completion in single-group and TP×PP execution.
+- Joint analytical macro service and independent synthetic `mixed_ms` timing.
+- Exact mixed Profile records with ordered `request_phases`; calibration,
+  Workspace and holdout provenance preserve the full member-aware shape.
+- Mixed examples, event metadata and execution diagnostics with Prefix Cache,
+  Chunked Prefill and safe CPU swap/recompute continuation.
+
+### Compatibility and limits
+
+- Existing homogeneous defaults and shape keys remain unchanged. FIFO retains
+  one owner, and recompute uses a separate homogeneous recovery batch.
+- Chunking remains independent; an unchunked remaining prompt joins only if it
+  fits the available mixed-batch Token budget.
+- Mixed Profiles require exact observations; there is no interpolation,
+  extrapolation or homogeneous timing fallback for a mixed shape.
+- PP still drains in-flight waves before migration and DMA does not overlap
+  stage execution. There is no live GPU kernel or measured mixed-cache overhead.
+
 ## 1.2.0 — 2026-11-04
 
 Prefix reuse and incremental prompt execution extend online serving across

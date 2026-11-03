@@ -85,6 +85,7 @@ class StrategySpec:
     prefix_cache_max_blocks: int = 128
     chunked_prefill: bool = False
     prefill_chunk_tokens: int = 512
+    mixed_batching: bool = False
 
 
 @dataclass(frozen=True)
@@ -110,6 +111,7 @@ class CalibrationSpec:
     prefill_ms: float = 10.0
     decode_ms: float = 1.0
     recompute_ms: float = 10.0
+    mixed_ms: float = 10.0
     profile_path: str | None = None
     allow_extrapolation: bool = False
     allow_test_fixture: bool = False
