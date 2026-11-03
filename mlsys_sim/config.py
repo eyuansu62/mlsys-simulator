@@ -106,7 +106,8 @@ def validate_experiment(experiment: Experiment) -> None:
         _invalid("strategy.model", "query heads must be divisible by KV heads")
     for name in ("tensor_parallel_size", "pipeline_parallel_size", "replicas",
                  "max_batch_size", "max_batch_tokens", "max_preemptions_per_request",
-                 "pipeline_microbatch_size", "pipeline_max_inflight_microbatches"):
+                 "pipeline_microbatch_size", "pipeline_max_inflight_microbatches",
+                 "prefix_cache_max_blocks", "prefill_chunk_tokens"):
         _positive(getattr(strategy, name), f"strategy.{name}")
     if strategy.pipeline_microbatch_size > strategy.max_batch_size:
         _invalid("strategy.pipeline_microbatch_size", "cannot exceed max_batch_size")
@@ -180,6 +181,13 @@ def validate_experiment(experiment: Experiment) -> None:
     for name in ("prefill_ms", "decode_ms", "recompute_ms"):
         _positive(getattr(calibration, name), f"calibration.{name}")
     request_ids = set()
+    def validate_prompt(request, path):
+        if request.prompt_token_ids:
+            if len(request.prompt_token_ids) != request.input_tokens:
+                _invalid(f"{path}.prompt_token_ids", "must contain exactly input_tokens IDs")
+            if any(token < 0 or token >= model.vocab_size for token in request.prompt_token_ids):
+                _invalid(f"{path}.prompt_token_ids", "IDs must be in [0, vocab_size)")
+
     for i, request in enumerate(exp.workload):
         path = f"workload[{i}]"
         if not request.request_id or request.request_id in request_ids:
@@ -188,6 +196,7 @@ def validate_experiment(experiment: Experiment) -> None:
         _positive(request.arrival_ms, f"{path}.arrival_ms", zero=True)
         _positive(request.input_tokens, f"{path}.input_tokens")
         _positive(request.output_tokens, f"{path}.output_tokens")
+        validate_prompt(request, path)
         if request.timeout_ms is not None:
             _positive(request.timeout_ms, f"{path}.timeout_ms", zero=True)
     warmup_ids = set()
@@ -199,6 +208,7 @@ def validate_experiment(experiment: Experiment) -> None:
         _positive(request.arrival_ms, f"{path}.arrival_ms", zero=True)
         _positive(request.input_tokens, f"{path}.input_tokens")
         _positive(request.output_tokens, f"{path}.output_tokens")
+        validate_prompt(request, path)
         if request.timeout_ms is not None:
             _positive(request.timeout_ms, f"{path}.timeout_ms", zero=True)
     if exp.execution.initial_state != "empty_cache":

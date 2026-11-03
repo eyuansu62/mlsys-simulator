@@ -196,6 +196,7 @@ def predict_experiment(experiment: Experiment) -> dict[str, Any]:
                                 else exp.calibration.profile_version),
             "profile_provenance": dict(provenance) if provenance else None,
             "shape": {"query_tokens": queries, "context_lengths": contexts,
+                      "serving_cache_and_chunk_policies_applied": False,
                       "requests_in_batch": len(queries),
                       "within_batch_token_limit": sum(queries) <= strategy.max_batch_tokens,
                       "within_batch_size_limit": len(queries) <= strategy.max_batch_size},

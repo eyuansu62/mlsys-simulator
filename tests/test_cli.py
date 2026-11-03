@@ -79,7 +79,7 @@ class CLITests(unittest.TestCase):
 
     def test_invalid_config_is_machine_readable(self):
         config = self.directory / "bad.json"
-        config.write_text('{"strategy":{"prefix_cache":true}}')
+        config.write_text('{"strategy":{"prefix_cache_typo":true}}')
         output = self.directory / "bad-run"
         process = subprocess.run([sys.executable, str(ROOT / "simulate.py"), "--experiment",
                                   str(config), "--out", str(output)], cwd=ROOT,

@@ -1,6 +1,6 @@
 # Python API
 
-Install distribution `mlsys-simulator` and import `mlsys_sim`. Version 1.1 exposes the
+Install distribution `mlsys-simulator` and import `mlsys_sim`. Version 1.2 exposes the
 simulation, profile, calibration and comparison functions through this package;
 `mlsys_sim.__version__` is the software version. JSON schema and Profile version
 labels are separate contracts.
@@ -46,6 +46,54 @@ feasibility and batch-limit flags. It supplies no online metrics and reports
 `SHAPE_ANALYSIS_HAS_NO_ARRIVALS_OR_QUEUEING`; use `simulate` for online PP as well
 as single-group serving. Inspect feasibility separately from command execution
 status.
+
+`predict_experiment` does not perform prefix lookups or chunk scheduling. Its
+shape remains the complete input batch even when those online policies are
+enabled; compare online policies through `simulate`.
+
+## Configure Prefix Cache and Chunked Prefill
+
+```python
+from mlsys_sim import CalibrationSpec, Experiment, RequestSpec, StrategySpec, simulate
+
+tokens = tuple(range(24))
+experiment = Experiment(
+    workload=(
+        RequestSpec("first", 0, 24, 2, prompt_token_ids=tokens, cache_namespace="demo"),
+        RequestSpec("repeat", 20, 24, 2, prompt_token_ids=tokens, cache_namespace="demo"),
+    ),
+    strategy=StrategySpec(
+        prefix_cache=True, prefix_cache_max_blocks=8,
+        chunked_prefill=True, prefill_chunk_tokens=8, max_batch_tokens=8,
+    ),
+    calibration=CalibrationSpec(backend="synthetic", prefill_ms=2, decode_ms=1),
+)
+run = simulate(experiment)
+print(run.result["prefix_cache"], run.result["prefill"])
+```
+
+The four StrategySpec defaults are `prefix_cache=False`,
+`prefix_cache_max_blocks=128`, `chunked_prefill=False` and
+`prefill_chunk_tokens=512`. Both counts must be positive integers. Workload
+`prompt_token_ids` defaults to `()` and `cache_namespace` to `""`. Supplied IDs
+must match `input_tokens` in length and be integers in `[0, vocab_size)`;
+omitted IDs bypass caching. Prefix reuse leaves at least the final prompt Token
+to compute its output. Cache storage shares the fixed GPU KV pool.
+
+Chunk queries are bounded by remaining prompt work, `prefill_chunk_tokens` and
+the available Batch Token budget. Intermediate chunks retain context and emit
+no output; continuous batching gives Decode priority when chunking is enabled.
+FIFO still holds one request to completion. These policies also operate through
+the PP pipeline and safe swap/recompute recovery. See
+[Prefix Cache and chunking](prefix-cache-and-chunking.md) for ownership, metrics
+and the conservative per-chunk timing contract.
+
+At the resource layer, `MemoryPlanner.abandon_prefix_lookup(request_id)` rolls
+back a provisional prefix lookup when a request has not started execution and
+admission cannot proceed. Schedulers use this to release temporary cache pins
+and permit a later lookup retry. It must not be used to release KV that has
+already launched; those references require the normal safe completion/recovery
+boundary. Cache snapshots report these rollbacks as `abandoned_lookups`.
 
 ## Configure online PP and swap
 

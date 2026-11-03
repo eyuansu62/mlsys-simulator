@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "workload": [
+    {
+      "request_id": "long",
+      "arrival_ms": 0,
+      "input_tokens": 20,
+      "output_tokens": 3
+    },
+    {
+      "request_id": "short",
+      "arrival_ms": 1,
+      "input_tokens": 4,
+      "output_tokens": 3
+    }
+  ],
+  "strategy": {
+    "chunked_prefill": true,
+    "prefill_chunk_tokens": 4,
+    "max_batch_size": 2,
+    "max_batch_tokens": 8
+  },
+  "calibration": {
+    "backend": "synthetic",
+    "prefill_ms": 2,
+    "decode_ms": 1,
+    "recompute_ms": 2
+  }
+}

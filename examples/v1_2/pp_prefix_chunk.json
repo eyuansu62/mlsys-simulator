@@ -1,0 +1,82 @@
+{
+  "schema_version": 1,
+  "workload": [
+    {
+      "request_id": "producer",
+      "arrival_ms": 0,
+      "input_tokens": 12,
+      "output_tokens": 2,
+      "prompt_token_ids": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11
+      ],
+      "cache_namespace": "demo"
+    },
+    {
+      "request_id": "repeat",
+      "arrival_ms": 20,
+      "input_tokens": 12,
+      "output_tokens": 2,
+      "prompt_token_ids": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11
+      ],
+      "cache_namespace": "demo"
+    }
+  ],
+  "infra": {
+    "devices": [
+      {
+        "id": "gpu0"
+      },
+      {
+        "id": "gpu1"
+      }
+    ]
+  },
+  "strategy": {
+    "pipeline_parallel_size": 2,
+    "stage_layers": [
+      2,
+      2
+    ],
+    "pipeline_microbatch_size": 1,
+    "pipeline_max_inflight_microbatches": 4,
+    "pipeline_feedback_latency_us": 5,
+    "prefix_cache": true,
+    "prefix_cache_max_blocks": 8,
+    "chunked_prefill": true,
+    "prefill_chunk_tokens": 4,
+    "max_batch_size": 2,
+    "max_batch_tokens": 8,
+    "memory": {
+      "kv_block_tokens": 4
+    }
+  },
+  "calibration": {
+    "backend": "synthetic",
+    "prefill_ms": 2,
+    "decode_ms": 1,
+    "recompute_ms": 2
+  }
+}

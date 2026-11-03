@@ -1,6 +1,43 @@
 # Changelog
 
-## 1.1.0
+## 1.2.0 — 2026-11-04
+
+Prefix reuse and incremental prompt execution extend online serving across
+single groups and TP×PP layouts. These are CPU resource and timing models;
+hardware-validation and license-selection status remain unchanged.
+
+### Added
+
+- Opt-in Prefix Cache using explicit prompt token IDs, namespace and complete
+  prefix ancestry, with block sharing, reference counts and bounded LRU eviction.
+- Shared-cache/private-block accounting inside the existing fixed GPU KV pool;
+  idle cache blocks are reclaimable before live-request preemption.
+- Incremental SHA256 ancestry keys avoid storing a complete prompt prefix at
+  every block boundary; failed admission rolls back provisional cache references.
+- Chunked Prefill and chunked recomputation with retained context, no early
+  output and decode-priority continuous batching using homogeneous phase batches.
+- Prefix/chunk request and run metrics, single-group and PP examples, and
+  continuation through CPU swap or recomputation without repeated output.
+
+### Changed
+
+- Prefill/recompute Profiles accept nonzero prefix context. Every chunk still
+  needs a supported query/context shape; zero-context records do not substitute
+  for missing cached-prefix or chunk observations.
+- Comparison contracts include the new policies and prompt identities.
+- Warmup caches are discarded before measurement. Shape-only `predict` remains
+  an uncached, unchunked analysis of the workload rows.
+
+### Limits
+
+- Batches remain homogeneous by phase; no mixed prefill/decode kernel is modeled.
+- Stage timings conservatively charge their output/sampling boundary per chunk;
+  only the final prompt chunk emits a Token.
+- Host swap copies complete request KV, including shared blocks, and restores
+  private GPU blocks; this is not a CPU Prefix Cache tier.
+- No actual GPU execution, measured cache overhead or hardware accuracy claim.
+
+## 1.1.0 — 2026-11-03
 
 Online pipeline-parallel serving and CPU KV swap are modeled in virtual time.
 License selection and hardware-validation status are unchanged; consult the

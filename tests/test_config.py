@@ -21,7 +21,7 @@ class ConfigTests(unittest.TestCase):
         self.assertEqual(exp, Experiment())
 
     def test_unknown_fields_do_not_silently_change_model(self):
-        self.assert_invalid({"strategy": {"prefix_cache": True}})
+        self.assert_invalid({"strategy": {"prefix_cache_typo": True}})
         self.assert_invalid({"calibration": {"compute_effeciency": 0.3}})
 
     def test_nonfinite_bool_and_wrong_types_are_rejected(self):

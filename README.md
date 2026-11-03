@@ -7,11 +7,12 @@ request timelines, per-rank memory accounting and service metrics.
 [中文说明](README.zh-CN.md) · [Python API](docs/api.md) ·
 [Calibration](docs/calibration.md) · [Validation protocol](docs/validation-protocol.md) ·
 [Specification](docs/specification.md) · [PP and CPU swap](docs/pipeline-and-swap.md) ·
+[Prefix Cache and Chunked Prefill](docs/prefix-cache-and-chunking.md) ·
 [Contributing](CONTRIBUTING.md)
 
-**Version 1.1 software scope:** serving simulation with online PP and optional
-CPU KV swap, analytical models, versioned lookup profiles, calibration, grouped
-holdout evaluation and run/candidate comparison.
+**Version 1.2 software scope:** serving simulation with Prefix Cache, Chunked
+Prefill, online PP and optional CPU KV swap, analytical models, versioned lookup
+profiles, calibration, grouped holdout evaluation and run/candidate comparison.
 No AMD measurements have been supplied or hardware accuracy established. The
 repository is [private](https://github.com/eyuansu62/mlsys-simulator), the license
 is pending selection, and no package has been published to PyPI.
@@ -65,6 +66,23 @@ The golden PP fixture explicitly disables P2P for the ideal three-microbatch,
 two-stage hand calculation. See [PP and CPU swap](docs/pipeline-and-swap.md) for
 configuration, buffer budgets, lifecycle and conservative overlap assumptions.
 
+## Run prefix caching and chunking examples
+
+```bash
+mlsys-sim simulate --experiment examples/v1_2/prefix_cache.json --out runs/prefix-cache
+mlsys-sim simulate --experiment examples/v1_2/chunked_prefill.json --out runs/chunked-prefill
+mlsys-sim simulate --experiment examples/v1_2/pp_prefix_chunk.json --out runs/pp-prefix-chunk
+```
+
+Prefix reuse requires explicit `prompt_token_ids`; equal prompt lengths never
+imply a cache hit. Namespace and the full token ancestry identify immutable KV
+blocks. Retained blocks share the fixed GPU pool and unreferenced blocks are
+evicted in LRU order. Chunking retains prefix context, limits query work per
+iteration and emits the first output only after the final prompt chunk. In
+continuous batching, enabling chunking gives Decode priority at each scheduling
+boundary; batches remain homogeneous by phase. See the
+[configuration and resource contract](docs/prefix-cache-and-chunking.md).
+
 ## Exercise the calibration loop
 
 The supplied V1 records are **hand-calculated test fixtures, not measurements**.
@@ -109,7 +127,7 @@ queueing. Profile and validation APIs are described in [docs/api.md](docs/api.md
 
 ## Model and evidence boundaries
 
-The online engine supports FIFO and simplified prefill-first continuous batching
+The online engine supports FIFO and simplified continuous batching
 on one GPU, one synchronous TP group, or a pipeline of TP groups. Dense MHA/GQA
 models use explicit sharding and KV replication. PP reserves all-stage KV before
 launch and budgets persistent activation buffers. Request preemption either
@@ -117,6 +135,7 @@ rebuilds KV or swaps it through a bounded CPU pool, preserving output history an
 accounting for recovery latency. PP pressure drains in-flight waves before
 reclaiming request KV; DMA stalls new GPU work under a conservative no-overlap
 policy.
+Continuous batching is prefill-first by default and decode-first with chunking.
 
 The `synthetic` backend uses fixed phase durations; `analytical` uses uncalibrated
 compute/bandwidth assumptions. The `profile` backend checks model, device,
@@ -131,7 +150,7 @@ behavior and budgets are explicit. See the [specification](docs/specification.md
 
 `simulate` models online PP stage queues, P2P transfers and feedback dependencies.
 `predict` remains shape-only analysis and never supplies online SLA metrics.
-Multiple replicas, NVMe swap, prefix caching, chunked prefill and quantized storage
+Multiple replicas, NVMe swap, mixed-phase kernels and quantized storage
 formats remain outside this version. Allocator fragmentation, kernel cycles and
 live CUDA/HIP or host DMA execution are not simulated.
 The [capability matrix](docs/coverage-matrix.md) separates software support from
@@ -143,7 +162,8 @@ hardware accuracy.
 Simulation output includes `manifest.json`, `result.json`, `requests.jsonl`,
 optional `events.jsonl`, and `logs.txt`. Pipeline runs add per-stage activity and
 progress diagnostics; swap-enabled runs add host/DMA resources and per-request
-copy counters, byte counts and timing. Manifests retain effective configuration,
+copy counters, byte counts and timing. Prefix/chunk runs expose cache occupancy,
+reuse and actual prompt work. Manifests retain effective configuration,
 code/input hashes, comparison contracts and profile provenance. Calibration and
 validation preserve dataset lineage and fit/holdout membership. A completed
 command can still report failed requests, incomplete domain coverage or missed

@@ -145,11 +145,27 @@ class _Simulation:
                 self._log("DEFERRED_KV_RELEASE", request_id=request.request_id)
                 continue
             request.computed = step.targets[request.request_id]
-            request.status = "DECODING"
+            if self.exp.strategy.prefix_cache and step.phase in {"prefill", "recompute"}:
+                published = self.memory.publish_prefix(request.request_id, request.computed)
+                self._log("PREFIX_CACHE_PUBLISH", request_id=request.request_id,
+                          phase=step.phase, published_blocks=published,
+                          computed_tokens=request.computed)
             if step.phase == "recompute":
                 request.recomputed_tokens += query
                 request.recompute_ms += step.duration_ms
+                if request.computed < request.recompute_target:
+                    request.status = "WAITING_RECOMPUTE"
+                else:
+                    request.recompute_target = 0
+                    request.status = self._continuation_status(request)
+            elif step.phase == "prefill":
+                request.prefill_chunks += 1
+                request.prefill_computed_tokens += query
+                request.status = self._continuation_status(request)
+                if request.computed == request.input_tokens:
+                    self._commit_token(request)
             else:
+                request.status = "DECODING"
                 self._commit_token(request)
 
     def _handle(self, kind: str, payload: object) -> None:
@@ -170,7 +186,8 @@ class _Simulation:
             self._log("SWAP_COMPLETE", **completed, memory=self.memory.snapshot(),
                       host=self.swap.snapshot(self.now))
             if request.status not in TERMINAL:
-                request.status = "SWAPPED" if payload.direction == "D2H" else "DECODING"
+                request.status = ("SWAPPED" if payload.direction == "D2H"
+                                  else self._continuation_status(request))
                 self.draining = True
             return
         if kind == "STEP_COMPLETE":
@@ -204,7 +221,7 @@ class _Simulation:
 
     def _start(self, phase: str, chosen: list[_Request], queries: list[int],
                targets: dict[str, int]) -> bool:
-        contexts = [request.computed if phase == "decode" else 0 for request in chosen]
+        contexts = [targets[request.request_id] - query for request, query in zip(chosen, queries)]
         estimate = self.performance.estimate_step(phase, queries, contexts)
         if not math.isfinite(estimate.duration_ms) or estimate.duration_ms <= 0:
             raise SimulationError("INVALID_PERFORMANCE_ESTIMATE", "A step duration must be finite and positive.")
@@ -230,6 +247,53 @@ class _Simulation:
         self._push(completion_time, 0, "STEP_COMPLETE", step)
         return True
 
+    @staticmethod
+    def _continuation_status(request: _Request) -> str:
+        if request.recompute_target > request.computed:
+            return "WAITING_RECOMPUTE"
+        return "PREFILLING" if request.computed < request.input_tokens else "DECODING"
+
+    @staticmethod
+    def _phase(request: _Request) -> str:
+        if request.status == "WAITING_RECOMPUTE" or request.recompute_target > request.computed:
+            return "recompute"
+        return "prefill" if request.computed < request.input_tokens else "decode"
+
+    def _iteration(self, request: _Request, phase: str, available: int,
+                   computed: int | None = None) -> tuple[int, int]:
+        current = request.computed if computed is None else computed
+        if phase == "decode":
+            return 1, current + 1
+        goal = request.input_tokens if phase == "prefill" else request.recompute_target
+        remaining = goal - current
+        if self.exp.strategy.chunked_prefill:
+            query = min(remaining, self.exp.strategy.prefill_chunk_tokens, available)
+        else:
+            query = remaining
+        return query, current + query
+
+    def _prefix_lookup(self, request: _Request) -> None:
+        if request.cache_checked:
+            return
+        request.cache_checked = True
+        if self.exp.strategy.prefix_cache:
+            request.prefix_cached_tokens = self.memory.lookup_prefix(request.request_id)
+            request.computed = request.prefix_cached_tokens
+            self._log("PREFIX_CACHE_LOOKUP", request_id=request.request_id,
+                      cached_tokens=request.prefix_cached_tokens)
+
+    def _abandon_prefix(self, request: _Request) -> None:
+        """An unlaunched cache hit may not pin memory ahead of runnable work."""
+        if (request.status == "WAITING" and request.prefix_cached_tokens > 0
+                and request.computed == request.prefix_cached_tokens
+                and request.prefill_chunks == 0):
+            self.memory.abandon_prefix_lookup(request.request_id)
+            self._log("PREFIX_CACHE_LOOKUP_ABANDONED", request_id=request.request_id,
+                      cached_tokens=request.prefix_cached_tokens)
+            request.cache_checked = False
+            request.prefix_cached_tokens = 0
+            request.computed = 0
+
     def _choose(self, candidates: list[_Request], phase: str,
                 single: bool = False) -> tuple[list[_Request], list[int], dict[str, int]]:
         chosen: list[_Request] = []
@@ -237,36 +301,61 @@ class _Simulation:
         targets: dict[str, int] = {}
         strategy = self.exp.strategy
         for request in candidates:
-            if len(chosen) >= (1 if single else strategy.max_batch_size):
+            if (len(chosen) >= (1 if single else strategy.max_batch_size)
+                    or sum(queries) >= strategy.max_batch_tokens):
                 break
-            if phase == "prefill":
-                query, target = request.input_tokens, request.input_tokens
-            elif phase == "recompute":
-                query = request.input_tokens + request.generated - 1
-                target = query
-            else:
-                query, target = 1, request.computed + 1
+            if phase == "prefill" and request.status == "WAITING":
+                self._prefix_lookup(request)
+            if phase == "recompute" and not request.recompute_target:
+                request.recompute_target = request.input_tokens + request.generated - 1
+            query, target = self._iteration(request, phase, strategy.max_batch_tokens - sum(queries))
+            if query <= 0:
+                self._abandon_prefix(request)
+                continue
             if query > strategy.max_batch_tokens:
+                self._abandon_prefix(request)
                 self._finish(request, "FAILED", "BATCH_TOKEN_LIMIT_EXCEEDED")
                 continue
-            # With no chunking, a restored prefix and its very next decode must fit.
-            alone_target = target + (1 if phase == "recompute" else 0)
-            alone = self.memory.check({request.request_id: alone_target}, [query], phase, alone=True)
+            # Chunking reduces Workspace/query size, never the final KV context
+            # that must fit when this request is the only active request.
+            required_kv = request.input_tokens if phase == "prefill" else target
+            if phase == "recompute":
+                goal = request.recompute_target
+                next_phase = "prefill" if goal < request.input_tokens else "decode"
+                _, required_kv = self._iteration(request, next_phase, strategy.max_batch_tokens,
+                                                computed=goal)
+            alone_kv = self.memory.check_kv({request.request_id: required_kv}, alone=True)
+            if not alone_kv.ok:
+                self._abandon_prefix(request)
+                self._finish(request, "FAILED", alone_kv.code)
+                continue
+            alone = self.memory.check({request.request_id: target}, [query], phase, alone=True)
             if not alone.ok:
+                self._abandon_prefix(request)
                 self._finish(request, "FAILED", alone.code)
                 continue
             if sum(queries) + query > strategy.max_batch_tokens:
+                self._abandon_prefix(request)
                 continue
             trial_targets = {**targets, request.request_id: target}
             trial_queries = [*queries, query]
             decision = self.memory.check(trial_targets, trial_queries, phase)
             if not decision.ok:
+                self._abandon_prefix(request)
                 self._blocked(request, decision.code)
                 if phase == "prefill" and self._ready("DECODING"):
                     self.draining = True
                 continue
-            if phase == "recompute":
-                next_step = self.memory.check({request.request_id: target + 1}, [1], "decode")
+            if phase == "recompute" and target == request.recompute_target:
+                next_phase = "prefill" if target < request.input_tokens else "decode"
+                next_query, next_target = self._iteration(request, next_phase,
+                                                         strategy.max_batch_tokens, computed=target)
+                next_alone = self.memory.check({request.request_id: next_target}, [next_query],
+                                               next_phase, alone=True)
+                if not next_alone.ok:
+                    self._finish(request, "FAILED", next_alone.code)
+                    continue
+                next_step = self.memory.check({request.request_id: next_target}, [next_query], next_phase)
                 if not next_step.ok:
                     self._blocked(request, next_step.code)
                     continue
@@ -278,6 +367,7 @@ class _Simulation:
     def _preempt(self, request: _Request) -> None:
         request.preemptions += 1
         self.memory.release(request.request_id)
+        request.recompute_target = max(request.computed, request.recompute_target)
         request.computed = 0
         self._log("REQUEST_PREEMPTED", request_id=request.request_id,
                   output_tokens_committed=request.generated,
@@ -335,7 +425,9 @@ class _Simulation:
             tokens = self.swap.stored_tokens(request.request_id)
             if tokens != request.computed:
                 raise SimulationError("INVALID_SWAP_STATE", "Stored KV prefix differs from committed compute.")
-            alone = self.memory.check({request.request_id: tokens + 1}, [1], "decode", alone=True)
+            phase = self._phase(request)
+            query, target = self._iteration(request, phase, self.exp.strategy.max_batch_tokens)
+            alone = self.memory.check({request.request_id: target}, [query], phase, alone=True)
             if not alone.ok:
                 self._finish(request, "FAILED", alone.code)
                 continue
@@ -361,7 +453,7 @@ class _Simulation:
                     return
                 owner = min(ready, key=lambda request: (request.arrival_ms, request.request_id))
                 self.fifo_owner = owner.request_id
-            phase = "prefill" if owner.status == "WAITING" else "decode"
+            phase = self._phase(owner)
             chosen, queries, targets = self._choose([owner], phase, single=True)
             if chosen:
                 self._start(phase, chosen, queries, targets)
@@ -371,6 +463,9 @@ class _Simulation:
                 return
 
     def _schedule_batch(self) -> None:
+        if self.exp.strategy.chunked_prefill:
+            self._schedule_chunked()
+            return
         while self.busy is None:
             active = self._ready("DECODING")
             if not active:
@@ -418,6 +513,63 @@ class _Simulation:
                 return
             # No resource-owning work can release anything; waiting is permanent.
             self.stop_reason = "MEMORY_NO_PROGRESS"
+            return
+
+    def _schedule_chunked(self) -> None:
+        """Decode-first homogeneous batches; partial prompts retain their KV.
+
+        Pressure recovery drains existing residents before admitting more fresh
+        prompts. Recompute and DMA preserve the exact continuation position.
+        """
+        while self.busy is None and self.swap_busy is None:
+            before = sum(r.status in TERMINAL for r in self.requests.values())
+            # Decode always gets the next batch boundary when runnable.
+            for phase, candidates in (
+                ("decode", self._ready("DECODING")),
+                ("recompute", [r for r in self._ready("WAITING_RECOMPUTE") if r.computed > 0]),
+                ("prefill", self._ready("PREFILLING")
+                 + [r for r in self._ready("WAITING") if r.computed > 0]),
+            ):
+                chosen, queries, targets = self._choose(candidates, phase)
+                if chosen:
+                    self._start(phase, chosen, queries, targets)
+                    return
+            residents = [r for r in self.requests.values()
+                         if r.status not in TERMINAL and r.request_id in self.memory.allocations]
+            if not residents:
+                if self._restore_swap():
+                    return
+                recovering = self._ready("WAITING_RECOMPUTE")
+                chosen, queries, targets = self._choose(recovering, "recompute", single=True)
+                if chosen:
+                    self.draining = True
+                    self._start("recompute", chosen, queries, targets)
+                    return
+                self.draining = False
+            if not self.draining:
+                chosen, queries, targets = self._choose(self._ready("WAITING"), "prefill")
+                if chosen:
+                    self._start("prefill", chosen, queries, targets)
+                    return
+            after = sum(r.status in TERMINAL for r in self.requests.values())
+            if after > before:
+                continue
+            residents = [r for r in self.requests.values()
+                         if r.status not in TERMINAL and r.request_id in self.memory.allocations]
+            if residents:
+                if self.exp.strategy.preemption == "none":
+                    self.stop_reason = "MEMORY_NO_PROGRESS"
+                    return
+                if self.exp.strategy.preemption == "swap":
+                    self._swap_victim(residents)
+                    if self.swap_busy is not None or self.stop_reason is not None:
+                        return
+                else:
+                    self._preempt(min(residents, key=self._victim_key))
+                continue
+            pending = [r for r in self.requests.values() if r.status not in TERMINAL | {"CREATED"}]
+            if pending:
+                self.stop_reason = "MEMORY_NO_PROGRESS"
             return
 
     def run(self) -> SimulationResult:

@@ -99,7 +99,8 @@ class PipelineSimulation:
             self.swap = HostSwapManager(experiment, self.memory)
         self.limitations = [
             "one replica; stage groups and paired TP links are independently serialized",
-            "homogeneous microbatches; no chunked prefill or shared-link contention",
+            "homogeneous phase microbatches; chunked prefill does not mix decode in one kernel",
+            "prefix sharing requires explicit token identities; no shared-link contention",
             "all-stage KV reservation and persistent activation-buffer bounds are conservative",
             "pressure recovery quiesces waves; DMA and GPU execution do not overlap",
             "feedback is a configured end-to-end delay without control-link contention",
@@ -180,6 +181,46 @@ class PipelineSimulation:
         if request.generated >= self._output_targets[request.request_id]:
             self._finish(request, "COMPLETED")
 
+    @staticmethod
+    def _continuation_status(request: RequestState) -> str:
+        if request.computed < request.recompute_target:
+            return "WAITING_RECOMPUTE"
+        return "PREFILLING" if request.computed < request.input_tokens else "DECODING"
+
+    def _iteration(self, request: RequestState, phase: str, available: int,
+                   computed: int | None = None) -> tuple[int, int]:
+        current = request.computed if computed is None else computed
+        if phase == "decode":
+            return 1, current + 1
+        goal = request.input_tokens if phase == "prefill" else request.recompute_target
+        query = goal - current
+        if self.exp.strategy.chunked_prefill:
+            query = min(query, self.exp.strategy.prefill_chunk_tokens, available)
+        return query, current + query
+
+    def _lookup_prefix(self, request: RequestState) -> None:
+        if request.cache_checked:
+            return
+        request.cache_checked = True
+        if self.exp.strategy.prefix_cache:
+            hit = self.memory.lookup_prefix(request.request_id)
+            request.computed = hit
+            request.prefix_cached_tokens = hit
+            self.stage_progress[request.request_id] = [hit] * self.pp
+            self._log("PREFIX_CACHE_LOOKUP", request_id=request.request_id,
+                      cached_tokens=hit)
+
+    def _abandon_prefix(self, request: RequestState) -> None:
+        if request.status != "WAITING" or request.prefix_cached_tokens <= 0:
+            return
+        self.memory.abandon_prefix_lookup(request.request_id)
+        request.cache_checked = False
+        request.prefix_cached_tokens = 0
+        request.computed = 0
+        self.stage_progress[request.request_id] = [0] * self.pp
+        self._log("PREFIX_CACHE_LOOKUP_ABANDONED", request_id=request.request_id,
+                  reason="suffix_not_admitted")
+
     def _choose(self, candidates: list[RequestState], phase: str) -> tuple[list[RequestState], list[int], dict]:
         chosen: list[RequestState] = []
         queries: list[int] = []
@@ -188,32 +229,55 @@ class PipelineSimulation:
         maximum = 1 if strategy.scheduler == "fifo" else min(strategy.max_batch_size,
                                                               strategy.pipeline_microbatch_size)
         for request in candidates:
+            if request.status in TERMINAL:
+                continue
             if len(chosen) >= maximum:
                 break
+            available = strategy.max_batch_tokens - sum(queries)
+            if available <= 0:
+                break
             if phase == "prefill":
-                query = target = request.input_tokens
-            elif phase == "recompute":
-                query = target = request.input_tokens + request.generated - 1
-            else:
-                query, target = 1, request.computed + 1
+                self._lookup_prefix(request)
+            query, target = self._iteration(request, phase, available)
             if query > strategy.max_batch_tokens:
+                self._abandon_prefix(request)
                 self._finish(request, "FAILED", "BATCH_TOKEN_LIMIT_EXCEEDED")
                 continue
-            alone_target = target + (phase == "recompute")
-            alone = self.memory.check({request.request_id: alone_target}, [query], phase, alone=True)
+            required_kv = request.input_tokens if phase == "prefill" else target
+            if phase == "recompute":
+                next_phase = "prefill" if request.recompute_target < request.input_tokens else "decode"
+                _, required_kv = self._iteration(request, next_phase, strategy.max_batch_tokens,
+                                                computed=request.recompute_target)
+            alone_kv = self.memory.check_kv({request.request_id: required_kv}, alone=True)
+            if not alone_kv.ok:
+                self._abandon_prefix(request)
+                self._finish(request, "FAILED", alone_kv.code)
+                continue
+            alone = self.memory.check({request.request_id: target}, [query], phase, alone=True)
             if not alone.ok:
+                self._abandon_prefix(request)
                 self._finish(request, "FAILED", alone.code)
                 continue
             if sum(queries) + query > strategy.max_batch_tokens:
+                self._abandon_prefix(request)
                 continue
             trial = {**targets, request.request_id: target}
             trial_queries = [*queries, query]
             decision = self.memory.check(trial, trial_queries, phase)
             if not decision.ok:
+                self._abandon_prefix(request)
                 self._blocked(request, decision.code)
                 continue
-            if phase == "recompute":
-                following = self.memory.check({request.request_id: target + 1}, [1], "decode")
+            if phase == "recompute" and target == request.recompute_target:
+                next_phase = "prefill" if target < request.input_tokens else "decode"
+                next_query, next_target = self._iteration(request, next_phase,
+                                                         strategy.max_batch_tokens, computed=target)
+                feasible = self.memory.check({request.request_id: next_target}, [next_query], next_phase,
+                                             alone=True)
+                if not feasible.ok:
+                    self._finish(request, "FAILED", feasible.code)
+                    continue
+                following = self.memory.check({request.request_id: next_target}, [next_query], next_phase)
                 if not following.ok:
                     self._blocked(request, following.code)
                     continue
@@ -223,7 +287,7 @@ class PipelineSimulation:
         return chosen, queries, targets
 
     def _admit(self, phase: str, chosen: list[RequestState], queries: list[int], targets: dict) -> None:
-        contexts = tuple(r.computed if phase == "decode" else 0 for r in chosen)
+        contexts = tuple(targets[r.request_id] - query for r, query in zip(chosen, queries))
         estimates = tuple(self.performance.estimate_step(phase, queries, contexts, stage)
                           for stage in range(self.pp))
         for estimate in estimates:
@@ -293,6 +357,15 @@ class PipelineSimulation:
                 request.computed = wave.targets[name]
                 if wave.phase == "recompute":
                     request.recomputed_tokens += query
+                elif wave.phase == "prefill":
+                    request.prefill_chunks += 1
+                    request.prefill_computed_tokens += query
+                    self._log("PREFILL_CHUNK_COMPLETE", microbatch_id=wave.wave_id,
+                              request_id=name, query_tokens=query, computed_tokens=request.computed,
+                              final=request.computed == request.input_tokens)
+                    if request.computed == request.input_tokens:
+                        self._log("SAMPLE_COMPLETE", microbatch_id=wave.wave_id, request_id=name)
+                        self._commit_token(request)
                 else:
                     self._log("SAMPLE_COMPLETE", microbatch_id=wave.wave_id, request_id=name)
                     self._commit_token(request)
@@ -332,16 +405,24 @@ class PipelineSimulation:
         for name in wave.requests:
             self.pending_requests.pop(name)
             request = self.requests[name]
+            if (self.exp.strategy.prefix_cache and wave.phase in {"prefill", "recompute"}
+                    and request.status in {"WAITING_FEEDBACK", "COMPLETED"}):
+                published = self.memory.publish_prefix(name, request.computed)
+                self._log("PREFIX_CACHE_PUBLISH", request_id=name, published_blocks=published,
+                          computed_tokens=request.computed)
             if request.status in TERMINAL:
                 self.memory.release(name)
                 self._log("DEFERRED_KV_RELEASE", request_id=name, microbatch_id=wave_id)
             else:
-                request.status = "DECODING"
+                if wave.phase == "recompute" and request.computed >= request.recompute_target:
+                    request.recompute_target = 0
+                request.status = self._continuation_status(request)
         self._log("FEEDBACK_COMPLETE", microbatch_id=wave_id, request_ids=list(wave.requests))
 
     def _recompute(self, request: RequestState) -> None:
         request.preemptions += 1
         self.memory.release(request.request_id)
+        request.recompute_target = max(request.recompute_target, request.computed)
         request.computed = 0
         self.stage_progress[request.request_id] = [0] * self.pp
         self._log("REQUEST_PREEMPTED", request_id=request.request_id,
@@ -399,7 +480,11 @@ class PipelineSimulation:
 
     def _restore_one(self) -> bool:
         for request in self._ready("SWAPPED"):
-            next_step = self.memory.check({request.request_id: request.computed + 1}, [1], "decode", alone=True)
+            status = self._continuation_status(request)
+            phase = {"PREFILLING": "prefill", "WAITING_RECOMPUTE": "recompute",
+                     "DECODING": "decode"}[status]
+            query, target = self._iteration(request, phase, self.exp.strategy.max_batch_tokens)
+            next_step = self.memory.check({request.request_id: target}, [query], phase, alone=True)
             if not next_step.ok:
                 self._finish(request, "FAILED", next_step.code)
                 continue
@@ -440,12 +525,22 @@ class PipelineSimulation:
             if owner == []:
                 break
             active = self._ready("DECODING") if owner is None else [r for r in owner if r.status == "DECODING"]
+            partial = self._ready("PREFILLING") if owner is None else [r for r in owner if r.status == "PREFILLING"]
             all_active = [r for r in self.requests.values()
                           if r.status not in TERMINAL and r.request_id in self.memory.allocations]
             if (not all_active and not self._ready("SWAPPED")
                     and not self._ready("WAITING_RECOMPUTE")):
                 self.draining = False
             fresh = self._ready("WAITING") if owner is None else [r for r in owner if r.status == "WAITING"]
+            if self.exp.strategy.chunked_prefill:
+                chosen, queries, targets = self._choose(active, "decode")
+                if chosen:
+                    self._admit("decode", chosen, queries, targets)
+                    continue
+            chosen, queries, targets = self._choose(partial, "prefill")
+            if chosen:
+                self._admit("prefill", chosen, queries, targets)
+                continue
             if fresh and not self.draining:
                 chosen, queries, targets = self._choose(fresh, "prefill")
                 if chosen:
@@ -457,7 +552,10 @@ class PipelineSimulation:
             if chosen:
                 self._admit("decode", chosen, queries, targets)
                 continue
-            active = self._ready("DECODING") if owner is None else [r for r in owner if r.status == "DECODING"]
+            active = ([r for r in self.requests.values()
+                       if r.status in {"DECODING", "PREFILLING"}
+                       and r.request_id not in self.pending_requests] if owner is None else
+                      [r for r in owner if r.status in {"DECODING", "PREFILLING"}])
             if self.waves:
                 if active or any(r.status == "WAITING" for r in fresh):
                     self.quiescing = True
@@ -475,6 +573,13 @@ class PipelineSimulation:
             if chosen:
                 self.draining = True
                 self._admit("recompute", chosen, queries, targets)
+                continue
+            resident_recovery = [r for r in recovering if r.status == "WAITING_RECOMPUTE"
+                                 and r.request_id in self.memory.allocations]
+            if resident_recovery:
+                self._preempt_one(resident_recovery)
+                if self.stop_reason is not None or self.swap_transfer is not None:
+                    break
                 continue
             remaining = [r for r in self.requests.values() if r.status not in TERMINAL | {"CREATED"}]
             # _choose may have failed the final resident, clearing pressure.
@@ -517,7 +622,8 @@ class PipelineSimulation:
                 request.swap_in_count += 1
                 request.swap_in_bytes += details["bytes"]
             if request.status not in TERMINAL:
-                request.status = "SWAPPED" if details["direction"] == "D2H" else "DECODING"
+                request.status = ("SWAPPED" if details["direction"] == "D2H"
+                                  else self._continuation_status(request))
             self._log(kind, **details)
         else:
             request = self.requests[str(payload)]

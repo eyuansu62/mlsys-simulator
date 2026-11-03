@@ -45,8 +45,10 @@ Each observation contains `record_id`, `group_id`, `phase`, `stage_index`,
 `query_tokens`, `context_lengths` and positive finite `duration_ms`.
 `workspace_peak_bytes` is an optional nonnegative integer, or `null` when not
 observed. Record IDs are unique. Phases are `prefill`, `decode` and `recompute`;
-arrays preserve every sequence shape. Decode queries are one Token each;
-unchunked Prefill/recompute use zero prefix context.
+arrays preserve every sequence shape. Decode queries are one Token each.
+Prefill/recompute context is the number of KV positions already present before
+the query, including a cached prefix or earlier chunks. A complete uncached
+prompt starts at zero; later chunks need their actual nonzero context.
 
 Use a group ID for observations that must stay together during validation.
 Repeated exact shapes are connected even when their group IDs differ, preventing
@@ -96,9 +98,18 @@ exploratory evidence.
 
 Whole-stage timings already include local collective communication, output and
 sampling. Do not add analytical local communication again. Inter-stage PP P2P
-and explicit feedback are separate. Version 1.1 can use stage Profiles in its
+and explicit feedback are separate. Online PP can use stage Profiles in its
 [online PP engine](pipeline-and-swap.md); shape-only `predict` still has no online
 queueing or SLA metrics.
+
+Chunking preserves this whole-stage timing boundary and conservatively charges
+output/sampling work for every chunk, although only the final prompt chunk
+emits an output Token. Collect matching chunk/query/context records rather than
+reusing an unchunked zero-context time. Existing exact/grid domain rules apply:
+an unsupported context fails instead of silently using a zero-context record.
+Analytical chunk estimates use the same conservative output-cost convention;
+synthetic durations are fixed per phase batch/chunk. See
+[Prefix Cache and chunking](prefix-cache-and-chunking.md).
 
 ## Workspace and provenance
 

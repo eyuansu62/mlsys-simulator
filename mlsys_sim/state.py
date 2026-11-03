@@ -30,6 +30,11 @@ class RequestState:
     memory_wait_ms: float = 0.0
     blocked_since: float | None = None
     error_code: str | None = None
+    cache_checked: bool = False
+    prefix_cached_tokens: int = 0
+    prefill_chunks: int = 0
+    prefill_computed_tokens: int = 0
+    recompute_target: int = 0
 
     swap_out_count: int = 0
     swap_in_count: int = 0

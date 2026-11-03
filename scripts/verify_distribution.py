@@ -49,6 +49,17 @@ pp_swap = replace(swap_exp,
                      pipeline_max_inflight_microbatches=2,
                      memory=replace(swap_exp.strategy.memory, kv_pool_bytes=12288)))
 Path("pp-swap.json").write_text(json.dumps(asdict(pp_swap)))
+cache_chunks = Experiment(
+    workload=(RequestSpec("first", 0, 12, 1, prompt_token_ids=tuple(range(12))),
+              RequestSpec("reuse", 20, 12, 1, prompt_token_ids=tuple(range(12)))),
+    strategy=StrategySpec(prefix_cache=True, chunked_prefill=True, prefill_chunk_tokens=4,
+                          max_batch_tokens=4, memory=MemoryConfig(kv_block_tokens=4)),
+    calibration=CalibrationSpec(backend="synthetic", prefill_ms=5))
+Path("prefix-chunk.json").write_text(json.dumps(asdict(cache_chunks)))
+pp_cache_chunks = replace(cache_chunks,
+    infra=InfraSpec(devices=(DeviceSpec("gpu0"), DeviceSpec("gpu1"))),
+    strategy=replace(cache_chunks.strategy, pipeline_parallel_size=2, pipeline_p2p=False))
+Path("pp-prefix-chunk.json").write_text(json.dumps(asdict(pp_cache_chunks)))
 unsupported = asdict(pp)
 unsupported["strategy"]["replicas"] = 2
 Path("unsupported.json").write_text(json.dumps(unsupported))
@@ -112,6 +123,7 @@ def verify(dist: Path) -> dict:
         for required in ("pyproject.toml", "README.md", "README.zh-CN.md",
                          "examples/memory_pressure.json", "tests/test_public_api.py",
                          "examples/v1/step_measurements.fixture.json", "calibrate.py", "validate.py",
+                         "examples/v1_2/prefix_cache.json", "docs/prefix-cache-and-chunking.md",
                          "scripts/verify_distribution.py"):
             assert required in names, f"Source distribution missing {required}"
         assert not any(name.startswith(("sample-runs/", "work/")) for name in names)
@@ -144,6 +156,16 @@ def verify(dist: Path) -> dict:
             assert swapped["recomputed_tokens"] == 0
             assert swapped["swap"]["completed_transfers_by_direction"]["D2H"] > 0
             assert swapped["swap"]["host_reserved_bytes"] == 0
+        for config, output in [("prefix-chunk.json", "prefix-chunk"),
+                               ("pp-prefix-chunk.json", "pp-prefix-chunk")]:
+            run([str(console), "simulate", "--experiment", config, "--out", output], outside, env)
+            cached = json.loads((outside / output / "result.json").read_text())
+            assert cached["counts"]["completed"] == 2
+            assert cached["prefill"]["completed_chunks"] == 4
+            assert cached["prefill"]["reused_prefix_tokens"] == 8
+            assert cached["prefill"]["computed_tokens"] == 16
+            assert cached["prefix_cache"]["pinned_blocks"] == 0
+            assert cached["prefix_cache"]["cached_blocks"] == 3
         failed = json.loads(run([str(console), "simulate", "--experiment", "unsupported.json",
                                 "--out", "unsupported"], outside, env, expected=2))
         assert failed["error_code"] == "UNSUPPORTED_MECHANISM"
@@ -172,6 +194,7 @@ def verify(dist: Path) -> dict:
     return {"wheel": wheel.name, "sdist": sdists[0].name,
             "distribution_contents": "passed", "installed_api_and_cli": "passed",
             "installed_pipeline_and_swap": "passed",
+            "installed_prefix_cache_and_chunking": "passed",
             "installed_calibration_comparison_holdout": "passed"}
 
 

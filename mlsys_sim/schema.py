@@ -81,6 +81,10 @@ class StrategySpec:
     pipeline_feedback_latency_us: float = 0.0
     pipeline_p2p: bool = True
     swap_fallback: str = "none"
+    prefix_cache: bool = False
+    prefix_cache_max_blocks: int = 128
+    chunked_prefill: bool = False
+    prefill_chunk_tokens: int = 512
 
 
 @dataclass(frozen=True)
@@ -91,6 +95,8 @@ class RequestSpec:
     output_tokens: int
     priority: int = 0
     timeout_ms: float | None = None
+    prompt_token_ids: tuple[int, ...] = ()
+    cache_namespace: str = ""
 
 
 @dataclass(frozen=True)

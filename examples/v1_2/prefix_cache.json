@@ -1,0 +1,62 @@
+{
+  "schema_version": 1,
+  "workload": [
+    {
+      "request_id": "producer",
+      "arrival_ms": 0,
+      "input_tokens": 12,
+      "output_tokens": 2,
+      "prompt_token_ids": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11
+      ],
+      "cache_namespace": "demo"
+    },
+    {
+      "request_id": "repeat",
+      "arrival_ms": 20,
+      "input_tokens": 12,
+      "output_tokens": 2,
+      "prompt_token_ids": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11
+      ],
+      "cache_namespace": "demo"
+    }
+  ],
+  "strategy": {
+    "prefix_cache": true,
+    "prefix_cache_max_blocks": 8,
+    "max_batch_size": 2,
+    "max_batch_tokens": 16,
+    "memory": {
+      "kv_block_tokens": 4
+    }
+  },
+  "calibration": {
+    "backend": "synthetic",
+    "prefill_ms": 2,
+    "decode_ms": 1,
+    "recompute_ms": 2
+  }
+}

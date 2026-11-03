@@ -76,7 +76,9 @@ def _contract(value: Any, name: str, *, measured: bool = False) -> dict:
         # V1 contracts predate these additive policy fields. Their documented
         # defaults preserve legacy single-group semantics when omitted.
         added_policy = {"pipeline_microbatch_size", "pipeline_max_inflight_microbatches",
-                        "pipeline_feedback_latency_us", "pipeline_p2p", "swap_fallback"}
+                        "pipeline_feedback_latency_us", "pipeline_p2p", "swap_fallback",
+                        "prefix_cache", "prefix_cache_max_blocks", "chunked_prefill",
+                        "prefill_chunk_tokens"}
         _keys(contract["strategy"], {field.name for field in fields(StrategySpec)} - added_policy,
               added_policy, f"{name}.strategy")
         _keys(contract["evaluation"], {field.name for field in fields(EvaluationSpec)}, set(), f"{name}.evaluation")
@@ -144,10 +146,17 @@ def comparison_contract(experiment: Experiment) -> dict:
     execution = asdict(experiment.execution)
     execution.pop("detailed_events")
     execution.pop("max_events")
+    # Preserve V1 workload fingerprints when additive prompt identity is absent.
+    workload = asdict(experiment)["workload"]
+    for row in workload:
+        if not row["prompt_token_ids"]:
+            row.pop("prompt_token_ids")
+        if not row["cache_namespace"]:
+            row.pop("cache_namespace")
     result = {
         "schema_version": 1,
         "identity": profile_identity(experiment),
-        "workload_sha256": hashlib.sha256(_canonical(asdict(experiment)["workload"]).encode()).hexdigest(),
+        "workload_sha256": hashlib.sha256(_canonical(workload).encode()).hexdigest(),
         "strategy": strategy,
         "evaluation": asdict(experiment.evaluation),
         "execution": execution,

@@ -208,8 +208,6 @@ def _shape(phase: Any, query_tokens: Any, context_lengths: Any, stage_index: Any
     contexts = tuple(_integer(value, "context_lengths[]") for value in context_lengths)
     if phase == "decode" and any(value != 1 for value in queries):
         _invalid("decode queries must each contain one token")
-    if phase in ("prefill", "recompute") and any(contexts):
-        _invalid("Unchunked prefill/recompute requires zero prefix context")
     return phase, stage, queries, contexts
 
 

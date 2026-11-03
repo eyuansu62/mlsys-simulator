@@ -7,6 +7,7 @@ checked for every TP rank and pipeline stage before any state is committed.
 
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
+import hashlib
 
 from .layout import rank_kv_bytes_per_token, rank_weight_bytes, stage_layer_counts
 from .schema import Experiment, SimulationError
@@ -34,6 +35,15 @@ class _RankBudget:
     pipeline_buffer_reserved_bytes: int
 
 
+_PrefixKey = tuple[str, int, bytes]
+
+
+@dataclass
+class _PrefixBlock:
+    references: set[str]
+    last_used: int
+
+
 def _integer(value: object, name: str, minimum: int = 0) -> int:
     if isinstance(value, bool) or not isinstance(value, int) or value < minimum:
         raise SimulationError("INVALID_CONFIG", f"{name} must be an integer >= {minimum}")
@@ -47,6 +57,22 @@ class MemoryPlanner:
         self.experiment = experiment
         self.config = experiment.strategy.memory
         self.allocations: dict[str, int] = {}
+        self._prefix_enabled = experiment.strategy.prefix_cache
+        self._prefix_capacity = _integer(experiment.strategy.prefix_cache_max_blocks,
+                                         "prefix_cache_max_blocks", 1)
+        self._prefix_specs = {request.request_id: request for request in experiment.workload}
+        self._prefix_entries: dict[_PrefixKey, _PrefixBlock] = {}
+        self._prefix_attached: dict[str, list[_PrefixKey]] = {}
+        self._prefix_checked: set[str] = set()
+        self._prefix_lookup_hits: dict[str, int] = {}
+        self._prefix_committed_requests: set[str] = set()
+        self._prefix_request_keys: dict[str, tuple[_PrefixKey, ...]] = {}
+        self._prefix_clock = 0
+        self._prefix_counts = {name: 0 for name in (
+            "lookup_requests", "hit_requests", "miss_requests", "bypassed_requests", "hit_tokens",
+            "published_blocks", "deduplicated_blocks", "evicted_blocks", "peak_cached_blocks",
+            "abandoned_lookups", "abandoned_hit_tokens",
+        )}
         self._ranks: list[_RankBudget] = []
         self._workspace_peaks: dict[str, int] = {}
         self._workspace_sources: dict[str, str] = {}
@@ -128,6 +154,193 @@ class MemoryPlanner:
         block = self.config.kv_block_tokens
         return (tokens + block - 1) // block
 
+    def _touch_prefix(self, key: _PrefixKey) -> None:
+        self._prefix_clock += 1
+        self._prefix_entries[key].last_used = self._prefix_clock
+
+    def _request_prefix_keys(self, request_id: str) -> tuple[_PrefixKey, ...]:
+        """Hash each block with its parent digest, using linear identity storage."""
+        if request_id in self._prefix_request_keys:
+            return self._prefix_request_keys[request_id]
+        request = self._prefix_specs[request_id]
+        tokens = request.prompt_token_ids
+        if (not isinstance(tokens, (tuple, list)) or len(tokens) != request.input_tokens
+                or not isinstance(request.cache_namespace, str)
+                or any(type(token) is not int or not 0 <= token < min(
+                    2**63, self.experiment.strategy.model.vocab_size) for token in tokens)):
+            raise SimulationError("INVALID_CONFIG", "Prefix identity requires one valid vocabulary token per input token")
+        block = self.config.kv_block_tokens
+        digest = b""
+        keys = []
+        for end in range(block, request.input_tokens + 1, block):
+            payload = b"".join(token.to_bytes(8, "big") for token in tokens[end - block:end])
+            digest = hashlib.sha256(digest + payload).digest()
+            keys.append((request.cache_namespace, end, digest))
+        result = tuple(keys)
+        self._prefix_request_keys[request_id] = result
+        return result
+
+    def _idle_prefix_keys(self) -> list[_PrefixKey]:
+        return sorted((key for key, entry in self._prefix_entries.items() if not entry.references),
+                      key=lambda key: self._prefix_entries[key].last_used)
+
+    def _evict_prefix_blocks(self, count: int) -> None:
+        keys = self._idle_prefix_keys()
+        if count > len(keys):
+            raise SimulationError("RESOURCE_STATE_CHANGED", "Planned cache blocks are no longer evictable")
+        for key in keys[:count]:
+            del self._prefix_entries[key]
+        self._prefix_counts["evicted_blocks"] += count
+
+    def _used_blocks(self, allocations: Mapping[str, int]) -> int:
+        private = sum(self._blocks(tokens) - len(self._prefix_attached.get(request_id, ()))
+                      for request_id, tokens in allocations.items())
+        return len(self._prefix_entries) + private
+
+    def _projected_usage(self, allocations: Mapping[str, int], alone: bool) -> tuple[int, int]:
+        if alone:
+            return sum(self._blocks(tokens) for tokens in allocations.values()), 0
+        used = self._used_blocks(allocations)
+        capacity = min(rank.pool_blocks for rank in self._ranks) - self.config.guard_blocks
+        evictions = min(max(0, used - capacity), len(self._idle_prefix_keys()))
+        return used - evictions, evictions
+
+    def _record_block_peak(self) -> None:
+        self._peak_used_blocks = max(self._peak_used_blocks, self._used_blocks(self.allocations))
+
+    def lookup_prefix(self, request_id: str) -> int:
+        """Attach immutable cached prompt blocks, leaving a token for logits.
+
+        Only explicit token IDs in the same namespace can match. A lookup is
+        performed once per request; repeated calls observe its current attached
+        prefix without changing the counters or LRU order. Generated tokens and
+        incomplete blocks are never cached.
+        """
+        if not self._prefix_enabled:
+            return 0
+        if request_id in self._prefix_checked:
+            return min(self._prefix_lookup_hits.get(request_id, 0),
+                       len(self._prefix_attached.get(request_id, ())) * self.config.kv_block_tokens)
+        if request_id in self.allocations:
+            raise SimulationError("INVALID_PREFIX_STATE", "Prefix lookup must precede request allocation")
+        request = self._prefix_specs.get(request_id)
+        request_keys = (self._request_prefix_keys(request_id)
+                        if request is not None and request.prompt_token_ids else ())
+        self._prefix_checked.add(request_id)
+        self._prefix_counts["lookup_requests"] += 1
+        if request is None or not request.prompt_token_ids:
+            self._prefix_counts["bypassed_requests"] += 1
+            return 0
+        block = self.config.kv_block_tokens
+        keys: list[_PrefixKey] = []
+        for key in request_keys:
+            if key[1] >= request.input_tokens:
+                break
+            if key not in self._prefix_entries:
+                break
+            keys.append(key)
+        tokens = len(keys) * block
+        self._prefix_lookup_hits[request_id] = tokens
+        if keys:
+            self.allocations[request_id] = tokens
+            self._prefix_attached[request_id] = keys
+            for key in keys:
+                self._prefix_entries[key].references.add(request_id)
+                self._touch_prefix(key)
+            self._record_block_peak()
+            self._prefix_counts["hit_requests"] += 1
+            self._prefix_counts["hit_tokens"] += tokens
+        else:
+            self._prefix_counts["miss_requests"] += 1
+        return tokens
+
+    def abandon_prefix_lookup(self, request_id: str) -> None:
+        """Roll back a hit whose request has not been admitted to computation.
+
+        A failed trial admission must not pin idle cache blocks and block an
+        incumbent decoder. Committed reservations and publications make this
+        operation invalid; engines must never use it for an admitted request.
+        """
+        hit = self._prefix_lookup_hits.get(request_id, 0)
+        if not hit:
+            return
+        if (request_id in self._prefix_committed_requests
+                or self.allocations.get(request_id) != hit
+                or len(self._prefix_attached.get(request_id, ())) * self.config.kv_block_tokens != hit):
+            raise SimulationError("INVALID_PREFIX_STATE", "Only an unadmitted prefix lookup can be abandoned")
+        self.release(request_id)
+        self._prefix_checked.remove(request_id)
+        self._prefix_lookup_hits.pop(request_id)
+        self._prefix_counts["lookup_requests"] -= 1
+        self._prefix_counts["hit_requests"] -= 1
+        self._prefix_counts["hit_tokens"] -= hit
+        self._prefix_counts["abandoned_lookups"] += 1
+        self._prefix_counts["abandoned_hit_tokens"] += hit
+
+    def publish_prefix(self, request_id: str, computed_tokens: int) -> int:
+        """Replace complete private prompt blocks with shared cache references.
+
+        Engines call this only at a safe compute/feedback boundary. Publishing
+        changes ownership, without copying bytes or adding physical blocks. If
+        every cache entry is pinned, additional prompt blocks remain private.
+        The return value counts newly attached blocks, including deduplication.
+        """
+        computed = _integer(computed_tokens, "computed_tokens")
+        if not self._prefix_enabled:
+            return 0
+        request = self._prefix_specs.get(request_id)
+        if request is None or not request.prompt_token_ids:
+            return 0
+        if computed > self.allocations.get(request_id, 0):
+            raise SimulationError("INVALID_PREFIX_STATE", "Cannot publish KV outside a live allocation")
+        request_keys = self._request_prefix_keys(request_id)
+        attached = self._prefix_attached.setdefault(request_id, [])
+        published = 0
+        self._prefix_committed_requests.add(request_id)
+        for key in request_keys:
+            if key[1] > min(computed, request.input_tokens):
+                break
+            if key in attached:
+                continue
+            if key not in self._prefix_entries:
+                if len(self._prefix_entries) >= self._prefix_capacity:
+                    if not self._idle_prefix_keys():
+                        continue
+                    self._evict_prefix_blocks(1)
+                self._prefix_entries[key] = _PrefixBlock(set(), 0)
+                self._prefix_counts["published_blocks"] += 1
+                self._prefix_counts["peak_cached_blocks"] = max(
+                    self._prefix_counts["peak_cached_blocks"], len(self._prefix_entries))
+            else:
+                self._prefix_counts["deduplicated_blocks"] += 1
+            self._prefix_entries[key].references.add(request_id)
+            attached.append(key)
+            self._touch_prefix(key)
+            published += 1
+        return published
+
+    def prefix_snapshot(self) -> dict:
+        """Observe cache identity-independent counters and block ownership."""
+        pinned = sum(bool(entry.references) for entry in self._prefix_entries.values())
+        shared = sum(len(entry.references) > 1 for entry in self._prefix_entries.values())
+        eligible = self._prefix_counts["hit_requests"] + self._prefix_counts["miss_requests"]
+        return {
+            "enabled": self._prefix_enabled, "capacity_blocks": self._prefix_capacity,
+            **self._prefix_counts,
+            "cached_blocks": len(self._prefix_entries), "pinned_blocks": pinned,
+            "evictable_blocks": len(self._prefix_entries) - pinned, "shared_blocks": shared,
+            "attached_block_references": sum(len(keys) for keys in self._prefix_attached.values()),
+            "private_blocks": self._used_blocks(self.allocations) - len(self._prefix_entries),
+            "hit_rate": self._prefix_counts["hit_requests"] / eligible if eligible else None,
+            "block_tokens": self.config.kv_block_tokens,
+            "policy": "full_prompt_blocks_sha256_ancestry_and_namespace_lru_unreferenced_only",
+            "identity": "sha256_parent_digest_and_unsigned_8byte_big_endian_block_token_ids",
+            "entries": [{"prefix_tokens": key[1], "reference_count": len(entry.references),
+                         "request_ids": sorted(entry.references), "last_used": entry.last_used}
+                        for key, entry in sorted(self._prefix_entries.items(),
+                                                 key=lambda item: item[1].last_used)],
+        }
+
     def kv_bytes_for_tokens(self, tokens: int) -> int:
         """Block-aligned KV copy bytes, summed over all stages and TP ranks.
 
@@ -156,8 +369,8 @@ class MemoryPlanner:
                 raise SimulationError("INVALID_CONFIG", "KV targets cannot shrink a live allocation")
         projected = {} if alone else dict(self.allocations)
         projected.update(targets)
-        used_before = sum(self._blocks(tokens) for tokens in self.allocations.values())
-        used_after = sum(self._blocks(tokens) for tokens in projected.values())
+        used_before = self._used_blocks(self.allocations)
+        used_after, cache_evictions = self._projected_usage(projected, alone)
         ranks = [{"device_id": rank.device_id, "stage_index": rank.stage_index,
                   "tp_rank": rank.tp_rank, "pool_blocks": rank.pool_blocks,
                   "used_before_blocks": used_before, "proposed_used_blocks": used_after,
@@ -170,6 +383,7 @@ class MemoryPlanner:
                   "logical_ok": used_after + self.config.guard_blocks <= rank.pool_blocks}
                  for rank in self._ranks]
         details = {"phase": "kv_copy", "alone": alone, "proposed_allocations": projected,
+                   "cache_eviction_blocks": cache_evictions,
                    "workspace_bytes": 0, "ranks": ranks}
         if any(not rank["physical_ok"] for rank in ranks):
             return MemoryDecision(False, "STATIC_MEMORY_INFEASIBLE", details)
@@ -181,9 +395,10 @@ class MemoryPlanner:
         """Atomically reserve a copy destination without changing Workspace peaks."""
         decision = self.check_kv(target_tokens)
         if decision.ok:
+            self._evict_prefix_blocks(decision.details["cache_eviction_blocks"])
             self.allocations.update(target_tokens)
-            used = sum(self._blocks(tokens) for tokens in self.allocations.values())
-            self._peak_used_blocks = max(self._peak_used_blocks, used)
+            self._prefix_committed_requests.update(target_tokens)
+            self._record_block_peak()
         return decision
 
     def check(
@@ -217,8 +432,8 @@ class MemoryPlanner:
 
         projected = {} if alone else dict(self.allocations)
         projected.update(targets)
-        used_before = sum(self._blocks(tokens) for tokens in self.allocations.values())
-        used_after = sum(self._blocks(tokens) for tokens in projected.values())
+        used_before = self._used_blocks(self.allocations)
+        used_after, cache_evictions = self._projected_usage(projected, alone)
         workspace = (self.config.workspace_base_bytes
                      + self.config.workspace_bytes_per_token * sum(queries))
         ranks: list[dict] = []
@@ -226,8 +441,7 @@ class MemoryPlanner:
             rank_workspace = workspace
             workspace_source = "analytical_assumption"
             if self._profile_model is not None and queries:
-                contexts = ([target - query for target, query in zip(targets.values(), queries)]
-                            if phase == "decode" else [0] * len(queries))
+                contexts = [target - query for target, query in zip(targets.values(), queries)]
                 observed_workspace = self._profile_model.workspace_bytes(
                     queries, phase, rank.stage_index, context_lengths=contexts)
                 if observed_workspace is not None:
@@ -256,6 +470,7 @@ class MemoryPlanner:
             "phase": phase,
             "alone": alone,
             "proposed_allocations": projected,
+            "cache_eviction_blocks": cache_evictions,
             "workspace_bytes": max((rank["workspace_bytes"] for rank in ranks), default=workspace),
             "ranks": ranks,
         }
@@ -274,7 +489,9 @@ class MemoryPlanner:
         """Commit a reservation only after every participating rank passes."""
         decision = self.check(target_tokens, query_tokens, phase)
         if decision.ok:
+            self._evict_prefix_blocks(decision.details["cache_eviction_blocks"])
             self.allocations.update(target_tokens)
+            self._prefix_committed_requests.update(target_tokens)
             for rank in decision.details["ranks"]:
                 device_id = rank["device_id"]
                 previous = self._workspace_peaks.get(device_id, -1)
@@ -285,8 +502,7 @@ class MemoryPlanner:
                       and self._workspace_sources[device_id] != rank["workspace_source"]):
                     self._workspace_sources[device_id] = "mixed"
                 self._workspace_last_sources[device_id] = rank["workspace_source"]
-            used = sum(self._blocks(tokens) for tokens in self.allocations.values())
-            self._peak_used_blocks = max(self._peak_used_blocks, used)
+            self._record_block_peak()
         return decision
 
     def release(self, request_id: str) -> None:
@@ -296,10 +512,15 @@ class MemoryPlanner:
         transfers before calling this method. Repeated release is harmless.
         """
         self.allocations.pop(request_id, None)
+        self._prefix_committed_requests.discard(request_id)
+        for key in self._prefix_attached.pop(request_id, ()):
+            self._prefix_entries[key].references.discard(request_id)
+            self._touch_prefix(key)
 
     def snapshot(self) -> list[dict]:
         """Return independent per-rank accounting records and high watermarks."""
-        used = sum(self._blocks(tokens) for tokens in self.allocations.values())
+        used = self._used_blocks(self.allocations)
+        cache = self.prefix_snapshot()
         snapshots = []
         for rank in self._ranks:
             free = rank.pool_blocks - used
@@ -319,6 +540,10 @@ class MemoryPlanner:
                 "pool_blocks": rank.pool_blocks,
                 "guard_blocks": self.config.guard_blocks,
                 "used_blocks": used,
+                "prefix_cached_blocks": cache["cached_blocks"],
+                "prefix_pinned_blocks": cache["pinned_blocks"],
+                "prefix_shared_blocks": cache["shared_blocks"],
+                "private_blocks": cache["private_blocks"],
                 "free_blocks": free,
                 "allocatable_free_blocks": max(0, free - self.config.guard_blocks),
                 "kv_used_bytes": used * rank.kv_block_bytes,

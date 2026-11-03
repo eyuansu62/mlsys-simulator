@@ -33,7 +33,11 @@ process different microbatches concurrently.
 
 Batch Token limits still apply. The scheduler never uses a request's future
 actual output length to choose its work. Each request has at most one outstanding
-iteration, including downstream transfer and feedback dependencies.
+iteration, including downstream transfer and feedback dependencies. Since 1.2,
+each prompt chunk follows that same dependency chain; intermediate chunks emit
+no Token and resume input work after feedback. Cache blocks publish at the safe
+feedback boundary, and reuse advances every stage's known prefix. See
+[Prefix Cache and chunking](prefix-cache-and-chunking.md).
 
 An iteration traverses all stages. Final-stage service already includes the
 output/sampling work declared by its performance backend. The Token is ready at
@@ -159,7 +163,11 @@ fragments. Pending capacity remains reserved even when only part of the payload
 has been copied.
 
 Logical GPU block release still does not shrink the fixed physical KV pool, so
-swap cannot automatically solve an unrelated Workspace OOM. NVMe, Prefix Cache,
-chunked prefill, multiple replicas and quantized storage remain outside the
-supported scope. Actual transfer measurements and hardware holdout validation
-remain separate work.
+swap cannot automatically solve an unrelated Workspace OOM. With Prefix Cache,
+swap conservatively copies all block-aligned request KV, including shared
+blocks; it detaches GPU references on safe D2H completion and restores private
+GPU blocks. Retained GPU cache entries remain subject to idle-block LRU. Partial
+prefill/recompute resumes its remaining input rather than entering Decode early.
+NVMe, multiple replicas, mixed-phase kernels and quantized storage remain
+outside the supported scope. Actual transfer measurements and hardware holdout
+validation remain separate work.

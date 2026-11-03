@@ -45,6 +45,10 @@ def report_simulation(sim: Any) -> SimulationResult:
             "recompute_ms": request.recompute_ms,
             "memory_wait_ms": request.memory_wait_ms,
             "error_code": request.error_code,
+            "prefix_cached_tokens": request.prefix_cached_tokens,
+            "prefill_chunks": request.prefill_chunks,
+            "prefill_computed_tokens": request.prefill_computed_tokens,
+            "recompute_target": request.recompute_target,
             "swap_out_count": request.swap_out_count,
             "swap_in_count": request.swap_in_count,
             "swap_out_bytes": request.swap_out_bytes,
@@ -89,9 +93,10 @@ def report_simulation(sim: Any) -> SimulationResult:
                               else "test_fixture_profile")
         profile_version = profile["profile_version"]
     limitations = list(getattr(sim, "limitations", [
-        "single replica; homogeneous phase batches; no chunked prefill",
+        "single replica; homogeneous phase batches; no mixed prefill/decode kernel",
         "fixed KV pool; allocator fragmentation is not simulated",
-        "prefill-first admission; pressure drains active requests before recovery",
+        ("decode-first scheduling with bounded prefill chunks" if sim.exp.strategy.chunked_prefill
+         else "prefill-first admission; pressure drains active requests before recovery"),
     ]))
     limitations.insert(0, "profile-backed CPU model; hardware holdout validation is separate"
                        if profile is not None else "uncalibrated CPU model")
@@ -139,6 +144,15 @@ def report_simulation(sim: Any) -> SimulationResult:
         "recomputed_tokens": sum(row["recomputed_tokens"] for row in rows),
         "recompute_execution_ms": sim.recompute_execution_ms,
         "compute_busy_ms": sim.compute_busy_ms,
+        "prefill": {
+            "chunked": sim.exp.strategy.chunked_prefill,
+            "chunk_token_limit": (sim.exp.strategy.prefill_chunk_tokens
+                                  if sim.exp.strategy.chunked_prefill else None),
+            "completed_chunks": sum(row["prefill_chunks"] for row in rows),
+            "computed_tokens": sum(row["prefill_computed_tokens"] for row in rows),
+            "reused_prefix_tokens": sum(row["prefix_cached_tokens"] for row in rows),
+            "batch_policy": "homogeneous_phase_batches",
+        },
         "memory": sim.memory.snapshot(),
         "measurement_contract": {
             "arrival_window_ms": [0.0, evaluation.measurement_window_ms]
@@ -153,6 +167,7 @@ def report_simulation(sim: Any) -> SimulationResult:
         },
         "limitations": limitations,
     }
+    result["prefix_cache"] = sim.memory.prefix_snapshot()
     swap = getattr(sim, "swap", None)
     if swap is not None:
         result["swap"] = swap.snapshot(sim.now)
