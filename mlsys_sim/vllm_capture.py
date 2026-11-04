@@ -206,6 +206,16 @@ def _header(experiment: Experiment, value: Any, allow_test_fixture: bool) -> tup
                            and record.get("profile_eligible") is not False for record in capture["records"])
     if source["kind"] == "measured" and eligible_records and (not actual_hash or execution is None):
         _fail("Measured capture requires its actual execution snapshot and identity hash", "HARDWARE_METADATA_INCOMPLETE")
+    model_binding = metadata.get("model_binding")
+    if eligible_records and isinstance(model_binding, dict) and "word_embedding_tying" in model_binding:
+        tying = model_binding["word_embedding_tying"]
+        if (not isinstance(tying, dict) or tying.get("verification_phase") != "prepared"
+                or tying.get("pending_loaded_storage_proof") is not False):
+            _fail("Completed capture requires resolved loaded word-embedding evidence", "HARDWARE_METADATA_INCOMPLETE")
+        effective_tying = tying.get("effective_tie_word_embeddings")
+        if (type(effective_tying) is not bool
+                or effective_tying != local.strategy.model.tie_word_embeddings):
+            _fail("Loaded word-embedding policy differs from capture identity", "CALIBRATION_MISMATCH")
     binding = metadata.get("stage_layer_binding")
     if binding is not None:
         fact = _object(binding, {"start_layer", "end_layer", "layer_count", "method"}, set(), "stage layer binding")
@@ -858,7 +868,8 @@ def normalize_vllm_capture(experiment: Experiment, captures: list[dict], *,
         key = shape_key(representative["phase"], representative["query_tokens"],
                         representative["context_lengths"], stage,
                         request_phases=representative.get("request_phases"))
-        row = {"record_id": f"replica-{replica}/stage-{stage}/{representative['sample_id']}",
+        row = {"record_id": "vllm-record:" + _json(
+                   [next(iter(sessions)), replica, stage, representative["sample_id"]]),
                "group_id": f"vllm/{next(iter(sessions))}/r{replica}/{hashlib.sha256(key.encode()).hexdigest()[:16]}",
                "phase": representative["phase"], "stage_index": stage,
                "query_tokens": list(representative["query_tokens"]),

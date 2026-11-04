@@ -1,5 +1,23 @@
 # Changelog
 
+## 1.9.1 — 2026-11-04
+
+### Fixed
+
+- Delay checkpoint-dependent embedding tying validation until the loaded local
+  weights are observable. The pinned Runtime may temporarily untie redundant
+  checkpoint heads and later re-share their storage without restoring the HF
+  flag. Canonical capture now requires the prepared, effective storage proof;
+  missing or contradictory proof remains ineligible.
+- Qualify internal capture record IDs by session so independent runs with the
+  same local iteration counter can undergo holdout validation. Reused records,
+  groups and shapes retain the existing leakage checks.
+- Bind explicitly configured P2P, shared-memory, IB/network and blocking-wait
+  transport policies to the Runtime fingerprint without changing the unset
+  legacy fingerprint.
+- Recognize the strict unscaled default RoPE alias exposed by Transformers 5
+  without accepting genuine scaling, conflicting theta values or extra fields.
+
 ## 1.9.0 — 2026-11-04
 
 Dynamic Workspace can use a separately attributed per-rank Profile, while

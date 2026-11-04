@@ -154,6 +154,14 @@ replicas and their CPU swap policy are separate from those native Runtime
 features. Unsupported calls retain raw diagnostics and cannot provide a
 fabricated stage cost.
 
+Checkpoint reconciliation can temporarily set `hf_config.tie_word_embeddings`
+to false, then re-share identical loaded weights without restoring that flag.
+Since 1.9.1, the constructor retains this explicit pending state and a prepared
+batch must prove the local Parameter/storage alias before canonical capture.
+Missing or contradictory proof stays ineligible. Cross-device PP aliases are
+not inferred. Transformers 5's strictly unscaled default RoPE attribute alias
+is recognized while genuine scaling and conflicting theta values remain rejected.
+
 Independent-stage eligibility also depends on the actual PP transport path.
 Since 1.7, explicit `strategy.pipeline_transport="vllm_native"` supports this
 pinned source's lazy incoming receive and conditional tensor-sliced P2P with

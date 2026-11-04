@@ -133,6 +133,12 @@ def _execution_config(config: Any, experiment: Experiment, async_scheduling: boo
          "VLLM_ROCM_USE_AITER", "VLLM_ROCM_USE_AITER_MHA", "VLLM_ROCM_USE_AITER_PAGED_ATTN",
          "VLLM_ROCM_USE_AITER_RMSNORM", "VLLM_ROCM_USE_AITER_ROPE", "VLLM_ROCM_USE_AITER_LINEAR",
          "VLLM_USE_TRITON_FLASH_ATTN")}
+    # Preserve older unset-policy identities, but never merge explicit transport
+    # choices such as host-staged P2P into the default Runtime domain.
+    for name in ("NCCL_P2P_DISABLE", "NCCL_SHM_DISABLE", "NCCL_IB_DISABLE", "NCCL_NET",
+                 "TORCH_NCCL_BLOCKING_WAIT"):
+        if name in os.environ:
+            result["environment"][name] = os.environ[name]
     return result
 
 
@@ -204,20 +210,144 @@ def _stage_layer_binding(runner: Any, experiment: Experiment, stage_index: int) 
             "method": "loaded_qwen_model_start_end_layer"}
 
 
-def _shape_model_matches(runner: Any, experiment: Experiment) -> dict:
+def _check_unscaled_qwen_rope(hf: Any) -> None:
+    """Accept HF's default-RoPE attribute alias without accepting scaling."""
+    thetas: list[int | float] = []
+
+    def theta(value: Any) -> None:
+        if type(value) not in (int, float):
+            _fail("UNSUPPORTED_VLLM_FEATURE", "Default Qwen3 RoPE theta must be finite and positive")
+        try:
+            valid = math.isfinite(float(value)) and value > 0
+        except (OverflowError, ValueError):
+            valid = False
+        if not valid:
+            _fail("UNSUPPORTED_VLLM_FEATURE", "Default Qwen3 RoPE theta must be finite and positive")
+        thetas.append(value)
+
+    for name in ("rope_scaling", "rope_parameters"):
+        parameters = getattr(hf, name, None)
+        if parameters is None:
+            continue
+        default_type = None if name == "rope_scaling" else "default"
+        if (not isinstance(parameters, dict) or set(parameters) - {"rope_type", "rope_theta"}
+                or parameters.get("rope_type", default_type) != "default"):
+            _fail("UNSUPPORTED_VLLM_FEATURE", "Only unscaled default Qwen3 RoPE parameters are supported")
+        if "rope_theta" in parameters:
+            theta(parameters["rope_theta"])
+    top_theta = getattr(hf, "rope_theta", None)
+    if top_theta is not None:
+        theta(top_theta)
+    if any(value != thetas[0] for value in thetas[1:]):
+        _fail("HARDWARE_IDENTITY_MISMATCH", "Observed Qwen3 RoPE theta aliases disagree")
+
+
+def _loaded_embedding_alias(runner: Any, experiment: Experiment) -> dict:
+    """Observe local Qwen weights without comparing or copying their contents."""
+    root = getattr(runner, "model", None)
+    pairs: dict[tuple[int, int], tuple[Any, Any]] = {}
+    visited: set[int] = set()
+    for _ in range(8):
+        if root is None or id(root) in visited:
+            break
+        visited.add(id(root))
+        embedding = getattr(getattr(root, "model", None), "embed_tokens", None)
+        head = getattr(root, "lm_head", None)
+        first, second = getattr(embedding, "weight", None), getattr(head, "weight", None)
+        if first is not None and second is not None:
+            pairs[id(first), id(second)] = first, second
+        original = getattr(root, "_orig_mod", None)
+        root = original if original is not None else getattr(root, "model", None)
+    if len(pairs) != 1:
+        _fail("HARDWARE_METADATA_INCOMPLETE", "Loaded local embedding/head weights are unavailable or ambiguous")
+    embedding_weight, head_weight = next(iter(pairs.values()))
+    expected_device = getattr(runner, "device", None)
+    if expected_device is None:
+        _fail("HARDWARE_METADATA_INCOMPLETE", "Loaded embedding proof requires the Runner device")
+
+    def describe(weight: Any) -> dict:
+        try:
+            shape = [_int(size, "embedding weight shape", 1) for size in tuple(weight.shape)]
+            stride = [_int(size, "embedding weight stride") for size in tuple(weight.stride())]
+            device = weight.device
+            dtype = str(weight.dtype).removeprefix("torch.")
+            storage = weight.untyped_storage()
+            info: dict[str, Any] = {"shape": shape, "stride": stride, "dtype": dtype, "device": str(device),
+                "storage_data_ptr": _int(storage.data_ptr(), "embedding storage pointer", 1),
+                "storage_bytes": _int(storage.nbytes(), "embedding storage bytes", 1),
+                "tensor_data_ptr": _int(weight.data_ptr(), "embedding tensor pointer", 1),
+                "storage_offset": _int(weight.storage_offset(), "embedding storage offset"),
+                "element_size": _int(weight.element_size(), "embedding element size", 1)}
+            minimum_rows = ((experiment.strategy.model.vocab_size + experiment.strategy.tensor_parallel_size - 1)
+                            // experiment.strategy.tensor_parallel_size)
+            if (len(shape) != 2 or len(stride) != 2 or shape[0] < minimum_rows
+                    or shape[1] != experiment.strategy.model.hidden_size
+                    or dtype != experiment.strategy.model.weight_dtype
+                    or info["element_size"] != int(experiment.strategy.model.weight_bytes)
+                    or getattr(device, "type", None) != "cuda" or str(device) != str(expected_device)
+                    or info["storage_bytes"] < shape[0] * shape[1] * info["element_size"]
+                    or info["tensor_data_ptr"] != info["storage_data_ptr"] + info["storage_offset"] * info["element_size"]):
+                _fail("HARDWARE_IDENTITY_MISMATCH", "Loaded embedding/head storage differs from its model/device identity")
+            return info
+        except SimulationError:
+            raise
+        except (AttributeError, TypeError, ValueError, RuntimeError) as exc:
+            raise SimulationError("HARDWARE_METADATA_INCOMPLETE", "Loaded embedding/head storage cannot be observed") from exc
+
+    first_info, second_info = describe(embedding_weight), describe(head_weight)
+    same_storage = (first_info["device"] == second_info["device"]
+                    and first_info["storage_data_ptr"] == second_info["storage_data_ptr"]
+                    and first_info["storage_bytes"] == second_info["storage_bytes"])
+    same_view = first_info == second_info
+    return {"same_parameter": embedding_weight is head_weight, "same_storage": same_storage,
+            "same_tensor_view": same_view, "effective_tie_word_embeddings": same_view,
+            "embedding": first_info, "lm_head": second_info,
+            "method": "loaded_local_parameter_and_storage_alias", "cross_rank_alias_verified": False}
+
+
+def _shape_model_matches(runner: Any, experiment: Experiment, *, _phase: str = "strict") -> dict:
     """Check known architectural fields, never infer hidden width from heads."""
     config = runner.model_config
     hf = config.hf_config
     model = experiment.strategy.model
+    if _phase not in {"strict", "construction", "prepared"}:
+        _fail("UNSUPPORTED_VLLM_ABI", "Unknown model-binding observation phase")
+    hf_tied = getattr(hf, "tie_word_embeddings", _MISSING)
+    checkpoint_untied = getattr(config, "word_embeddings_untied_by_checkpoint", False)
+    if type(hf_tied) is not bool or type(checkpoint_untied) is not bool:
+        _fail("HARDWARE_IDENTITY_MISMATCH", "Word-embedding tying metadata must be boolean")
+    pending = checkpoint_untied and not hf_tied and model.tie_word_embeddings
+    effective_tied = hf_tied
+    tying: dict[str, Any] = {"startup_hf_tie_word_embeddings": hf_tied,
+        "startup_word_embeddings_untied_by_checkpoint": checkpoint_untied,
+        "word_embeddings_untied_by_checkpoint": checkpoint_untied,
+        "verification_phase": _phase, "pending_loaded_storage_proof": False,
+        "effective_tie_word_embeddings": hf_tied, "local_alias": None}
+    if _phase == "construction" and pending:
+        effective_tied = model.tie_word_embeddings
+        tying.update(pending_loaded_storage_proof=True, effective_tie_word_embeddings=None)
+    elif _phase == "prepared":
+        if experiment.strategy.pipeline_parallel_size == 1:
+            alias = _loaded_embedding_alias(runner, experiment)
+            effective_tied = alias["effective_tie_word_embeddings"]
+            if effective_tied != hf_tied and not (pending and effective_tied):
+                _fail("HARDWARE_IDENTITY_MISMATCH", "Loaded word-embedding storage contradicts its configuration")
+            tying.update(local_alias=alias, effective_tie_word_embeddings=effective_tied)
+        elif pending:
+            _fail("HARDWARE_METADATA_INCOMPLETE", "Checkpoint-untied PP endpoints lack a local tied-weight proof")
+        else:
+            tying["verification_scope"] = "configured_distinct_pp_endpoint_copies_no_cross_rank_alias_claim"
     fields = {"num_hidden_layers": model.num_layers, "hidden_size": model.hidden_size,
               "intermediate_size": model.intermediate_size, "num_attention_heads": model.num_attention_heads,
               "num_key_value_heads": model.num_kv_heads, "head_dim": model.head_dim,
-              "vocab_size": model.vocab_size, "tie_word_embeddings": model.tie_word_embeddings}
+              "vocab_size": model.vocab_size}
     if getattr(hf, "model_type", None) != "qwen3" or not model.qk_norm or not model.final_norm:
         _fail("HARDWARE_IDENTITY_MISMATCH", "This Qwen3 hook requires Q/K Norm and final RMSNorm identity")
     for field, expected in fields.items():
         if getattr(hf, field, _MISSING) != expected:
             _fail("HARDWARE_IDENTITY_MISMATCH", f"Loaded Qwen3 {field} differs from the experiment")
+    if effective_tied != model.tie_word_embeddings:
+        _fail("HARDWARE_IDENTITY_MISMATCH", "Loaded Qwen3 tie_word_embeddings differs from the experiment")
     window = getattr(hf, "sliding_window", None)
     window_enabled = getattr(hf, "use_sliding_window", False)
     if window is not None:
@@ -228,12 +358,7 @@ def _shape_model_matches(runner: Any, experiment: Experiment) -> dict:
             or getattr(hf, "quantization_config", None) or getattr(config, "quantization", None) is not None
             or getattr(hf, "hidden_act", "silu") != "silu"):
         _fail("UNSUPPORTED_VLLM_FEATURE", "Loaded model has unsupported attention, quantization or activation behavior")
-    if getattr(hf, "rope_scaling", None) is not None:
-        _fail("UNSUPPORTED_VLLM_FEATURE", "Scaled RoPE is outside the supported Qwen3 domain")
-    rope = getattr(hf, "rope_parameters", None)
-    if rope is not None and (not isinstance(rope, dict) or set(rope) - {"rope_type", "rope_theta"}
-            or rope.get("rope_type", "default") != "default"):
-        _fail("UNSUPPORTED_VLLM_FEATURE", "Only default Qwen3 RoPE parameters are supported")
+    _check_unscaled_qwen_rope(hf)
     layer_types = getattr(hf, "layer_types", _MISSING)
     if layer_types is not _MISSING and (not isinstance(layer_types, list)
             or len(layer_types) != model.num_layers or any(value != "full_attention" for value in layer_types)):
@@ -248,17 +373,25 @@ def _shape_model_matches(runner: Any, experiment: Experiment) -> dict:
     observed = commit or requested
     if observed is not None and (not isinstance(observed, str) or observed != model.revision):
         _fail("HARDWARE_IDENTITY_MISMATCH", "Visible model revision differs from the declared identity")
-    if model.architecture_config_sha256:
+    if model.architecture_config_sha256 and not (_phase == "construction" and pending):
         from .qwen3 import model_from_qwen3_config
-        raw = hf.to_dict() if callable(getattr(hf, "to_dict", None)) else dict(vars(hf))
+        raw = deepcopy(hf.to_dict() if callable(getattr(hf, "to_dict", None)) else dict(vars(hf)))
+        # The loader may restore physical tying without resetting HF's flag.
+        # Only loaded storage evidence may override that field in this copy.
+        if _phase == "prepared":
+            raw["tie_word_embeddings"] = effective_tied
         imported = model_from_qwen3_config(raw, name=model.name, revision=model.revision, kv_dtype=model.kv_dtype)
         if imported.architecture_config_sha256 != model.architecture_config_sha256:
             _fail("HARDWARE_IDENTITY_MISMATCH", "Loaded Qwen3 architecture fingerprint differs")
+    tying["architecture_fingerprint_status"] = ("pending_loaded_storage_proof"
+        if model.architecture_config_sha256 and _phase == "construction" and pending else
+        "verified" if model.architecture_config_sha256 else "not_requested")
     return {"declared_name": model.name, "declared_revision": model.revision,
             "observed_config_commit_hash": commit, "observed_requested_revision": requested,
             "configuration_revision_verified": observed is not None,
             "revision_verified": observed is not None,
             "weights_revision_independently_verified": False,
+            "word_embedding_tying": tying,
             "verification_scope": "visible_configuration_revision_not_full_weight_hash" if observed is not None
                                   else "operator_declared_revision_only"}
 
@@ -327,6 +460,8 @@ class RunnerCapture:
             self._sync = synchronize or (lambda: None)
             self._sync_current = synchronize_current_stream or (lambda: None)
             self._allocator = allocator_snapshot or (lambda: [])
+            if hasattr(runner, "model_config"):
+                metadata["model_binding"] = _shape_model_matches(runner, local, _phase="construction")
         else:
             torch = importlib.import_module("torch")
             if not getattr(torch.version, "hip", None) or not torch.cuda.is_available():
@@ -338,7 +473,7 @@ class RunnerCapture:
                 _fail("HARDWARE_IDENTITY_MISMATCH", "Current rank device differs from the supplied bound experiment")
             if local.calibration.runtime_name != "vllm" or local.calibration.runtime_version != version:
                 _fail("HARDWARE_IDENTITY_MISMATCH", "Experiment must retain the actual vLLM runtime identity")
-            metadata["model_binding"] = _shape_model_matches(runner, local)
+            metadata["model_binding"] = _shape_model_matches(runner, local, _phase="construction")
             actual_parallel = runner.parallel_config
             if (getattr(actual_parallel, "tensor_parallel_size", None) != local.strategy.tensor_parallel_size
                     or getattr(actual_parallel, "pipeline_parallel_size", None) != local.strategy.pipeline_parallel_size):
@@ -412,6 +547,7 @@ class RunnerCapture:
         self._lock = threading.RLock()
         self._limit_reached = False
         self._runtime_bound = False
+        self._loaded_tying_bound: dict | None = None
         self._expected_runtime_hash = local.calibration.runtime_config_sha256
         self._install()
 
@@ -855,6 +991,20 @@ class RunnerCapture:
             self._error(frame, exc)
 
     def _snapshot(self, frame: dict, scheduler_output: Any, num_scheduled_tokens: Any) -> None:
+        previous_binding = self.header["metadata"].get("model_binding")
+        if previous_binding is not None:
+            binding = _shape_model_matches(self.runner, self.exp, _phase="prepared")
+            tying = binding["word_embedding_tying"]
+            prior_tying = previous_binding["word_embedding_tying"]
+            tying["startup_hf_tie_word_embeddings"] = prior_tying["startup_hf_tie_word_embeddings"]
+            tying["startup_word_embeddings_untied_by_checkpoint"] = prior_tying[
+                "startup_word_embeddings_untied_by_checkpoint"]
+            tying["constructor_pending_loaded_storage_proof"] = prior_tying.get(
+                "constructor_pending_loaded_storage_proof", prior_tying["pending_loaded_storage_proof"])
+            if self._loaded_tying_bound is not None and self._loaded_tying_bound != tying:
+                _fail("HARDWARE_IDENTITY_MISMATCH", "Loaded word-embedding storage binding changed during capture")
+            self._loaded_tying_bound = deepcopy(tying)
+            self.header["metadata"]["model_binding"] = binding
         if not self.fixture:
             self.header["metadata"]["stage_layer_binding"] = _stage_layer_binding(self.runner, self.exp, self.stage_index)
             self._bind_native_persistent()

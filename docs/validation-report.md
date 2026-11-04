@@ -1,12 +1,12 @@
-# V1.9 软件验证记录
+# V1.9.1 软件与限定真机验证记录
 
 日期：2026-11-04  
 环境：Python 3.14.3，macOS，CPU 执行  
-版本：1.9.0
+版本：1.9.1
 
 ## 自动检查
 
-- `python3 -m unittest discover -s tests -v`：827 项 CPU 测试通过，新增完整 Workspace ledger/独立逐rank校准、三 Profile 联用、fresh Runtime 容量/OOM 区间与来源验证；保留独立 P2P/AllGather 微基准、同次运行校验、按位置校准/留出及验收来源绑定；保留原生 PP 自然接收、准备流、持久池容量、双张量/切片及 exact Profile 闭环；覆盖 Qwen3 几何/权重、vLLM 内部 Hook/聚合、ROCm/RCCL/Runtime 采集适配、显式硬件验收、参考包导入、多副本路由、混合 Prefill/Decode、Prefix Cache、Chunked Prefill、PP、CPU swap、资源引用、Profile、校准、Compare、留出与 CLI 闭环；含固定 seed 的有界生成负载。
+- `python3 -m unittest discover -s tests -v`：847 项 CPU 测试通过，新增真实 checkpoint tying、默认 RoPE 别名、跨 session 留出及加载后证明回归；保留完整 Workspace ledger/独立逐rank校准、三 Profile 联用、fresh Runtime 容量/OOM 区间与来源验证；保留独立 P2P/AllGather 微基准、同次运行校验、按位置校准/留出及验收来源绑定；保留原生 PP 自然接收、准备流、持久池容量、双张量/切片及 exact Profile 闭环；覆盖 Qwen3 几何/权重、vLLM 内部 Hook/聚合、ROCm/RCCL/Runtime 采集适配、显式硬件验收、参考包导入、多副本路由、混合 Prefill/Decode、Prefix Cache、Chunked Prefill、PP、CPU swap、资源引用、Profile、校准、Compare、留出与 CLI 闭环；含固定 seed 的有界生成负载。
 - Ruff 0.17.3：检查通过。
 - mypy 2.4.1：`mypy mlsys_sim`，36 个源文件检查通过。
 - `python3 -m compileall -q mlsys_sim tests scripts`：通过。
@@ -34,13 +34,13 @@ Workspace 新增完整 Runtime-owned storage ledger、alias 去重、异步 rele
 
 Qwen3 新增手算验证保留真实 residual/query 两种宽度，计入 Q/K Norm、最终 Norm、同 rank tied 词表去重及 PP 端点物理复制。数学参数量为 1.7B 模型1,720,574,976、4B 模型4,022,468,096；4B residual=2560、query=4096，KV=147456bytes/token。Runtime 词表 padding 和 allocator 额外占用仍需实测。旧默认 Profile 身份/数值保持兼容，新架构与实际执行配置各自按 SHA256 区分。
 
-内部 Hook 按固定 vLLM `98dff2a81` 源码接口使用 CPU source-shaped Runner/Scheduler 夹具测试，未安装或运行真实 vLLM/GPU。实际 Hook 导出直接进入聚合器，覆盖完整采样/已发布 Token 生命周期、cache salt 与 prompt SHA、参数/配置/PP层范围、rank 完整性、原调用返回/异常、record 上限、Future 释放和 close 竞态。异步消费、SP、恢复历史及未知传输区间仍保留 raw。默认 full-hidden 契约不接受原生双张量切片传输；显式 native 契约通过独立边界校验后可校准。收集插件默认 dormant，只有显式配置才安装；支持域见[Qwen3 与 Hook 说明](qwen3-and-vllm-hooks.md)。
+内部 Hook 的早期开发按固定 vLLM `98dff2a81` 源码接口使用 CPU source-shaped Runner/Scheduler 夹具测试；1.9.1 另完成下述限定真机试跑。实际 Hook 导出直接进入聚合器，覆盖完整采样/已发布 Token 生命周期、cache salt 与 prompt SHA、参数/配置/PP层范围、rank 完整性、原调用返回/异常、record 上限、Future 释放和 close 竞态。异步消费、SP、恢复历史及未知传输区间仍保留 raw。默认 full-hidden 契约不接受原生双张量切片传输；显式 native 契约通过独立边界校验后可校准。收集插件默认 dormant，只有显式配置才安装；支持域见[Qwen3 与 Hook 说明](qwen3-and-vllm-hooks.md)。
 
 原生 PP 新增实际双张量、padding、TP 切片/全量分支、完整相邻 stage/rank 证据和严格接收区间算术检查。自然 wait 入口先完成当前 compute stream 的本轮输入准备，再观察原始 wait/postprocess AllGather 并同步其完成；阶段 Profile 扣除后者区间，保留输入准备、持久 buffer copy、计算与采样。已由外部消费的输入另先建立完成同步。缺少边界、构建或标准 NCCL/RCCL 路径绑定的实测声明拒绝。等待上游的耗时不是独立网络样本；网络成本由实际每张量 wire slice 与 receiver AllGather 分析估计并单独计费一次。原生 Profile 保存物理 descriptor，仅精确查找，拒绝同形状不同 padding 的聚合。显存预算包含接收原始 full backing、AllGather 输出及持久 copy 目标，不按 TP 缩小驻留预算。详见[原生 PP 采样说明](native-pp-capture.md)。
 
 真机原生接收阶段另需绑定已加载 Runner 的 `max_num_tokens` 与完整持久输入 buffer 的实际容量、精度及形状；超过配置上界的池不因本次采样批次较小而被接受。
 
-采集适配测试使用 CPU fake backend、合成 RCCL 日志及本机 HTTP/SSE 服务，未运行 AMD GPU kernel。检查 HIP 与 CUDA 区分、编译版本与实际 RCCL 库版本分离、真实 TP 的 Runtime 库版本/hash绑定、同步主机计时、allocator allocated/reserved 原始值与 Workspace 归因分离、精度/单位/rank/正确性、超时与部分失败证据。流式采集检查 delta token IDs/最终 usage、heartbeat 绝对期限、全局排队期限、重定向不转发凭据，以及客户端合并 chunk 不伪造服务端 Token 时刻。规范化 server trace 核对到达/输出数/逐 Token 索引及 execution/window/drain/request timeout 边界。验收测试覆盖组/形状泄漏、完整请求配对、重复内容去重、显式阈值与缺失证据；fixture 永不成为硬件 PASS，`--require-pass` 对非实测 PASS 返回3。
+CPU 采集适配回归使用 fake backend、合成 RCCL 日志及本机 HTTP/SSE 服务，不包含 GPU kernel；实际远端测量独立列于后节。检查 HIP 与 CUDA 区分、编译版本与实际 RCCL 库版本分离、真实 TP 的 Runtime 库版本/hash绑定、同步主机计时、allocator allocated/reserved 原始值与 Workspace 归因分离、精度/单位/rank/正确性、超时与部分失败证据。流式采集检查 delta token IDs/最终 usage、heartbeat 绝对期限、全局排队期限、重定向不转发凭据，以及客户端合并 chunk 不伪造服务端 Token 时刻。规范化 server trace 核对到达/输出数/逐 Token 索引及 execution/window/drain/request timeout 边界。验收测试覆盖组/形状泄漏、完整请求配对、重复内容去重、显式阈值与缺失证据；fixture 永不成为硬件 PASS，`--require-pass` 对非实测 PASS 返回3。
 
 基础示例与新增的校准闭环均通过公开 CLI 执行。生成的 `runs/` 和 `sample-runs/` 不纳入仓库或分发包；可按 README 重新生成。
 
@@ -84,10 +84,24 @@ Qwen3 新增手算验证保留真实 residual/query 两种宽度，计入 Q/K No
 
 内存压力示例使用 synthetic 固定阶段时间；仓库中分发的校准样例全部标记 test_fixture。本次另读取用户提供的真实外部采样包，仅作边界、覆盖与导入审计，没有重新运行 GPU 采集。完整性检查限定在导入器读取的已知文件，未重放嵌套原始归档。原始 prompt/response、归档代码与数据包不纳入仓库或分发。详见[参考包审计](reference-data-audit.md)。这些检查不构成真实 GPU 时延准确率证明。
 
+## 1.9.1 初轮 AMD 真机（限定范围）
+
+在调用方授权的两张不同物理 GPU 上执行：RX7900XTX/gfx1100 与 RX9070XT/gfx1201；PyTorch2.13.0+rocm10.1.0、HIP build7.16.26385、RCCL2.30.7、Python3.14.8、实际vLLM0.29.1.dev0+g98dff2a81.d20261002。镜像标签0.29.0没有被当作实际版本。两方向直接peer访问均不可用，多卡明确禁用peer路径/custom AllReduce；固定协议复测单独记录Simple。
+
+- Qwen3-1.7B BF16在两卡分别完成真实中文HTTP流式生成；9070上的正式客户端采集CLI完成，客户端交付与服务端token-ready边界保持区分。
+- 修复后9070单卡同步MRv1训练76条、独立Runtime52条原始Stage记录均完整，无隔离；实际checkpoint临时untie而loaded Parameter/storage重新共享的行为得到证明。
+- 明确排除独立留出的4条warmup后，48条未见shape覆盖100%，Stage MAPE0.7995%、MAE0.1539ms。范围是短输入、单active request、eager、无prefix/chunking和固定配置。
+- 7请求条件在线重放完整配对；TTFT/TPOT/E2E p50相对误差约5.05%/5.09%/4.99%。样本少且包含初始warmup请求，不证明通用尾部、吞吐或SLA。
+- TP2×PP1与TP1×PP2均完成真实模型生成，3组greedy输出token一致；各rank记录完整，分别归并12/24组且拟合成功。没有多卡独立精度留出，也没有4卡TP2×PP2覆盖。PP有效端点配置明确保留与原始逻辑tying的区别，没有假跨设备alias。
+- 独立P2P正确性错误为0。首个窄网格线性拟合因负斜率被拒；固定Simple宽网格训练/留出各300条，覆盖100%，但留出MAPE101.52%、MAE0.2104ms，精度不能验收。独立AllGather2诊断90组正确性错误为0，不伪装为4卡原生PP场景。
+- 真实LLM fresh-runtime安全容量点16/64/128输入token全部成功，无删失/无OOM，报告UNBRACKETED。没有找到真实OOM阈值。实际manager容量0保持partial，不晋升完整Workspace。
+
+完整原始日志、软件/文件SHA和失败对照仅保存在独立验证目录，未纳入仓库/分发；共享模型保持只读，测试容器和自有进程已清理。密钥、主机地址与账号不进入源代码或报告分发。硬件预测的一般有效性仍未建立。
+
 ## 当前限制
 
 本地执行环境为 Python 3.14.3；Python 3.11 至 3.14 的远程结果以该提交对应的 Actions 记录为准。
-Profile、PP 在线流水线、CPU swap、Prefix Cache、Chunked Prefill、混合 Prefill/Decode 与多副本调度均已实现。用户现已提供 RX9070XT 请求级数据，但缺少匹配的整 stage 样本、服务端逐 Token 时间和 Workspace 归因；硬件留出误差、真实容量拐点、在线 SLA 和策略排序的预测有效性仍未建立。模型采用全 stage 预留、持久激活缓冲上界、排空 wave 后回收，以及 DMA 不与 GPU 计算重叠的保守策略；没有真实 CUDA/HIP DMA、NVMe 或分配器细粒度模拟。混合解析模型假设共享权重和宏观通信，混合 Profile 只接受精确成员形状，不推断真实 Kernel 效率；每chunk保守计入输出／sampling服务边界，缓存CPU开销未测量，swap恢复为完整私有KV。缓存占用在请求结束后保留是预期行为。组合手算示例显式使用单inflight微批和零P2P，另有R2×TP2×PP2启用P2P与正反馈延迟的组合检查。副本资源和DMA独立；未模拟共享fabric争用、跨副本请求迁移或实测路由开销。
+Profile、PP 在线流水线、CPU swap、Prefix Cache、Chunked Prefill、混合 Prefill/Decode 与多副本调度均已实现。旧 RX9070XT 请求级参考包仍缺匹配的整stage/服务端逐Token/Workspace归因；本轮新增的小域Stage与条件重放实测按上节限定。完整Workspace、真实OOM拐点、广域误差、在线SLA与策略排序的预测有效性仍未建立。模型采用全 stage 预留、持久激活缓冲上界、排空 wave 后回收，以及 DMA 不与 GPU 计算重叠的保守策略；没有真实 CUDA/HIP DMA、NVMe 或分配器细粒度模拟。混合解析模型假设共享权重和宏观通信，混合 Profile 只接受精确成员形状，不推断真实 Kernel 效率；每chunk保守计入输出／sampling服务边界，缓存CPU开销未测量，swap恢复为完整私有KV。缓存占用在请求结束后保留是预期行为。组合手算示例显式使用单inflight微批和零P2P，另有R2×TP2×PP2启用P2P与正反馈延迟的组合检查。副本资源和DMA独立；未模拟共享fabric争用、跨副本请求迁移或实测路由开销。
 
 ## 库化与分发验证
 
