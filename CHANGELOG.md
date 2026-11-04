@@ -1,5 +1,32 @@
 # Changelog
 
+## 1.11.0 — 2026-11-04
+
+Native PP collection can explicitly disable the P2P LL/LL128 threshold path,
+which is independent of the collective `NCCL_PROTO` setting in the tested RCCL
+build. This makes the mitigation and the resulting Profile domain auditable.
+
+### Added
+
+- Opt-in `native_pp_primitives_v3` with lazy initialization and positive-payload
+  P2P Simple-only threshold requests. Only child workers receive both zero
+  thresholds; conflicting caller settings fail before launch. The host timer,
+  real device completion, warmup and untrimmed observations are unchanged.
+- Strict per-rank threshold evidence and benchmark policy binding. Raw capture,
+  parent calibration and holdout cannot silently cross protocol/policy domains.
+- Per-size held-out distribution statistics retaining outliers and tails, in
+  addition to existing individual and observed-mean errors and coverage.
+- Explicit P2P threshold and SHM copy-policy settings in pinned vLLM Runtime
+  fingerprints, preserving the legacy fingerprint when these settings are unset.
+
+### Compatibility
+
+- v1/v2, affine/mean lookup, TP/PP transport accounting and Profile consumer
+  interfaces remain compatible. v3 is an explicit operational policy, not a
+  claim that the old default LL domain has become stable.
+- No event-time substitution, synchronization-time subtraction, trimming or
+  stochastic prediction is used to reduce reported point errors.
+
 ## 1.10.0 — 2026-11-04
 
 Small-message native PP calibration can retain nonmonotonic size regimes instead

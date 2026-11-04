@@ -28,7 +28,10 @@ from .schema import Experiment, SimulationError
 
 PROTOCOL = "native_pp_primitives_v1"
 PROTOCOL_V2 = "native_pp_primitives_v2"
+PROTOCOL_V3 = "native_pp_primitives_v3"
 COMMUNICATOR_INITIALIZATION = "lazy_world_and_pair_groups_v1"
+P2P_PROTOCOL_POLICY = "simple_only_thresholds_v1"
+P2P_PROTOCOL_ENVIRONMENT = {"NCCL_P2P_LL_THRESHOLD": "0", "NCCL_P2P_LL128_THRESHOLD": "0"}
 TIMING_BOUNDARY = "synchronized_host_primitive_completion_v1"
 _DTYPE_BYTES = {"float16": 2, "bfloat16": 2, "float32": 4, "float64": 8}
 _MAX_BYTES = 16 * 1024 * 1024
@@ -77,8 +80,8 @@ def normalize_pp_benchmark_plan(experiment: Experiment, value: Any) -> dict:
          "max_output_bytes", "raw_path", "source", "protocol"}, "PP communication plan")
     if type(plan["schema_version"]) is not int or plan["schema_version"] != 1:
         _fail("PP communication plan schema_version must be 1")
-    if plan.get("protocol", PROTOCOL) not in (PROTOCOL, PROTOCOL_V2):
-        _fail("PP communication plan protocol must select native_pp_primitives_v1 or v2")
+    if plan.get("protocol", PROTOCOL) not in (PROTOCOL, PROTOCOL_V2, PROTOCOL_V3):
+        _fail("PP communication plan protocol must select native_pp_primitives_v1, v2 or v3")
     identifier = text(plan["dataset_id"], "dataset_id")
     if len(identifier) > 128 or any(character in identifier for character in "\x00\r\n"):
         _fail("dataset_id must be a bounded nonempty identifier")
@@ -137,9 +140,12 @@ def worker_launch_contract(experiment: Experiment, plan: dict) -> dict:
         "control_backend": "gloo", "primitive_backend": "nccl",
         "group_creation": "all_world_ranks_same_order", "p2p_api": "isend_irecv",
         "allgather_api": "all_gather_into_tensor", "buffer_policy": "preallocated_out_of_place"}
-    if protocol == PROTOCOL_V2:
+    if protocol in (PROTOCOL_V2, PROTOCOL_V3):
         contract.update(world_init_device_id=False,
                         communicator_initialization=COMMUNICATOR_INITIALIZATION)
+    if protocol == PROTOCOL_V3:
+        contract.update(p2p_protocol_policy=P2P_PROTOCOL_POLICY,
+                        p2p_protocol_environment=dict(P2P_PROTOCOL_ENVIRONMENT))
     return contract
 
 
@@ -277,6 +283,11 @@ def _aggregate(experiment: Experiment, plan: dict, values: Any, source: dict,
         stack = capture["stack"]
         if not isinstance(stack, dict):
             _fail("Rank stack must remain an object", "INVALID_PP_COMMUNICATION_CAPTURE")
+        if plan.get("protocol", PROTOCOL) == PROTOCOL_V3:
+            policy_environment = stack.get("p2p_protocol_environment")
+            if type(policy_environment) is not dict or policy_environment != P2P_PROTOCOL_ENVIRONMENT:
+                _fail("Every v3 rank must observe both P2P thresholds as canonical string zero",
+                      "CALIBRATION_MISMATCH")
         json.dumps(stack, allow_nan=False)
         stacks.append(stack)
         if not isinstance(capture["records"], list):
@@ -393,6 +404,12 @@ def collect_pp_communication(experiment: Experiment, plan: dict, inventory: dict
             for name in ("WORLD_SIZE", "RANK", "LOCAL_RANK", "OMPI_COMM_WORLD_SIZE", "PMI_SIZE"):
                 if os.environ.get(name) not in (None, "", "1"):
                     _fail("Launch from outside an existing distributed process group")
+            environment = dict(os.environ)
+            if settings.get("protocol", PROTOCOL) == PROTOCOL_V3:
+                for name, expected in P2P_PROTOCOL_ENVIRONMENT.items():
+                    if environment.get(name, expected) != expected:
+                        _fail(f"v3 requires {name}=0; an existing conflicting value cannot be overridden")
+                    environment[name] = expected
             if runner is None:
                 inventory = probe_rocm() if inventory is None else deepcopy(inventory)
                 if inventory.get("source", {}).get("kind") != "measured":
@@ -403,10 +420,10 @@ def collect_pp_communication(experiment: Experiment, plan: dict, inventory: dict
             elif inventory is not None:
                 inventory = deepcopy(inventory)
                 inventory["source"] = {"kind": "test_fixture", "reference": reference}
-            environment = dict(os.environ)
             environment["TORCH_NCCL_ASYNC_ERROR_HANDLING"] = "1"
             captured_env = {key: environment[key] for key in ("NCCL_ALGO", "NCCL_PROTO", "NCCL_DEBUG",
                 "NCCL_P2P_DISABLE", "NCCL_P2P_LEVEL", "NCCL_SHM_DISABLE", "NCCL_NET", "NCCL_IB_DISABLE",
+                "NCCL_P2P_LL_THRESHOLD", "NCCL_P2P_LL128_THRESHOLD", "NCCL_SHM_USE_CUDA_MEMCPY", "NCCL_SHM_MEMCPY_MODE",
                 "TORCH_NCCL_BLOCKING_WAIT", "NCCL_BLOCKING_WAIT", "TORCH_NCCL_ASYNC_ERROR_HANDLING",
                 "NCCL_ASYNC_ERROR_HANDLING",
                 "HIP_VISIBLE_DEVICES", "ROCR_VISIBLE_DEVICES", "CUDA_VISIBLE_DEVICES")
@@ -430,8 +447,8 @@ def collect_pp_communication(experiment: Experiment, plan: dict, inventory: dict
                     _fail("Primitive runner must return a capture object", "COLLECTION_FAILED")
                 captured = deepcopy(captured)
                 captured.update(argv=argv, environment=captured_env)
-                if settings.get("protocol", PROTOCOL) == PROTOCOL_V2 and "protocol" not in captured:
-                    captured["protocol"] = PROTOCOL_V2
+                if settings.get("protocol", PROTOCOL) in (PROTOCOL_V2, PROTOCOL_V3) and "protocol" not in captured:
+                    captured["protocol"] = settings["protocol"]
         captured.update(schema_version=1, kind="native_pp_primitives_capture")
         raw_records.append(captured)
         if captured.get("protocol", PROTOCOL) != settings.get("protocol", PROTOCOL):
@@ -461,8 +478,11 @@ def collect_pp_communication(experiment: Experiment, plan: dict, inventory: dict
             "buffer_policy": "preallocated_out_of_place", "backend": "nccl", "stack": stack,
             "launch": {"session_id": session, "rank_contract": worker_launch_contract(effective, settings),
                        "argv": captured.get("argv"), "environment": captured.get("environment", {})}}
-        if settings.get("protocol", PROTOCOL) == PROTOCOL_V2:
+        if settings.get("protocol", PROTOCOL) in (PROTOCOL_V2, PROTOCOL_V3):
             benchmark["communicator_initialization"] = COMMUNICATOR_INITIALIZATION
+        if settings.get("protocol", PROTOCOL) == PROTOCOL_V3:
+            benchmark.update(p2p_protocol_policy=P2P_PROTOCOL_POLICY,
+                             p2p_protocol_environment=dict(P2P_PROTOCOL_ENVIRONMENT))
         dataset = {"schema_version": 1, "kind": "native_pp_communication_measurements",
             "dataset_id": settings["dataset_id"], "identity": profile_identity(effective),
             "source": source, "records": records, "benchmark": benchmark,

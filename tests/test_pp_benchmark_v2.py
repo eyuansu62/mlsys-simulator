@@ -67,7 +67,7 @@ class ProtocolSelectionTests(unittest.TestCase):
         self.assertEqual(normalized["message_bytes"], [32, 16])
         explicit_v1 = normalize_pp_benchmark_plan(experiment(), {**plan(), "protocol": PROTOCOL})
         self.assertEqual(explicit_v1["protocol"], PROTOCOL)
-        for protocol in (None, True, 2, "v2", "native_pp_primitives_v3", {"protocol": PROTOCOL_V2}):
+        for protocol in (None, True, 2, "v2", "native_pp_primitives_v4", {"protocol": PROTOCOL_V2}):
             with self.subTest(protocol=protocol), self.assertRaises(SimulationError):
                 normalize_pp_benchmark_plan(experiment(), {**plan(), "protocol": protocol})
 

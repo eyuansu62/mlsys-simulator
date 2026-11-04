@@ -252,6 +252,55 @@ imply that sample variability has disappeared.
 Affine Profiles do not retain lookup knots, so their exact/unseen training-size
 classification is `unknown`.
 
+## Select the explicit P2P Simple-only policy
+
+Version 1.11 adds opt-in `protocol="native_pp_primitives_v3"` in the collection
+plan. It retains v2 lazy communicator initialization and the original complete
+host-dispatch-through-device-synchronization timing. It requests these settings
+in **child workers only**, before Torch or communicator initialization:
+
+```text
+NCCL_P2P_LL_THRESHOLD=0
+NCCL_P2P_LL128_THRESHOLD=0
+```
+
+An existing conflicting value fails before the workers launch; it is not silently
+overwritten. A directly launched worker must already inherit both canonical
+string values. The worker verifies them before importing Torch and again after
+initialization. Every rank and the normalized benchmark retain the exact policy
+and observed threshold environment. A raw v3 capture with missing or conflicting
+evidence is rejected. v1/v2 remain available and retain their defaults.
+
+The distinction matters on the tested RCCL `2.30.7-HEAD:7da4302`: its P2P path
+chooses LL/LL128/Simple using separate P2P thresholds, independently of the
+collective `NCCL_PROTO` override. The default LL threshold in that build is
+4096 bytes per active channel. Independent COLL logs are needed to observe the
+actual selected protocol; a requested environment value alone is not proof for
+an arbitrary library build. Both thresholds are zero because LL128-capable GPU
+families have a separate selection branch. Payloads remain strictly positive.
+See the [fixed RCCL selection source](https://github.com/ROCm/rocm-systems/blob/7da4302/projects/rccl/src/enqueue.cc).
+
+This is an explicit operational mitigation, not a new fit to the old default
+LL regime. Use a new output directory, collect new training data, freeze the
+Profile, then collect fresh independent holdout sessions in the **same v3,
+software, placement and environment domain**. Parent and holdout checks reject
+v2/v3 or threshold-domain mixing even if the message sizes match.
+
+If applying the resulting Profile to an actual serving Runtime, configure both
+thresholds before that Runtime starts too. The collector does not change a
+running server or the caller's shell. The pinned vLLM Hook fingerprints explicitly
+set thresholds and SHM copy policies; unset legacy fingerprints remain unchanged.
+A stage Profile from a different Runtime policy cannot be silently reused.
+The simulator can consume the explicitly selected communication Profile on CPU;
+its local shell does not need a HIP environment.
+
+The holdout's `by_message_size[].observed_distribution_ms` records count, mean,
+min/max, p10/p50/p90/p99 and population standard deviation of **all** observations,
+including out-of-domain queries and slow tails. These describe observed
+variability; they are not automatic bimodality labels or hardware PASS criteria.
+No event-time substitution, synchronization subtraction or sample trimming is
+part of v3.
+
 ## Run the CPU fixture workflow
 
 All files in `examples/v1_8` are hand-calculated/source-shaped fixtures or a
@@ -310,6 +359,28 @@ falls in a blocked interval and is rejected. Coverage is **2/3**, not 100%.
 The shipped lookup Profile and live v2 plan template demonstrate the same
 explicit method and protocol choices. The live template still needs a bound
 real-host experiment and independent training/holdout acquisitions.
+
+## Try the v3 policy fixture
+
+`examples/v1_11` contains a small hand-calculated v3 training dataset, an
+independent unseen-size holdout, its Profile and a live v3 plan template.
+The fixture is explicitly `test_fixture`, with two knots and five observations
+per size. It tests policy provenance and integration; it is not hardware data.
+
+```bash
+mlsys-sim calibrate --native-pp-communication --native-pp-model size-lookup \
+  --dataset examples/v1_11/communication-train.fixture.json \
+  --profile-version simple-only-fixture-v1 --allow-test-fixture \
+  --out runs/simple-only-fit
+mlsys-sim validate --native-pp-communication \
+  --profile runs/simple-only-fit/profile.json \
+  --dataset examples/v1_11/communication-holdout.fixture.json \
+  --allow-test-fixture --out runs/simple-only-holdout
+```
+
+Both unseen sizes are supported: coverage is 100%, with only floating-point
+rounding error in the hand calculation. The installed-wheel smoke preserves
+the older v1/v2 demonstrations alongside this separate v3 path.
 
 ## Select a communication Profile explicitly
 
@@ -394,3 +465,8 @@ The [1.10 independent holdout record](p2p-small-message-validation.md) reports
 a measured directed BF16 pair, a frozen same-data affine comparison, full
 coverage, per-size mean error and the remaining high per-sample error. It does
 not validate other placements, receiver AllGather or online vLLM performance.
+
+The [1.11 protocol-policy validation](p2p-protocol-validation.md) records the
+actual selected P2P protocols and two independently acquired frozen holdouts.
+It distinguishes the explicit Simple-only mitigation from the still-variable
+old default LL domain, while retaining all residual slow observations.

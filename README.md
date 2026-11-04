@@ -231,6 +231,9 @@ for collection, fitting, independent holdout and fixture provenance. Opt into
 `calibrate --native-pp-communication --native-pp-model size-lookup` for repeated
 size knots with conservative jump/gap guards; affine remains the default.
 Lookup validation reports sample error and per-size mean error separately.
+For the tested RCCL small-message LL regime, opt-in benchmark v3 requests both
+P2P LL thresholds as zero, preserving full completion timing and binding the new
+policy to its Profile. Existing benchmark defaults remain unchanged.
 
 ## Attribute Workspace and validate capacity
 

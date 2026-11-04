@@ -228,6 +228,11 @@ def verify(dist: Path) -> dict:
                          "examples/v1_10/communication-holdout.fixture.json",
                          "examples/v1_10/communication.profile.fixture.json",
                          "examples/v1_10/collector.plan.live-template.json",
+                         "examples/v1_11/native-pp-collect.fixture.json",
+                         "examples/v1_11/communication-train.fixture.json",
+                         "examples/v1_11/communication-holdout.fixture.json",
+                         "examples/v1_11/communication.profile.fixture.json",
+                         "examples/v1_11/collector.plan.live-template.json",
                          "scripts/verify_distribution.py"):
             assert required in source_names, f"Source distribution missing {required}"
         assert not any(name.startswith(("sample-runs/", "work/")) for name in source_names)
@@ -307,6 +312,32 @@ def verify(dist: Path) -> dict:
         assert lookup_holdout["metrics"]["mae_ms"] < 1e-12
         assert [row["status"] for row in lookup_holdout["records"]] == ["EVALUATED", "OUT_OF_DOMAIN", "EVALUATED"]
         assert all(row["training_size_relation"] == "unseen" for row in lookup_holdout["records"])
+        policy_inputs = outside / "v1_11"
+        policy_inputs.mkdir()
+        for source in (Path(__file__).resolve().parents[1] / "examples/v1_11").glob("*.json"):
+            (policy_inputs / source.name).write_bytes(source.read_bytes())
+        run([str(console), "calibrate", "--native-pp-communication", "--native-pp-model", "size-lookup",
+             "--dataset", str(policy_inputs / "communication-train.fixture.json"),
+             "--profile-version", "installed-simple-policy-v1", "--allow-test-fixture",
+             "--out", "simple-policy-fit"], outside, env)
+        policy_profile = json.loads((outside / "simple-policy-fit/profile.json").read_text())
+        policy_environment = {"NCCL_P2P_LL_THRESHOLD": "0", "NCCL_P2P_LL128_THRESHOLD": "0"}
+        assert policy_profile["benchmark"]["protocol"] == "native_pp_primitives_v3"
+        assert policy_profile["benchmark"]["p2p_protocol_policy"] == "simple_only_thresholds_v1"
+        assert policy_profile["benchmark"]["p2p_protocol_environment"] == policy_environment
+        assert policy_profile["benchmark"]["stack"]["p2p_protocol_environment"] == policy_environment
+        assert policy_profile["source"]["kind"] == "test_fixture"
+        checked_policy = json.loads((policy_inputs / "communication.profile.fixture.json").read_text())
+        assert policy_profile["groups"] == checked_policy["groups"]
+        run([str(console), "validate", "--native-pp-communication", "--profile", "simple-policy-fit/profile.json",
+             "--dataset", str(policy_inputs / "communication-holdout.fixture.json"),
+             "--allow-test-fixture", "--out", "simple-policy-holdout"], outside, env)
+        policy_holdout = json.loads((outside / "simple-policy-holdout/result.json").read_text())
+        assert policy_holdout["hardware_validated"] is False
+        assert policy_holdout["coverage"] == {"total_records": 2, "evaluated_records": 2,
+                                             "rejected_records": 0, "fraction": 1}
+        assert policy_holdout["metrics"]["mae_ms"] < 1e-12
+        assert all(row["training_size_relation"] == "unseen" for row in policy_holdout["records"])
         workspace_inputs = outside / "v1_9"
         workspace_inputs.mkdir()
         communication_inputs = outside / "v1_8"
@@ -507,6 +538,7 @@ def verify(dist: Path) -> dict:
             "installed_native_pp_exact_profile_and_transport": "passed",
             "installed_pp_primitives_collection_calibration_holdout_and_serving": "passed",
             "installed_native_pp_size_lookup_guarded_holdout": "passed",
+            "installed_native_pp_simple_policy_lookup_holdout": "passed",
             "installed_workspace_calibration_and_capacity_brackets": "passed",
             "installed_calibration_comparison_holdout": "passed"}
 

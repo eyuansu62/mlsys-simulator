@@ -3,7 +3,7 @@
 [English](README.md) · [Python API](docs/api.md) · [校准](docs/calibration.md) ·
 [验证规范](docs/validation-protocol.md) · [系统规范](docs/specification.md) · [PP 与 CPU swap](docs/pipeline-and-swap.md) · [Prefix Cache 与分块预填充](docs/prefix-cache-and-chunking.md) · [混合批处理](docs/mixed-batching.md) · [多副本路由](docs/multi-replica.md) · [ROCm 采集](docs/rocm-collection.md) · [Qwen3 与 vLLM 内部 hook](docs/qwen3-and-vllm-hooks.md) · [原生 PP 采样与 Profile](docs/native-pp-capture.md) · [原生 PP 通信微基准与校准](docs/native-pp-communication.md) · [Workspace 与容量验证](docs/workspace-and-capacity.md)
 
-1.10 版增加原生 PP 小消息 lookup 校准、训练拐点保护和分尺寸独立留出报告；保留逐 rank Workspace Profile、完整 Runtime scratch 归因契约与全新 Runtime 容量／OOM 区间验证。已有能力包括原生 PP 通信微基准与 Profile、Qwen3／vLLM 内部采集、多副本调度、TP/PP、缓存、分块、混合批处理、CPU swap、校准和验证。用户提供的 AMD/NVIDIA 参考包用于格式适配与审计；原始包及 prompt/output 全文不随库分发，现有覆盖不代表通用硬件准确率。仓库为[私有仓库](https://github.com/eyuansu62/mlsys-simulator)，许可证待选择，尚未发布 PyPI。
+1.11 版增加显式 P2P Simple-only 采样策略与实际阈值／Runtime 指纹绑定，保留小消息 lookup、训练拐点保护和分尺寸独立留出报告；保留逐 rank Workspace Profile、完整 Runtime scratch 归因契约与全新 Runtime 容量／OOM 区间验证。已有能力包括原生 PP 通信微基准与 Profile、Qwen3／vLLM 内部采集、多副本调度、TP/PP、缓存、分块、混合批处理、CPU swap、校准和验证。用户提供的 AMD/NVIDIA 参考包用于格式适配与审计；原始包及 prompt/output 全文不随库分发，现有覆盖不代表通用硬件准确率。仓库为[私有仓库](https://github.com/eyuansu62/mlsys-simulator)，许可证待选择，尚未发布 PyPI。
 
 ## 安装和运行
 
@@ -129,6 +129,8 @@ mlsys-sim simulate --experiment examples/v1_8/native-pp-serving.fixture.json \
 此示例使用手算通信 Profile 和 synthetic 阶段耗时，保留 fixture 来源，不代表真机测量。
 
 显式使用 `calibrate --native-pp-communication --native-pp-model size-lookup` 可按消息尺寸拟合全部重复观测的均值，保留非单调拐点，拒绝跨跳变／稀疏区间及外推；旧 affine 仍为默认。留出同时报告逐次误差、逐尺寸均值误差和拒绝覆盖率，详见[小消息校准](docs/native-pp-communication.md)。
+
+采样计划可显式选择 `native_pp_primitives_v3`，在子进程中将两个 P2P LL 阈值设为0，遇冲突配置拒绝启动；它不改变原始完成同步计时，也不自动升级旧 Profile。实际 Runtime 采用新策略时，应在启动前设置同样阈值并重新校准匹配的 Profile。
 
 ## Workspace 归因与容量／OOM 验证
 

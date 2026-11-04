@@ -24,7 +24,10 @@ _LOOKUP_METHOD = "piecewise_size_lookup_v1"
 _MODEL_OPTIONS = {"min_samples_per_size": 5, "max_size_ratio": 4.0,
                   "jump_ratio": 2.0, "min_jump_ms": 0.05}
 _PROTOCOL_V2 = "native_pp_primitives_v2"
+_PROTOCOL_V3 = "native_pp_primitives_v3"
 _COMMUNICATOR_INITIALIZATION = "lazy_world_and_pair_groups_v1"
+_P2P_PROTOCOL_POLICY = "simple_only_thresholds_v1"
+_P2P_PROTOCOL_ENVIRONMENT = {"NCCL_P2P_LL_THRESHOLD": "0", "NCCL_P2P_LL128_THRESHOLD": "0"}
 _DATASET = "native_pp_communication_measurements"
 _PROFILE = "native_pp_communication_profile"
 _MAX_BYTES = 32 * 1024 * 1024
@@ -130,10 +133,13 @@ def _identity(value: Any, source: dict, code: str) -> dict:
 
 
 def _benchmark(value: Any, identity: dict, source: dict, code: str) -> dict:
-    expected_fields = dict(_BENCHMARK)
-    if isinstance(value, dict) and value.get("protocol") == _PROTOCOL_V2:
-        expected_fields.update(protocol=_PROTOCOL_V2,
+    expected_fields: dict[str, Any] = dict(_BENCHMARK)
+    if isinstance(value, dict) and value.get("protocol") in (_PROTOCOL_V2, _PROTOCOL_V3):
+        expected_fields.update(protocol=value["protocol"],
                                communicator_initialization=_COMMUNICATOR_INITIALIZATION)
+        if value["protocol"] == _PROTOCOL_V3:
+            expected_fields.update(p2p_protocol_policy=_P2P_PROTOCOL_POLICY,
+                                   p2p_protocol_environment=_P2P_PROTOCOL_ENVIRONMENT)
     value = _object(value, set(expected_fields) | {"stack", "launch"}, set(), "benchmark", code)
     for name, expected in expected_fields.items():
         actual = value[name]
@@ -142,6 +148,14 @@ def _benchmark(value: Any, identity: dict, source: dict, code: str) -> dict:
     for name in ("stack", "launch"):
         if not isinstance(value[name], dict) or any(not isinstance(key, str) for key in value[name]):
             _fail(f"benchmark.{name} must be an object", code)
+    if value["protocol"] == _PROTOCOL_V3:
+        for label, environment in (("benchmark.p2p_protocol_environment", value["p2p_protocol_environment"]),
+                                   ("benchmark.stack.p2p_protocol_environment",
+                                    value["stack"].get("p2p_protocol_environment"))):
+            environment = _object(environment, set(_P2P_PROTOCOL_ENVIRONMENT), set(), label, code)
+            if any(type(environment[name]) is not str or environment[name] != expected
+                   for name, expected in _P2P_PROTOCOL_ENVIRONMENT.items()):
+                _fail(f"Unsupported {label}; both actual P2P thresholds must be the string '0'", code)
     _json(value, code)
     if source["kind"] == "measured":
         stack = value["stack"]
@@ -741,6 +755,21 @@ def _validation_summary(rows: list[dict]) -> dict:
                         "mape": statistics.mean(relatives) if relatives and len(relatives) == len(errors) else None}}
 
 
+def _observed_distribution(rows: list[dict]) -> dict:
+    # Reuse the lookup's untrimmed mean, linear quantiles and population stddev.
+    # This describes observations even when their predictions were rejected.
+    durations = sorted(row["observed_ms"] for row in rows)
+    stats = _lookup_statistics([{"duration_ms": duration} for duration in durations])
+    position = (len(durations) - 1) * 0.99
+    lower = int(position)
+    weight = position - lower
+    p99 = ((1 - weight) * durations[lower] + weight * durations[lower + 1]
+           if weight else durations[lower])
+    return {"count": len(durations), "mean": stats["mean_ms"], "min": stats["min_ms"],
+        "max": stats["max_ms"], "p10": stats["p10_ms"], "p50": stats["median_ms"],
+        "p90": stats["p90_ms"], "p99": p99, "stddev": stats["stddev_ms"]}
+
+
 def _validation_sizes(rows: list[dict]) -> list[dict]:
     groups: dict[tuple, list[dict]] = {}
     for row in rows:
@@ -756,6 +785,7 @@ def _validation_sizes(rows: list[dict]) -> list[dict]:
         summaries.append({"primitive": primitive, "stage_index": stage, "tp_rank": rank, "message_bytes": size,
             "training_size_relation": observations[0]["training_size_relation"], **summary,
             "observed_mean_ms": observed, "predicted_mean_ms": predicted,
+            "observed_distribution_ms": _observed_distribution(observations),
             "mean_target_absolute_error_ms": absolute,
             "mean_target_relative_error": relative if relative is not None and math.isfinite(relative) else None,
             "sample_mape": summary["metrics"]["mape"]})

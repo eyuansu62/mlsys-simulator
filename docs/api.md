@@ -646,3 +646,20 @@ peak. Complete adapters expose `begin_workspace_capture(sample, recorder)` and
 The pinned manager observer stays partial `managed_scratch_capacity`, without
 canonical Workspace data. Live Workspace collection has no raw-ledger importer
 or CPU fallback; injected backends are a fixture-only library test interface.
+
+### Explicit P2P threshold policy (1.11)
+
+A PP collection plan may select `protocol="native_pp_primitives_v3"`. It requests
+`NCCL_P2P_LL_THRESHOLD=0` and `NCCL_P2P_LL128_THRESHOLD=0` only in workers;
+conflicting explicit caller values fail. Complete per-rank evidence binds the
+`simple_only_thresholds_v1` policy, both actual string values, lazy initialization
+and unchanged synchronized host completion timing. v1/v2 remain supported.
+Profile parent/holdout validation rejects cross-domain reuse. vLLM Hook Runtime
+fingerprints additionally bind explicitly set thresholds and SHM copy policies
+without changing old unset fingerprints. See the
+[policy and serving constraints](native-pp-communication.md#select-the-explicit-p2p-simple-only-policy).
+
+Holdout `by_message_size[].observed_distribution_ms` describes every observation
+at that placement/size with `count`, `mean`, `min`, `max`, `p10`, `p50`, `p90`,
+`p99` and population `stddev`. It includes rejected and slow observations; it
+does not replace the existing errors, coverage or mean prediction target.

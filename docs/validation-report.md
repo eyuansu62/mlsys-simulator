@@ -1,14 +1,14 @@
-# V1.10.0 软件与限定真机验证记录
+# V1.11.0 软件与限定真机验证记录
 
 日期：2026-11-04  
 环境：Python 3.14.3，macOS，CPU 执行  
-版本：1.10.0
+版本：1.11.0
 
 ## 自动检查
 
-- `python3 -m unittest discover -s tests -v`：883 项 CPU 回归通过（沙箱跳过的两项 loopback HTTP 检查另行补跑通过），新增 36 项 lookup/v2/TP/PP/三 Profile 专项；保留真实 checkpoint tying、默认 RoPE 别名、跨 session 留出及加载后证明回归；保留完整 Workspace ledger/独立逐rank校准、三 Profile 联用、fresh Runtime 容量/OOM 区间与来源验证；保留独立 P2P/AllGather 微基准、同次运行校验、按位置校准/留出及验收来源绑定；保留原生 PP 自然接收、准备流、持久池容量、双张量/切片及 exact Profile 闭环；覆盖 Qwen3 几何/权重、vLLM 内部 Hook/聚合、ROCm/RCCL/Runtime 采集适配、显式硬件验收、参考包导入、多副本路由、混合 Prefill/Decode、Prefix Cache、Chunked Prefill、PP、CPU swap、资源引用、Profile、校准、Compare、留出与 CLI 闭环；含固定 seed 的有界生成负载。
+- `python3 -m unittest discover -s tests -v`：912 项 CPU 回归通过（沙箱跳过的两项 loopback HTTP 检查另行补跑通过），新增 29 项 v3策略、实际阈值／Runtime指纹、分布和组合专项；保留 36 项 lookup/v2/TP/PP/三 Profile 专项；保留真实 checkpoint tying、默认 RoPE 别名、跨 session 留出及加载后证明回归；保留完整 Workspace ledger/独立逐rank校准、三 Profile 联用、fresh Runtime 容量/OOM 区间与来源验证；保留独立 P2P/AllGather 微基准、同次运行校验、按位置校准/留出及验收来源绑定；保留原生 PP 自然接收、准备流、持久池容量、双张量/切片及 exact Profile 闭环；覆盖 Qwen3 几何/权重、vLLM 内部 Hook/聚合、ROCm/RCCL/Runtime 采集适配、显式硬件验收、参考包导入、多副本路由、混合 Prefill/Decode、Prefix Cache、Chunked Prefill、PP、CPU swap、资源引用、Profile、校准、Compare、留出与 CLI 闭环；含固定 seed 的有界生成负载。
 - Ruff 0.17.3：检查通过。
-- mypy 2.4.1：`mypy mlsys_sim`，36 个源文件检查通过。
+- mypy 2.4.1：`mypy mlsys_sim scripts/verify_distribution.py`，37 个文件检查通过。
 - `python3 -m compileall -q mlsys_sim tests scripts`：通过。
 
 Ruff/mypy 为临时开发检查工具，没有加入项目运行依赖。测试覆盖配置拒绝、
@@ -100,7 +100,11 @@ CPU 采集适配回归使用 fake backend、合成 RCCL 日志及本机 HTTP/SSE
 
 ## 1.10 小消息 P2P 真机复测
 
-同一对真实 GPU 完成四会话 19,080 条训练，模型冻结后另起会话采集 9,300 条独立留出，30 个未见尺寸加 4KB 独立重复，正确性错误为0。显式v2 lazy协议、Simple和blocking wait=0的同域对照中，逐尺寸均值MAPE由affine的100.3340%降至lookup的4.8772%，覆盖100%；逐次MAPE由120.0551%降至60.2526%，仍未达到预设15%目标。所有慢样本保留。4KB以下双峰波动仍在，结果只支持本pair/精度/环境的均值预测改善，不授予整体硬件PASS。训练拐点加密在留出前完成，完整时间与SHA证明保存在独立证据目录。详见[小消息独立留出记录](p2p-small-message-validation.md)。
+同一对真实 GPU 完成四会话 19,080 条训练，模型冻结后另起会话采集 9,300 条独立留出，30 个未见尺寸加 4KB 独立重复，正确性错误为0。显式v2 lazy协议、`NCCL_PROTO=Simple`请求和blocking wait=0的同域对照中，逐尺寸均值MAPE由affine的100.3340%降至lookup的4.8772%，覆盖100%；逐次MAPE由120.0551%降至60.2526%，仍未达到预设15%目标。所有慢样本保留。4KB以下双峰波动仍在，结果只支持本pair/精度/环境的均值预测改善，不授予整体硬件PASS。训练拐点加密在留出前完成，完整时间与SHA证明保存在独立证据目录。详见[小消息独立留出记录](p2p-small-message-validation.md)。
+
+## 1.11 显式 P2P Simple-only 复测
+
+固定RCCL实际构建7da4302的源码与COLL日志确认：P2P LL阈值独立于collective的`NCCL_PROTO`。默认4KB及以下选择LL并复现双峰；扩大阈值扩大慢区间，两个阈值设0后双方选择Simple。新增v3仅在子worker设置阈值，保留原完整设备同步计时与全部观测；v1/v2默认兼容。四训练会话19,200条后冻结，两次独立留出各9,300条、各30个未见尺寸，lookup逐次MAPE为6.9636%/8.0895%，小消息为7.2396%/8.5345%，覆盖均100%，两组均达到预设目标。未将策略变化伪装为旧LL域模型准确性改善，也未声称消除所有慢尾。新策略下真实Qwen3 TP2/PP2三组greedy输出与此前一致，逐rank12条Hook记录完整；公开CLI规范化接受12/24组且校准成功。详见[协议策略与独立留出](p2p-protocol-validation.md)。
 
 ## 当前限制
 

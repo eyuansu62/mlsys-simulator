@@ -1,0 +1,39 @@
+{
+  "schema_version": 1,
+  "workload": [
+    {
+      "request_id": "public-fixture",
+      "arrival_ms": 0,
+      "input_tokens": 4,
+      "output_tokens": 1
+    }
+  ],
+  "infra": {
+    "devices": [
+      {
+        "id": "fixture-rank-0",
+        "name": "public-cpu-fixture"
+      },
+      {
+        "id": "fixture-rank-1",
+        "name": "public-cpu-fixture"
+      }
+    ]
+  },
+  "strategy": {
+    "model": {
+      "activation_dtype": "float16"
+    },
+    "tensor_parallel_size": 1,
+    "pipeline_parallel_size": 2,
+    "pipeline_transport": "vllm_native",
+    "max_batch_tokens": 8
+  },
+  "calibration": {
+    "backend": "synthetic",
+    "prefill_ms": 2,
+    "decode_ms": 1,
+    "runtime_name": "public-fixture",
+    "runtime_version": "cpu-fixture-v1"
+  }
+}

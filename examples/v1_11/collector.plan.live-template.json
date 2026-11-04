@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "dataset_id": "replace-with-independent-live-simple-policy-session",
+  "protocol": "native_pp_primitives_v3",
+  "message_bytes": [
+    128,
+    256,
+    512,
+    1024
+  ],
+  "warmup_iterations": 3,
+  "iterations": 5,
+  "repeats": 3,
+  "timeout_s": 120,
+  "max_output_bytes": 8388608,
+  "source_reference": "Live explicit zero-threshold policy template only. Bind actual device/runtime identity before collection. Use a separate session and disjoint IDs/sizes for holdout; the launcher sets only NCCL_P2P_LL_THRESHOLD=0 and NCCL_P2P_LL128_THRESHOLD=0 in children."
+}

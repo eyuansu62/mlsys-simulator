@@ -20,7 +20,8 @@ from typing import Any, Callable
 
 from .config import experiment_from_dict
 from .hardware import integer, object_fields
-from .pp_benchmark import (PROTOCOL, _read_bounded_json, _session_id, benchmark_cases,
+from .pp_benchmark import (P2P_PROTOCOL_ENVIRONMENT, PROTOCOL, PROTOCOL_V3,
+                           _read_bounded_json, _session_id, benchmark_cases,
                            normalize_pp_benchmark_plan, sample_descriptor, worker_launch_contract)
 from .profiles import profile_identity
 from .schema import SimulationError
@@ -144,6 +145,12 @@ def run_worker(config: dict, *, torch_module: Any = None, clock_ns: Callable[[],
             progress_callback(deepcopy(capture))
 
     try:
+        if plan.get("protocol", PROTOCOL) == PROTOCOL_V3:
+            observed = {name: os.environ.get(name) for name in P2P_PROTOCOL_ENVIRONMENT}
+            capture["stack"]["p2p_protocol_environment"] = observed
+            if observed != P2P_PROTOCOL_ENVIRONMENT:
+                raise SimulationError("CALIBRATION_MISMATCH",
+                    "v3 workers require both inherited P2P thresholds to be canonical string zero")
         torch = importlib.import_module("torch") if torch is None else torch
         if not getattr(torch.version, "hip", None) or not torch.cuda.is_available() or torch.cuda.device_count() < world:
             raise SimulationError("HARDWARE_UNAVAILABLE", "Primitive workers require available PyTorch HIP devices")
@@ -166,7 +173,7 @@ def run_worker(config: dict, *, torch_module: Any = None, clock_ns: Callable[[],
                                          "world_size": world, "timeout": timeout}
         if plan.get("protocol", PROTOCOL) == PROTOCOL:
             world_options["device_id"] = device
-        # v2 follows native vLLM's lazy world/group creation API. This records
+        # v2/v3 follow native vLLM's lazy world/group creation API. This records
         # the initialization request, not an observed RCCL algorithm choice.
         dist.init_process_group(**world_options)
         initialized = True
@@ -188,6 +195,11 @@ def run_worker(config: dict, *, torch_module: Any = None, clock_ns: Callable[[],
                 {name: value for name, value in sorted(os.environ.items())
                  if name.startswith(("NCCL_", "RCCL_", "TORCH_NCCL_"))},
                 sort_keys=True, separators=(",", ":")).encode()).hexdigest()}
+        if plan.get("protocol", PROTOCOL) == PROTOCOL_V3:
+            observed = {name: os.environ.get(name) for name in P2P_PROTOCOL_ENVIRONMENT}
+            capture["stack"]["p2p_protocol_environment"] = observed
+            if observed != P2P_PROTOCOL_ENVIRONMENT:
+                raise SimulationError("CALIBRATION_MISMATCH", "v3 P2P thresholds changed during worker startup")
         if binding["runtime_version"] != experiment.calibration.rccl_version and not fixture:
             raise SimulationError("HARDWARE_IDENTITY_MISMATCH", "Mapped RCCL differs from the bound experiment")
         progress()

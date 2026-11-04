@@ -136,7 +136,8 @@ def _execution_config(config: Any, experiment: Experiment, async_scheduling: boo
     # Preserve older unset-policy identities, but never merge explicit transport
     # choices such as host-staged P2P into the default Runtime domain.
     for name in ("NCCL_P2P_DISABLE", "NCCL_SHM_DISABLE", "NCCL_IB_DISABLE", "NCCL_NET",
-                 "TORCH_NCCL_BLOCKING_WAIT"):
+                 "TORCH_NCCL_BLOCKING_WAIT", "NCCL_P2P_LL_THRESHOLD", "NCCL_P2P_LL128_THRESHOLD",
+                 "NCCL_SHM_USE_CUDA_MEMCPY", "NCCL_SHM_MEMCPY_MODE"):
         if name in os.environ:
             result["environment"][name] = os.environ[name]
     return result
