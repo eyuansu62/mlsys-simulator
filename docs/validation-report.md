@@ -1,14 +1,14 @@
-# V1.6 软件验证记录
+# V1.7 软件验证记录
 
 日期：2026-11-04  
 环境：Python 3.14.3，macOS，CPU 执行  
-版本：1.6.0
+版本：1.7.0
 
 ## 自动检查
 
-- `python3 -m unittest discover -s tests -v`：660 项 CPU 测试通过，覆盖 Qwen3 几何/权重、新 vLLM 内部 Hook/聚合、ROCm/RCCL/Runtime 采集适配、显式硬件验收、参考包导入、多副本路由、混合 Prefill/Decode、Prefix Cache、Chunked Prefill、PP、CPU swap、资源引用、Profile、校准、Compare、留出与 CLI 闭环；含固定 seed 的有界生成负载。
+- `python3 -m unittest discover -s tests -v`：709 项 CPU 测试通过，新增原生 PP 自然接收、准备流与外部输入边界、持久池容量绑定、双张量/切片计量及 exact Profile 闭环；覆盖 Qwen3 几何/权重、vLLM 内部 Hook/聚合、ROCm/RCCL/Runtime 采集适配、显式硬件验收、参考包导入、多副本路由、混合 Prefill/Decode、Prefix Cache、Chunked Prefill、PP、CPU swap、资源引用、Profile、校准、Compare、留出与 CLI 闭环；含固定 seed 的有界生成负载。
 - Ruff 0.17.3：检查通过。
-- mypy 2.4.1：`mypy mlsys_sim`，28 个源文件检查通过。
+- mypy 2.4.1：`mypy mlsys_sim`，29 个源文件检查通过。
 - `python3 -m compileall -q mlsys_sim tests scripts`：通过。
 
 Ruff/mypy 为临时开发检查工具，没有加入项目运行依赖。测试覆盖配置拒绝、
@@ -26,7 +26,11 @@ Prefix Cache 检查 namespace、完整 token ancestry 的 SHA256 链、保留最
 
 Qwen3 新增手算验证保留真实 residual/query 两种宽度，计入 Q/K Norm、最终 Norm、同 rank tied 词表去重及 PP 端点物理复制。数学参数量为 1.7B 模型1,720,574,976、4B 模型4,022,468,096；4B residual=2560、query=4096，KV=147456bytes/token。Runtime 词表 padding 和 allocator 额外占用仍需实测。旧默认 Profile 身份/数值保持兼容，新架构与实际执行配置各自按 SHA256 区分。
 
-内部 Hook 按固定 vLLM `98dff2a81` 源码接口使用 CPU source-shaped Runner/Scheduler 夹具测试，未安装或运行真实 vLLM/GPU。实际 Hook 导出直接进入聚合器，覆盖完整采样/已发布 Token 生命周期、cache salt 与 prompt SHA、参数/配置/PP层范围、rank 完整性、原调用返回/异常、record 上限、Future 释放和 close 竞态。异步消费、SP、恢复历史、lazy incoming、额外 residual 及 TP-sliced/receiver-AllGather 与模型传输不一致的区间保留 raw，不能作为纯 stage Profile。收集插件默认 dormant，只有显式配置才安装；支持域见[Qwen3 与 Hook 说明](qwen3-and-vllm-hooks.md)。
+内部 Hook 按固定 vLLM `98dff2a81` 源码接口使用 CPU source-shaped Runner/Scheduler 夹具测试，未安装或运行真实 vLLM/GPU。实际 Hook 导出直接进入聚合器，覆盖完整采样/已发布 Token 生命周期、cache salt 与 prompt SHA、参数/配置/PP层范围、rank 完整性、原调用返回/异常、record 上限、Future 释放和 close 竞态。异步消费、SP、恢复历史及未知传输区间仍保留 raw。默认 full-hidden 契约不接受原生双张量切片传输；显式 native 契约通过独立边界校验后可校准。收集插件默认 dormant，只有显式配置才安装；支持域见[Qwen3 与 Hook 说明](qwen3-and-vllm-hooks.md)。
+
+原生 PP 新增实际双张量、padding、TP 切片/全量分支、完整相邻 stage/rank 证据和严格接收区间算术检查。自然 wait 入口先完成当前 compute stream 的本轮输入准备，再观察原始 wait/postprocess AllGather 并同步其完成；阶段 Profile 扣除后者区间，保留输入准备、持久 buffer copy、计算与采样。已由外部消费的输入另先建立完成同步。缺少边界、构建或标准 NCCL/RCCL 路径绑定的实测声明拒绝。等待上游的耗时不是独立网络样本；网络成本由实际每张量 wire slice 与 receiver AllGather 分析估计并单独计费一次。原生 Profile 保存物理 descriptor，仅精确查找，拒绝同形状不同 padding 的聚合。显存预算包含接收原始 full backing、AllGather 输出及持久 copy 目标，不按 TP 缩小驻留预算。详见[原生 PP 采样说明](native-pp-capture.md)。
+
+真机原生接收阶段另需绑定已加载 Runner 的 `max_num_tokens` 与完整持久输入 buffer 的实际容量、精度及形状；超过配置上界的池不因本次采样批次较小而被接受。
 
 采集适配测试使用 CPU fake backend、合成 RCCL 日志及本机 HTTP/SSE 服务，未运行 AMD GPU kernel。检查 HIP 与 CUDA 区分、编译版本与实际 RCCL 库版本分离、真实 TP 的 Runtime 库版本/hash绑定、同步主机计时、allocator allocated/reserved 原始值与 Workspace 归因分离、精度/单位/rank/正确性、超时与部分失败证据。流式采集检查 delta token IDs/最终 usage、heartbeat 绝对期限、全局排队期限、重定向不转发凭据，以及客户端合并 chunk 不伪造服务端 Token 时刻。规范化 server trace 核对到达/输出数/逐 Token 索引及 execution/window/drain/request timeout 边界。验收测试覆盖组/形状泄漏、完整请求配对、重复内容去重、显式阈值与缺失证据；fixture 永不成为硬件 PASS，`--require-pass` 对非实测 PASS 返回3。
 
@@ -62,6 +66,8 @@ Qwen3 新增手算验证保留真实 residual/query 两种宽度，计入 Q/K No
 | Qwen3-4B 导入/预测 | hidden2560与query4096保持独立；BF16数学权重8,044,936,192 bytes；原始/规范化架构哈希保留 |
 | Qwen3 R2×TP2×PP2 组合 | 10请求完成、4混批、24缓存Token，D2H/H2D各2次，零重算，总模拟52.413216ms，请求/Host引用归零 |
 | 内部 Hook fixture | 完整同步rank样本可生成stage dataset并校准；无Scheduler生命周期时online不可比较，hardware_validated=false |
+| 原生 PP Hook → Profile | source-shaped Hook 导出经过TP/相邻stage归并、校准后完成精确Profile预测/在线模拟及CLI导入；接收等待保留raw且不充当网络时延 |
+| 原生 Qwen3 R2×TP2×PP2 组合 | synthetic与fixture Profile路径均完成10请求，4混批、24缓存Token，D2H/H2D各2次，最终资源引用归零；网络成本仍为分析估计 |
 
 内存压力示例使用 synthetic 固定阶段时间；仓库中分发的校准样例全部标记 test_fixture。本次另读取用户提供的真实外部采样包，仅作边界、覆盖与导入审计，没有重新运行 GPU 采集。完整性检查限定在导入器读取的已知文件，未重放嵌套原始归档。原始 prompt/response、归档代码与数据包不纳入仓库或分发。详见[参考包审计](reference-data-audit.md)。这些检查不构成真实 GPU 时延准确率证明。
 

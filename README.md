@@ -11,10 +11,10 @@ collection adapters instrument an installed Runtime separately from simulation.
 [Prefix Cache and Chunked Prefill](docs/prefix-cache-and-chunking.md) ·
 [Mixed batching](docs/mixed-batching.md) · [Multi-replica routing](docs/multi-replica.md) ·
 [ROCm collection](docs/rocm-collection.md) · [Qwen3 and vLLM hooks](docs/qwen3-and-vllm-hooks.md) ·
-[Contributing](CONTRIBUTING.md)
+[Native PP capture and Profiles](docs/native-pp-capture.md) · [Contributing](CONTRIBUTING.md)
 
-**Version 1.6 software scope:** Qwen3 geometry/import and version-checked vLLM
-internal capture, with optional AMD/ROCm collection adapters, explicit hardware
+**Version 1.7 software scope:** native vLLM PP lazy-receive capture and
+exact stage Profiles, Qwen3 geometry/import and version-checked internal capture, with optional AMD/ROCm collection adapters, explicit hardware
 evidence acceptance, multi-replica routing and load balancing with
 mixed Prefill/Decode batches, Prefix Cache, Chunked Prefill, online TP/PP and
 optional CPU KV swap, analytical models, versioned lookup
@@ -187,6 +187,23 @@ Prefix Cache, mixed batches and CPU swap. It does not load model weights or
 measure GPU performance. See [Qwen3 and internal hooks](docs/qwen3-and-vllm-hooks.md)
 for architecture fingerprints and capture evidence boundaries.
 
+## Capture native vLLM PP boundaries
+
+```bash
+mlsys-sim simulate --experiment examples/v1_7/qwen3-native-r2-tp2-pp2.json \
+  --out runs/qwen3-native-combined
+```
+
+`strategy.pipeline_transport="vllm_native"` models the two Qwen3 intermediate
+tensors, conditional TP wire slicing and receiver AllGather. The pinned MRv1
+hook observes the real lazy receive without consuming it early and removes its
+wait/AllGather interval from stage service. Native stage Profiles retain exact
+physical payload descriptors; boundary communication is separately labeled
+analytical and charged once. Full receiver buffers remain resident on each rank.
+The example is a CPU simulation with synthetic stage durations, not a live GPU
+measurement. See [native PP capture](docs/native-pp-capture.md) for import,
+calibration, padding bounds and unsupported Runtime modes.
+
 ## Use the Python API
 
 ```python
@@ -221,8 +238,9 @@ or mixed batching. FIFO retains its single-request owner and does not mix work.
 The `synthetic` backend uses fixed phase durations; `analytical` uses uncalibrated
 compute/bandwidth assumptions. The `profile` backend checks model, device,
 software, layout and timing identities, then uses exact shapes or complete
-homogeneous interpolation cells. Mixed shapes require exact role-aware samples;
-they do not interpolate or extrapolate. Other out-of-domain requests fail unless exploratory
+homogeneous interpolation cells. Mixed shapes and native-PP Profiles require exact samples;
+they do not interpolate or extrapolate. Native PP samples also retain the
+observed padding and per-tensor transport descriptors. Other out-of-domain requests fail unless exploratory
 extrapolation is explicitly enabled. Whole-stage profile times already include
 local collectives; those costs are not added twice.
 

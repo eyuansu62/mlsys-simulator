@@ -145,8 +145,14 @@ Step estimates and run provenance record when extrapolation was used; it remains
 exploratory evidence.
 
 Whole-stage timings already include local collective communication, output and
-sampling. Do not add analytical local communication again. Inter-stage PP P2P
-and explicit feedback are separate. Online PP can use stage Profiles in its
+sampling. Do not add analytical local communication again. Inter-stage PP P2P,
+native receiver AllGather and explicit feedback are separate. Native PP
+captures exclude the naturally observed receive/postprocess interval while
+retaining persistent input copy and computation. Its Profile samples preserve
+incoming/outgoing physical payload descriptors and use exact-only lookup;
+repeated logical shapes with different payload geometry cannot be averaged.
+The raw dependency wait does not calibrate independent network service. See
+[native PP capture](native-pp-capture.md). Online PP can use stage Profiles in its
 [online PP engine](pipeline-and-swap.md); shape-only `predict` still has no online
 queueing or SLA metrics.
 

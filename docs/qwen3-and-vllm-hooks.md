@@ -155,14 +155,18 @@ features. Unsupported calls retain raw diagnostics and cannot provide a
 fabricated stage cost.
 
 Independent-stage eligibility also depends on the actual PP transport path.
-In this pinned source, combined TP>1 and PP>1 normally uses tensor-sliced P2P
-with a receiver-side TP AllGather. Lazy incoming-transfer postprocessing can
-fall inside a Runner interval. Those intervals cannot be charged as isolated
-stage service and then combined with the simulator's full-residual-per-rank
-P2P model, so that transport remains raw diagnostics. Lazy incoming transport
-or sequence parallelism (`pass_config.enable_sp`) outside the verified boundary
-also remains ineligible. Successful synthetic TP/PP simulation is separate
-from this measured-profile scope.
+Since 1.7, explicit `strategy.pipeline_transport="vllm_native"` supports this
+pinned source's lazy incoming receive and conditional tensor-sliced P2P with
+receiver TP AllGather. The hook observes the natural receive and excludes its
+wait/postprocess AllGather from stage service; persistent input copy remains
+inside the stage. Native Profiles preserve the actual hidden/residual payload
+and padding, require complete compatible TP/edge evidence and use exact lookup.
+The simulator then charges the corresponding analytical P2P/receiver AllGather
+boundary once. Receive wait is raw dependency evidence, not a fitted independent
+link latency. Sequence parallelism (`pass_config.enable_sp`) and other unknown
+transport contracts remain ineligible. See [native PP capture](native-pp-capture.md)
+for configuration, evidence checks and calibration commands. Successful CPU
+simulation remains separate from live hardware validation.
 
 The runner capture retains the actual selected request IDs, scheduled query
 lengths, computed-prefix contexts and original prompt lengths. A one-Token

@@ -89,6 +89,8 @@ class StrategySpec:
     pipeline_max_inflight_microbatches: int = 8
     pipeline_feedback_latency_us: float = 0.0
     pipeline_p2p: bool = True
+    pipeline_transport: str = "full_hidden"
+    pipeline_transport_max_tokens: int = 0
     swap_fallback: str = "none"
     prefix_cache: bool = False
     prefix_cache_max_blocks: int = 128

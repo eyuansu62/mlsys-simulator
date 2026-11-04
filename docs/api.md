@@ -413,10 +413,15 @@ elapsed service. It emits an online observation only from a complete matching
 published lifecycle. Async/raw candidates, missing ranks and unattributed
 Workspace remain explicit gaps; one canonical-ready channel does not establish
 hardware accuracy or a complete online trace.
-Actual PP transport must also match the isolated-stage contract. Pinned
-TP>1+PP>1 sliced transfers/receiver AllGather, lazy incoming postprocessing and
-sequence-parallel execution remain raw diagnostics rather than automatically
-calibrating the simulator's independent stage/full-rank P2P model.
+Actual PP transport must also match the isolated-stage contract. Since 1.7,
+`strategy.pipeline_transport="vllm_native"` observes natural lazy receive,
+excludes wait/receiver AllGather from stage service and preserves physical
+hidden/residual tensor descriptors through calibration. Native Profiles are
+exact-only and require matching complete TP/adjacent-stage payload evidence.
+The separate boundary cost uses those bytes/padding and remains explicitly
+analytical; raw receive waiting is not fitted as independent link latency.
+Sequence parallelism and unproven boundaries remain raw. See
+[native PP capture](native-pp-capture.md) for the full contract.
 
 ```bash
 mlsys-sim collect --kind probe --out runs/rocm-probe
@@ -425,7 +430,7 @@ mlsys-sim validate-hardware --plan examples/v1_5/fixture-validation.plan.json \
 ```
 
 The optional collection paths are `probe`, `steps`, `rccl`, `runtime-trace`,
-`vllm` and `reference`. Each keeps its own timing and source contract. Stage
+`vllm`, `vllm-hook` and `reference`. Each keeps its own timing and source contract. Stage
 collection needs real HIP availability and synchronized Runtime execution;
 fixture backends retain fixture source. RCCL imports preserve explicit timing
 units, rank counts and correctness results. Client stream delivery cannot be

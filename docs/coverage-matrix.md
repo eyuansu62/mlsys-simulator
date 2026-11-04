@@ -1,6 +1,6 @@
-# Version 1.6 capability matrix
+# Version 1.7 capability matrix
 
-This table describes the version 1.6 software scope. Available fixture demonstrations
+This table describes the version 1.7 software scope. Available fixture demonstrations
 and unit tests do not establish AMD hardware accuracy. User-supplied reference
 packages are external evidence with their own timing and model-coverage limits.
 
@@ -15,22 +15,22 @@ packages are external evidence with their own timing and model-coverage limits.
 | Warmup and initial state | Implemented | Isolated successful warmup; measurement starts with empty KV only |
 | Arrival window and drain | Implemented | Half-open admission, NOT_ADMITTED outcomes, optional bounded drain |
 | TP | Implemented | TP 1/2/4 in each stage, GQA replication and atomic all-stage/rank reservation |
-| C04 communication analysis | Implemented | Ring AllReduce, logits AllGather and PP P2P, no shared-link contention/overlap |
+| C04 communication analysis | Implemented | Ring AllReduce, logits AllGather, legacy PP P2P or explicit native two-tensor/sliced P2P plus receiver AllGather; no shared-link contention/overlap |
 | C04 communication calibration | Implemented | Per-primitive/rank alpha-beta fit and explicit Infra patch; no automatic double addition to stage profiles |
 | PP analysis | Implemented | Shape-only capacity/forward/P2P; online metrics remain null because analysis has no queue |
 | Online PP | Implemented | Stage/microbatch queues, boundary P2P, one outstanding iteration/request and sampled-Token feedback |
-| PP activation budgets | Implemented | Conservative persistent per-rank buffers and all-stage KV reservation before stage 0 |
+| PP activation budgets | Implemented | Conservative persistent per-rank buffers and all-stage KV reservation; native transport budgets output pairs, receive/backing copies and persistent input targets to a physical-token bound |
 | CPU KV swap | Implemented | Bounded host tier and serial D2H/H2D per replica, safe source/destination ownership, explicit fallback |
 | PP pressure and DMA | Implemented | Drain in-flight waves before reclaim; no new GPU work during DMA, conservative no-overlap policy |
-| Versioned step Profiles | Implemented | Strict identity/source, exact ragged/mixed lookup, complete homogeneous interpolation cells, explicit homogeneous exploratory extrapolation |
+| Versioned step Profiles | Implemented | Strict identity/source; native PP preserves physical payloads and is exact-only; legacy exact ragged/mixed lookup and complete homogeneous interpolation cells |
 | Calibration and lineage | Implemented | Repeated-shape mean time/max Workspace, new versions, input and training provenance |
 | Grouped holdout evaluation | Implemented | Shape/group connected components, leakage rejection, coverage and latency errors |
 | Online run/candidate comparison | Implemented | Matching contracts, per-metric/request errors, SLA agreement, ties and candidate ordering |
 | Measured Workspace consumption | Implemented | Supported observed values; missing/extrapolated values use labeled analytical assumptions |
 | ROCm inventory and stage collection | Implemented adapter | Optional live HIP Runtime timing with explicit device/software identity; CPU fixture injection is not a GPU measurement |
-| Pinned vLLM internal runner hooks | Implemented adapter | Explicit MRv1 ABI/version installation, member-aware shapes and complete sampling boundaries; async, sequence-parallel and unisolated TP/PP transport intervals remain raw diagnostics |
+| Pinned vLLM internal runner hooks | Implemented adapter | Explicit MRv1 ABI/version, member-aware shapes and sampling boundaries; native lazy receive/receiver AG excluded from stage service; async, SP and unproven intervals remain raw |
 | Pinned vLLM Scheduler lifecycle | Implemented adapter | Actual enqueue, published output and terminal events; conditional replay is explicit, with prompt identity required for Prefix Cache |
-| Internal capture aggregation | Implemented | Complete compatible TP rank groups use maximum local elapsed time, strict model/Runtime configuration identity, per-replica datasets and explicit quarantine |
+| Internal capture aggregation | Implemented | Complete TP groups use maximum local service; native physical descriptors also match adjacent stages; strict model/Runtime identity, per-replica datasets and quarantine |
 | RCCL AllReduce collection/import | Implemented adapter | Explicit benchmark units/ranks/mode, maximum-rank timing and correctness checks; sendrecv is not accepted as unidirectional PP P2P |
 | Runtime trace and vLLM client collection | Implemented adapters | Semantic server Token events and token-ID client streaming retain different boundaries; SSE chunk counts do not become token counts |
 | Reference-package audit | Implemented | Source hashes, structure, timing/shape coverage and compatibility diagnostics; archived programs and instructions are not executed |
@@ -51,7 +51,10 @@ CI results belong in the validation report and workflow run records.
 PP and CPU swap have no supplied hardware validation. Their virtual links/DMA
 use declared rates and explicit conservative policies; successful synthetic
 examples do not establish actual multi-GPU throughput or PCIe copy accuracy.
-See [pipeline and swap](pipeline-and-swap.md) for configuration and lifetimes.
+See [pipeline and swap](pipeline-and-swap.md) for configuration and lifetimes, and
+[native PP capture](native-pp-capture.md) for source-pinned sampling. Natural
+receive waiting is dependency evidence, not a calibrated independent network
+latency; native boundary communication remains explicitly analytical.
 
 Live collectors require the relevant tools already installed on an AMD host;
 the core simulator keeps no required third-party dependency. Probe failure does

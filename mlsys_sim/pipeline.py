@@ -14,6 +14,7 @@ from typing import Any
 from .batching import batch_members, batch_phase
 from .config import validate_experiment
 from .memory import MemoryPlanner
+from .pp_transport import estimate_pipeline_transfer
 from .profiles import create_performance_model
 from .reporting import report_simulation
 from .schema import Experiment, RequestSpec, SimulationError, StepEstimate
@@ -30,6 +31,7 @@ class _Wave:
     targets: dict[str, int]
     estimates: tuple[StepEstimate, ...]
     request_phases: tuple[str, ...]
+    transfer_estimates: tuple[dict, ...]
 
 
 @dataclass(frozen=True)
@@ -47,6 +49,7 @@ class _Transfer:
     start_ms: float
     end_ms: float
     bytes_per_rank: int
+    estimate: dict | None = None
 
 
 class PipelineSimulation:
@@ -386,12 +389,19 @@ class PipelineSimulation:
         for estimate in estimates:
             if not math.isfinite(estimate.duration_ms) or estimate.duration_ms <= 0:
                 raise SimulationError("INVALID_PERFORMANCE_ESTIMATE", "Stage duration must be positive and finite")
+        transfers = tuple(estimate_pipeline_transfer(self.exp, queries, estimates[stage])
+                          for stage in range(self.pp - 1))
+        if self.exp.strategy.pipeline_transport == "vllm_native":
+            for stage, transfer in enumerate(transfers):
+                incoming = estimates[stage + 1].breakdown.get("pp_transport", {}).get("incoming")
+                if incoming is not None and incoming != transfer["descriptor"]:
+                    raise SimulationError("CALIBRATION_MISMATCH", "Adjacent PP stage payload descriptors disagree")
         decision = self.memory.reserve(targets, queries, phase,
                                        request_phases=members if phase == "mixed" else None)
         if not decision.ok:
             raise SimulationError("RESOURCE_STATE_CHANGED", "Pipeline admission reservation changed")
         wave = _Wave(self.next_wave_id, phase, tuple(r.request_id for r in chosen),
-                     tuple(queries), contexts, targets, estimates, members)
+                     tuple(queries), contexts, targets, estimates, members, transfers)
         self.next_wave_id += 1
         if phase == "mixed":
             self.mixed_batch_count += 1
@@ -483,20 +493,14 @@ class PipelineSimulation:
                       duration_ms=delay, **self._member_metadata(wave))
             self._push(end, 0, "FEEDBACK_COMPLETE", wave.wave_id)
             return
-        model, infra = self.exp.strategy.model, self.exp.infra
-        payload = int(sum(wave.queries) * model.hidden_size * model.activation_bytes)
-        if self.exp.strategy.pipeline_p2p:
-            bandwidth = infra.link_bandwidth_gbps * 1e6
-            duration = infra.link_latency_us / 1000 + payload / bandwidth
-            if not math.isfinite(bandwidth) or bandwidth <= 0 or not math.isfinite(duration) or duration <= 0:
-                raise SimulationError("INVALID_PERFORMANCE_ESTIMATE", "P2P duration must be positive and finite")
-        else:
-            duration = 0.0
+        estimate = wave.transfer_estimates[task.stage]
+        payload, duration = estimate["bytes_per_rank"], estimate["duration_ms"]
         start = max(self.now, self.link_free_ms[task.stage])
         end = start + duration
         if not math.isfinite(end) or (duration > 0 and end <= start):
             raise SimulationError("INVALID_EVENT_TIME", "P2P must advance representable time")
-        transfer = _Transfer(wave.wave_id, task.stage, start, end, payload)
+        transfer = _Transfer(wave.wave_id, task.stage, start, end, payload,
+                             estimate if self.exp.strategy.pipeline_transport == "vllm_native" else None)
         self.link_free_ms[task.stage] = end
         self.transfers[wave.wave_id] = transfer
         self._push(start, 0, "TRANSFER_START", transfer)
@@ -711,7 +715,9 @@ class PipelineSimulation:
         elif kind == "TRANSFER_START":
             self._log(kind, microbatch_id=payload.wave_id, boundary=payload.boundary,
                       bytes_per_rank=payload.bytes_per_rank, start_ms=payload.start_ms,
-                      end_ms=payload.end_ms)
+                      end_ms=payload.end_ms,
+                      **({"source": payload.estimate["source"], "breakdown": payload.estimate["breakdown"],
+                          "pp_transport": payload.estimate["descriptor"]} if payload.estimate is not None else {}))
         elif kind == "TRANSFER_COMPLETE":
             transfer = self.transfers.pop(payload.wave_id)
             self.link_busy_ms[transfer.boundary] += transfer.end_ms - transfer.start_ms
@@ -720,7 +726,9 @@ class PipelineSimulation:
             self.stage_queues[stage].append(transfer.wave_id)
             self.stage_ready_at[transfer.wave_id, stage] = self.now
             self._log(kind, microbatch_id=transfer.wave_id, boundary=transfer.boundary,
-                      bytes_per_rank=transfer.bytes_per_rank)
+                      bytes_per_rank=transfer.bytes_per_rank,
+                      **({"source": transfer.estimate["source"], "breakdown": transfer.estimate["breakdown"],
+                          "pp_transport": transfer.estimate["descriptor"]} if transfer.estimate is not None else {}))
         elif kind == "FEEDBACK_COMPLETE":
             self._feedback_complete(payload)
         elif kind == "SWAP_COMPLETE":
@@ -874,7 +882,10 @@ class PipelineSimulation:
                       for i, value in enumerate(self.link_busy_ms)],
             "feedback_latency_us": self.exp.strategy.pipeline_feedback_latency_us,
             "p2p_enabled": self.exp.strategy.pipeline_p2p,
-            "activation_buffer_policy": "persistent bound per stage/rank",
+            "activation_buffer_policy": (
+                "native full input copies, per-wave payload and retained slice backing upper bounds"
+                if self.exp.strategy.pipeline_transport == "vllm_native" else "persistent bound per stage/rank"),
+            **({"pipeline_transport": "vllm_native"} if self.exp.strategy.pipeline_transport == "vllm_native" else {}),
             "recovery_policy": "quiesce all waves before request eviction or DMA",
         }
         self._final_result = result

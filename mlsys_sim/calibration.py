@@ -72,6 +72,9 @@ def calibrate_dataset(
     for key, records in sorted(grouped.items()):
         ordered = sorted(records, key=lambda record: record["record_id"])
         representative = ordered[0]
+        if any(record.get("pp_transport") != representative.get("pp_transport") for record in ordered):
+            raise SimulationError("CALIBRATION_MISMATCH",
+                                  "Repeated stage shapes must use identical PP payload descriptors")
         workspace = [record["workspace_peak_bytes"] for record in ordered
                      if record["workspace_peak_bytes"] is not None]
         # statistics.mean avoids overflow from summing repeated large values.
@@ -93,6 +96,8 @@ def calibrate_dataset(
         }
         if representative["phase"] == "mixed":
             sample["request_phases"] = list(representative["request_phases"])
+        if "pp_transport" in representative:
+            sample["pp_transport"] = _clone(representative["pp_transport"])
         samples.append(sample)
     profile = {
         "schema_version": 1,

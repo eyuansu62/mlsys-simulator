@@ -221,10 +221,11 @@ def _header(experiment: Experiment, value: Any, allow_test_fixture: bool) -> tup
     elif (source["kind"] == "measured" and eligible_records
           and strategy.pipeline_parallel_size > 1):
         _fail("Measured PP capture lacks observed loaded stage-layer bounds", "HARDWARE_METADATA_INCOMPLETE")
-    if source["kind"] == "measured" and strategy.tensor_parallel_size > 1:
+    if source["kind"] == "measured" and (strategy.tensor_parallel_size > 1
+            or strategy.pipeline_transport == "vllm_native" and strategy.pipeline_parallel_size > 1):
         binding = metadata.get("rccl_binding")
         if not isinstance(binding, dict) or binding.get("verified") is not True:
-            _fail("Measured TP capture lacks a loaded RCCL binding", "HARDWARE_METADATA_INCOMPLETE")
+            _fail("Measured parallel capture lacks a loaded RCCL binding", "HARDWARE_METADATA_INCOMPLETE")
         version = binding.get("runtime_version")
         digest = binding.get("library_sha256")
         if version != local.calibration.rccl_version:
@@ -234,6 +235,48 @@ def _header(experiment: Experiment, value: Any, allow_test_fixture: bool) -> tup
             _fail("Loaded RCCL binding requires a library SHA256", "HARDWARE_METADATA_INCOMPLETE")
         if binding.get("verification_scope") != "local_proc_maps_loaded_library_ncclGetVersion":
             _fail("RCCL binding does not identify the loaded Runtime library", "HARDWARE_METADATA_INCOMPLETE")
+    if source["kind"] == "measured" and eligible_records and strategy.pipeline_transport == "vllm_native":
+        backend = metadata.get("native_pp_backend_binding")
+        if (not isinstance(backend, dict) or backend.get("backend") != "nccl"
+                or backend.get("use_cpu_custom_send_recv") is not False
+                or backend.get("api_revision") != _REVISION):
+            _fail("Native PP capture lacks its standard NCCL/RCCL transport binding", "HARDWARE_METADATA_INCOMPLETE")
+        torch_version = backend.get("torch_version")
+        build = execution.get("torch_build") if isinstance(execution, dict) else None
+        if (not isinstance(torch_version, str) or not torch_version
+                or torch_version != metadata.get("torch_version") or not isinstance(build, dict)
+                or torch_version != build.get("torch_version")):
+            _fail("Native PP transport proof must bind the actual Torch build", "CALIBRATION_MISMATCH")
+        stream = metadata.get("native_pp_stream_binding")
+        if (not isinstance(stream, dict) or stream.get("standard_process_group_nccl") is not True
+                or stream.get("actual_backend") != "nccl"
+                or stream.get("group_type") != "vllm.distributed.parallel_state.GroupCoordinator"
+                or stream.get("contract") != "current_to_communication_stream_until_work_wait_v1"):
+            _fail("Native PP capture lacks its preparation-stream ordering proof", "HARDWARE_METADATA_INCOMPLETE")
+        if stage > 0:
+            from .pp_transport import validate_native_pp_descriptor
+            persistent = metadata.get("native_pp_persistent_binding")
+            if not isinstance(persistent, dict):
+                _fail("Native PP capture lacks loaded persistent buffer capacity", "HARDWARE_METADATA_INCOMPLETE")
+            persistent = _object(persistent,
+                {"max_num_tokens", "descriptor", "scope"}, set(), "native persistent buffer binding")
+            capacity = _integer(persistent["max_num_tokens"], "persistent max_num_tokens", 1)
+            if persistent["scope"] != "loaded_runner_intermediate_buffers":
+                _fail("Native PP persistent capacity must be observed from loaded Runner buffers")
+            try:
+                descriptor = validate_native_pp_descriptor(local, persistent["descriptor"])
+            except SimulationError as exc:
+                raise SimulationError("HARDWARE_METADATA_INCOMPLETE", f"Invalid persistent PP buffer: {exc}") from exc
+            if descriptor["padded_tokens"] != capacity:
+                _fail("Native PP persistent buffer differs from Runner token capacity", "CALIBRATION_MISMATCH")
+            for record in capture["records"]:
+                if isinstance(record, dict) and record.get("status") == "COMPLETED":
+                    transport = record.get("transport_metadata")
+                    incoming = transport.get("incoming") if isinstance(transport, dict) else None
+                    payload = incoming.get("native_descriptor") if isinstance(incoming, dict) else None
+                    tokens = payload.get("padded_tokens") if isinstance(payload, dict) else None
+                    if type(tokens) is int and tokens > capacity:
+                        _fail("Native PP sample exceeds loaded persistent buffer capacity", "CALIBRATION_MISMATCH")
     return capture, source
 
 
@@ -244,7 +287,7 @@ def _record(value: Any, stage: int, pp: int) -> dict:
                 "sampling_complete", "workspace_peak_bytes", "allocator_baseline", "allocator_after"}
     optional = {"request_phases", "error_code", "message", "async_output", "deferred_output_resolved",
                 "output_history_lengths", "resumed_request_ids", "unsupported_reason", "capture_quality",
-                "profile_eligible", "canonical_rejection_reason", "transport_metadata"}
+                "profile_eligible", "canonical_rejection_reason", "transport_metadata", "pp_receive_timing"}
     optional.add("sampled_token_counts")
     minimal = {"sample_id", "iteration_id", "status"}
     record = _object(value, minimal, (required - minimal) | optional, "capture record")
@@ -293,7 +336,28 @@ def _record(value: Any, stage: int, pp: int) -> dict:
     start = _integer(record["start_monotonic_ns"], "start_monotonic_ns")
     end = _integer(record["end_monotonic_ns"], "end_monotonic_ns")
     duration = _number(record["duration_ms"], "duration_ms", positive=True)
-    if end <= start or not math.isclose(duration, (end - start) / 1e6, rel_tol=1e-12, abs_tol=1e-9):
+    excluded = 0
+    if "pp_receive_timing" in record:
+        timing = _object(record["pp_receive_timing"],
+                         {"method", "intervals", "excluded_ns", "wall_duration_ms"}, set(), "PP receive timing")
+        if stage == 0 or timing["method"] != "natural_wait_for_comm_v1":
+            _fail("Only receiving stages can exclude a natural PP receive interval")
+        intervals = timing["intervals"]
+        if not isinstance(intervals, list) or len(intervals) != 1:
+            _fail("One natural lazy receive interval is required per captured iteration")
+        for interval in intervals:
+            interval = _object(interval, {"start_monotonic_ns", "end_monotonic_ns"}, set(), "PP receive interval")
+            left = _integer(interval["start_monotonic_ns"], "receive start")
+            right = _integer(interval["end_monotonic_ns"], "receive end")
+            if not start <= left < right <= end:
+                _fail("PP receive interval must be positive and contained in the runner interval")
+            excluded += right - left
+        if _integer(timing["excluded_ns"], "excluded_ns", 1) != excluded or excluded >= end - start:
+            _fail("PP receive exclusion must equal its intervals and leave positive stage service")
+        if not math.isclose(_number(timing["wall_duration_ms"], "wall_duration_ms", positive=True),
+                            (end - start) / 1e6, rel_tol=1e-12, abs_tol=1e-9):
+            _fail("PP receive wall duration differs from its runner interval")
+    if end <= start or not math.isclose(duration, (end - start - excluded) / 1e6, rel_tol=1e-12, abs_tol=1e-9):
         _fail("Captured duration does not match its monotonic interval")
     if record["timing_boundary"] != _BOUNDARY:
         _fail("Unknown captured stage timing boundary")
@@ -324,6 +388,66 @@ def _record(value: Any, stage: int, pp: int) -> dict:
 def _shape_signature(record: dict) -> str:
     return _json({key: record.get(key) for key in ("sample_id", "request_ids", "phase", "query_tokens",
         "context_lengths", "prompt_lengths", "request_phases", "output_history_lengths", "resumed_request_ids")})
+
+
+def _native_transport(experiment: Experiment, record: dict, stage: int) -> tuple[dict, list[str]]:
+    """Require observed native geometry and an isolated incoming boundary."""
+    from .pp_transport import validate_native_pp_descriptor
+
+    result: dict[str, Any] = {}
+    reasons: list[str] = []
+    transport = record.get("transport_metadata")
+    required = {"incoming"} | ({"outgoing"} if stage < experiment.strategy.pipeline_parallel_size - 1 else set())
+    if not isinstance(transport, dict) or set(transport) != required:
+        return result, ["native_pp_transport_scope_unproven"]
+    for direction, info in transport.items():
+        if not isinstance(info, dict):
+            _fail("Native PP transport descriptor must be an object")
+        if direction == "incoming" and stage == 0:
+            if info.get("object_type") != "builtins.NoneType" or "native_descriptor" in info:
+                reasons.append("native_pp_first_stage_has_incoming_payload")
+            continue
+        if (info.get("modeled_transport") != "vllm_native_pp_v1"
+                or info.get("profile_transport_compatible") is not True
+                or info.get("incoming_communication_excluded") is not True):
+            reasons.append("native_pp_transport_not_isolated")
+            continue
+        descriptor = info.get("native_descriptor")
+        if descriptor is None:
+            reasons.append("native_pp_payload_unobserved")
+            continue
+        try:
+            descriptor = validate_native_pp_descriptor(experiment, descriptor)
+        except SimulationError as exc:
+            raise SimulationError("INVALID_VLLM_CAPTURE", f"Invalid native PP payload: {exc}") from exc
+        if descriptor["padded_tokens"] < sum(record["query_tokens"]):
+            _fail("Native PP payload cannot have fewer tokens than the logical batch")
+        sliced = any(tensor["tp_sliced"] for tensor in descriptor["tensors"])
+        if (info.get("default_tp_sliced_p2p_receiver_allgather") is not sliced
+                or info.get("materialized_tensor_keys") != ["hidden_states", "residual"]):
+            reasons.append("native_pp_payload_evidence_disagrees")
+        if direction == "incoming":
+            lazy = info.get("lazy_incoming")
+            if type(lazy) is not bool:
+                _fail("Native incoming lazy flag must be boolean")
+            scope = info.get("receive_completion_scope")
+            if lazy and scope == "natural_wait_for_comm":
+                if (info.get("natural_receive_observed") is not True
+                        or info.get("receive_wait_completed") is not True
+                        or info.get("pre_wait_compute_stream_synchronized") is not True
+                        or "pp_receive_timing" not in record):
+                    reasons.append("native_pp_natural_receive_unobserved")
+            elif scope == "before_runner_entry":
+                if (info.get("external_receive_synchronized") is not True
+                        or lazy and info.get("already_waited_external") is not True
+                        or "pp_receive_timing" in record):
+                    reasons.append("native_pp_external_receive_unproven")
+            else:
+                reasons.append("native_pp_receive_boundary_unproven")
+        result[direction] = descriptor
+    if "incoming" in result and "outgoing" in result and result["incoming"] != result["outgoing"]:
+        _fail("One native Qwen3 stage must preserve the physical PP payload geometry", "CALIBRATION_MISMATCH")
+    return result, reasons
 
 
 def _scheduler_header(experiment: Experiment, value: Any, allow_test_fixture: bool) -> tuple[dict, dict]:
@@ -626,6 +750,26 @@ def normalize_vllm_capture(experiment: Experiment, captures: list[dict], *,
     unbound_channels = {(capture["replica_index"], capture["stage_index"], capture["tp_rank"])
                         for capture, _ in validated if not capture["identity"]["runtime"].get("runtime_config_sha256")
                         or capture["metadata"].get("runtime_execution_config") is None}
+    native = experiment.strategy.pipeline_transport == "vllm_native"
+    native_payloads: dict[tuple[int, int, int, int], dict] = {}
+    native_reasons: dict[tuple[int, int, int, int], list[str]] = {}
+    for (replica, stage, iteration), ranked in groups.items():
+        for rank, record in ranked.items():
+            native_coordinate = replica, stage, iteration, rank
+            if not native and "pp_receive_timing" in record:
+                _fail("A legacy transport capture cannot claim native receive exclusions")
+            if native and record["status"] == "COMPLETED":
+                native_payloads[native_coordinate], native_reasons[native_coordinate] = _native_transport(effective, record, stage)
+    if native:
+        for (replica, stage, iteration, rank), payload in native_payloads.items():
+            for direction, descriptor in payload.items():
+                adjacent = stage - 1 if direction == "incoming" else stage + 1
+                opposite = "outgoing" if direction == "incoming" else "incoming"
+                other = native_payloads.get((replica, adjacent, iteration, rank), {})
+                if opposite not in other:
+                    native_reasons[replica, stage, iteration, rank].append("native_pp_adjacent_edge_evidence_missing")
+                elif descriptor != other[opposite]:
+                    _fail("Native PP sender/receiver payloads disagree", "CALIBRATION_MISMATCH")
     accepted: dict[int, list[dict]] = {}
     quarantined = []
     expected_ranks = set(range(experiment.strategy.tensor_parallel_size))
@@ -647,6 +791,11 @@ def normalize_vllm_capture(experiment: Experiment, captures: list[dict], *,
             if across_stage is not None and across_stage != signature:
                 _fail("PP stage counters do not identify the same captured iteration", "CALIBRATION_MISMATCH")
             signatures[replica, iteration] = signature
+            if native:
+                payload_signatures = {_json(native_payloads[replica, stage, iteration, rank])
+                                      for rank, record in ranked.items() if record["status"] == "COMPLETED"}
+                if len(payload_signatures) != 1:
+                    _fail("TP ranks disagree on native PP physical payload geometry", "CALIBRATION_MISMATCH")
         for rank, record in ranked.items():
             if record["status"] != "COMPLETED":
                 continue
@@ -668,7 +817,9 @@ def normalize_vllm_capture(experiment: Experiment, captures: list[dict], *,
                 reasons.append("async_consumption_is_not_exclusive_stage_service")
             if record.get("profile_eligible") is False:
                 reasons.append("hook_marked_sample_ineligible")
-            if experiment.strategy.pipeline_parallel_size > 1:
+            if native:
+                reasons.extend(native_reasons[replica, stage, iteration, rank])
+            elif experiment.strategy.pipeline_parallel_size > 1:
                 transport = record.get("transport_metadata")
                 required_directions = {"incoming"} | ({"outgoing"} if stage < experiment.strategy.pipeline_parallel_size - 1 else set())
                 if not isinstance(transport, dict) or required_directions - transport.keys():
@@ -715,6 +866,8 @@ def normalize_vllm_capture(experiment: Experiment, captures: list[dict], *,
                "duration_ms": max(record["duration_ms"] for record in records), "workspace_peak_bytes": None}
         if representative["phase"] == "mixed":
             row["request_phases"] = list(representative["request_phases"])
+        if native:
+            row["pp_transport"] = deepcopy(native_payloads[replica, stage, iteration, sorted(ranked)[0]])
         accepted.setdefault(replica, []).append(row)
     datasets: list[dict[str, Any]] = []
     for replica, records in sorted(accepted.items()):
@@ -725,6 +878,10 @@ def normalize_vllm_capture(experiment: Experiment, captures: list[dict], *,
                 "runtime_version": next(iter(versions)), "api_revision": _REVISION,
                 "rank_reduction": "maximum_synchronized_per_rank_host_duration",
                 "absolute_cross_rank_time_subtraction": False, "workspace_policy": "unknown_without_runtime_attribution",
+                **({"pp_transport_policy": {"contract": "vllm_native_pp_v1",
+                     "stage_duration_excludes": "natural_receive_wait_and_receiver_allgather",
+                     "persistent_input_copy_in_stage": True, "network_source": "analytical_uncalibrated",
+                     "receive_wait_is_network_latency_sample": False}} if native else {}),
                 "capture_inputs": inputs, "excluded_groups": len(quarantined)}},
             allow_test_fixture=allow_test_fixture)
         datasets.append({"replica_index": replica, "dataset": dataset})

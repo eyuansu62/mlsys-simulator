@@ -27,6 +27,7 @@ from .batching import batch_phase
 from .config import experiment_from_dict, load_experiment, validate_experiment
 from .hardware import object_fields, read_json, text
 from .layout import replica_experiment, stage_layer_counts
+from .pp_transport import pipeline_transport_max_tokens, validate_native_pp_descriptor
 from .profiles import profile_identity, validate_identity
 from .schema import Experiment, SimulationError
 
@@ -270,6 +271,7 @@ class RunnerCapture:
                  runtime_version: str | None = None, clock_domain: str | None = None,
                  torch_module: Any = None, clock_ns: Callable[[], int] | None = None,
                  synchronize: Callable[[], None] | None = None,
+                 synchronize_current_stream: Callable[[], None] | None = None,
                  allocator_snapshot: Callable[[], Any] | None = None,
                  source_reference: str = "opt-in pinned vLLM internal runner capture",
                  output_dir: str | Path | None = None, rccl_metadata: dict | None = None,
@@ -292,7 +294,8 @@ class RunnerCapture:
         for name in ("input_batch", "requests", "execute_model_state", "use_async_scheduling"):
             if not hasattr(runner, name):
                 _fail("UNSUPPORTED_VLLM_ABI", f"Runner has no {name}")
-        self.fixture = any(value is not None for value in (torch_module, clock_ns, synchronize, allocator_snapshot))
+        self.fixture = any(value is not None for value in (
+            torch_module, clock_ns, synchronize, synchronize_current_stream, allocator_snapshot))
         if not self.fixture and (type(runner).__module__ != "vllm.v1.worker.gpu_model_runner"
                 or type(runner).__name__ != "GPUModelRunner"):
             _fail("UNSUPPORTED_VLLM_ABI", "Live capture requires the pinned MRv1 GPUModelRunner implementation")
@@ -307,7 +310,9 @@ class RunnerCapture:
         self._clock = time.perf_counter_ns if clock_ns is None else clock_ns
         self._last_ns = 0
         self._sync: Callable[[], None]
+        self._sync_current: Callable[[], None]
         self._allocator: Callable[[], Any]
+        self._native_stream_proven = self.fixture
         metadata: dict[str, Any] = {"instrumentation_source": "vllm_internal_runner", "synchronized": True,
             "profile_scope": "synchronous_exclusive_runner_host_service_only",
             "async_profile_eligible": False, "workspace_attribution": "none",
@@ -315,8 +320,12 @@ class RunnerCapture:
             "runtime_policy": {"async_scheduling": bool(runner.use_async_scheduling),
                                "broadcast_pp_output": bool(getattr(runner, "broadcast_pp_output", False))},
             "workload_payload_included": False}
+        if getattr(local.strategy, "pipeline_transport", "full_hidden") == "vllm_native":
+            metadata["profile_scope"] = (
+                "synchronous_exclusive_runner_host_service_excludes_natural_pp_receive_and_receiver_allgather")
         if self.fixture:
             self._sync = synchronize or (lambda: None)
+            self._sync_current = synchronize_current_stream or (lambda: None)
             self._allocator = allocator_snapshot or (lambda: [])
         else:
             torch = importlib.import_module("torch")
@@ -335,7 +344,9 @@ class RunnerCapture:
                     or getattr(actual_parallel, "pipeline_parallel_size", None) != local.strategy.pipeline_parallel_size):
                 _fail("HARDWARE_IDENTITY_MISMATCH", "Actual TP/PP sizes differ from the capture layout")
             validate_identity(profile_identity(local), measured=True)
-            if local.strategy.tensor_parallel_size > 1:
+            if (local.strategy.tensor_parallel_size > 1
+                    or (getattr(local.strategy, "pipeline_transport", "full_hidden") == "vllm_native"
+                        and local.strategy.pipeline_parallel_size > 1)):
                 proof = _loaded_rccl()
                 if proof["runtime_version"] != local.calibration.rccl_version:
                     _fail("HARDWARE_IDENTITY_MISMATCH", "Loaded RCCL version differs from the bound experiment")
@@ -344,6 +355,25 @@ class RunnerCapture:
                     _fail("HARDWARE_IDENTITY_MISMATCH", "Loaded RCCL library differs from the supplied library digest")
                 metadata["rccl_binding"] = proof
             self._sync = lambda: torch.cuda.synchronize(current)
+            self._sync_current = lambda: torch.cuda.current_stream(current).synchronize()
+            if self._native_pp():
+                distributed = importlib.import_module("vllm.distributed")
+                group = distributed.get_pp_group()
+                tp_group = distributed.get_tp_group()
+                backend = str(torch.distributed.get_backend(group.device_group))
+                self._native_stream_proven = (type(group).__module__ == "vllm.distributed.parallel_state"
+                    and type(group).__name__ == "GroupCoordinator"
+                    and getattr(group, "use_cpu_custom_send_recv", None) is False and backend == "nccl"
+                    and getattr(group, "world_size", None) == local.strategy.pipeline_parallel_size
+                    and getattr(tp_group, "world_size", None) == local.strategy.tensor_parallel_size)
+                metadata["native_pp_backend_binding"] = {"backend": backend,
+                    "use_cpu_custom_send_recv": getattr(group, "use_cpu_custom_send_recv", None),
+                    "api_revision": API_REVISION, "torch_version": str(torch.__version__)}
+                metadata["native_pp_stream_binding"] = {
+                    "standard_process_group_nccl": self._native_stream_proven,
+                    "actual_backend": backend,
+                    "group_type": type(group).__module__ + "." + type(group).__name__,
+                    "contract": "current_to_communication_stream_until_work_wait_v1"}
             def counters() -> list[dict]:
                 return [{"device_index": current, "allocated_bytes": int(torch.cuda.memory_allocated(current)),
                          "reserved_bytes": int(torch.cuda.memory_reserved(current)),
@@ -378,6 +408,7 @@ class RunnerCapture:
         self._output_dir = Path(output_dir) if output_dir is not None else None
         self._saved: dict[str, Any] = {}
         self._future_methods: list[tuple[Any, Any]] = []
+        self._receive_methods: list[tuple[Any, Any, Any]] = []
         self._lock = threading.RLock()
         self._limit_reached = False
         self._runtime_bound = False
@@ -444,14 +475,28 @@ class RunnerCapture:
             with self._lock:
                 frame = self._begin(scheduler_output)
                 self._active = frame
+                release_receive: Callable[[], None] | None = None
                 try:
-                    output = execute(scheduler_output, intermediate_tensors)
+                    if (frame is not None and frame.get("status") != "UNSUPPORTED"
+                            and frame.get("profile_eligible") is True
+                            and self._native_pp() and self.stage_index > 0):
+                        try:
+                            release_receive = self._observe_native_receive(frame, intermediate_tensors)
+                        except Exception as exc:
+                            self._error(frame, exc)
+                    try:
+                        output = execute(scheduler_output, intermediate_tensors)
+                    finally:
+                        if release_receive is not None:
+                            release_receive()
                 except BaseException as exc:
-                    if frame is not None:
+                    if frame is not None and not self._closed:
                         self._error(frame, exc if isinstance(exc, Exception) else RuntimeError(type(exc).__name__), "FAILED")
                     self._active = None
                     raise
                 self._active = None
+                if self._closed:
+                    return output
                 if frame is not None:
                     self._safe_transport(frame, intermediate_tensors, "incoming")
                     if frame.get("status") == "UNSUPPORTED":
@@ -540,6 +585,8 @@ class RunnerCapture:
                     or getattr(scheduler_output, "ec_connector_metadata", None) is not None):
                 _fail("UNSUPPORTED_VLLM_FEATURE", "Speculation, pooling, broadcast or external/multimodal KV are unsupported")
             config = getattr(self.runner, "vllm_config", None)
+            if self._native_pp() and not self._native_stream_proven:
+                _fail("UNSUPPORTED_VLLM_FEATURE", "Native PP capture requires the standard ProcessGroupNCCL stream contract")
             passes = getattr(getattr(config, "compilation_config", None), "pass_config", None)
             if (getattr(config, "lora_config", None) is not None
                     or getattr(config, "kv_transfer_config", None) is not None
@@ -559,7 +606,10 @@ class RunnerCapture:
             if resumed:
                 frame["resumed_request_ids"] = sorted(resumed)
                 _fail("UNSUPPORTED_VLLM_FEATURE", "Resumed/recomputed history is retained as raw evidence")
-            self._sync()
+            # Worker posted irecv before entering the Runner. Synchronizing here
+            # would consume its wait before the Runner's natural lazy boundary.
+            if not (self._native_pp() and self.stage_index > 0):
+                self._sync()
             frame["allocator_baseline"] = deepcopy(self._allocator())
             frame["start_monotonic_ns"] = self._now()
             return frame
@@ -570,6 +620,165 @@ class RunnerCapture:
             self._error(None, exc)
             return None
 
+    def _native_pp(self) -> bool:
+        return (getattr(self.exp.strategy, "pipeline_transport", "full_hidden") == "vllm_native"
+                and self.exp.strategy.pipeline_parallel_size > 1)
+
+    def _observe_native_receive(self, frame: dict, value: Any) -> Callable[[], None]:
+        """Observe the original lazy consumer without evaluating its tensors."""
+        names = {base.__name__ for base in type(value).__mro__}
+        lazy = "AsyncIntermediateTensors" in names
+        stored = vars(value) if hasattr(value, "__dict__") else {}
+        info = frame.setdefault("transport_metadata", {}).setdefault("incoming", {})
+        info.update(lazy_incoming=lazy, natural_receive_observed=False, receive_wait_completed=False)
+        if not lazy:
+            if not isinstance(stored.get("tensors"), dict):
+                _fail("UNSUPPORTED_VLLM_ABI", "Native PP requires observable intermediate tensor storage")
+            self._external_receive_ready(frame, info)
+            return lambda: None
+        if not self.fixture and (type(value).__module__ != "vllm.v1.worker.gpu_worker"
+                or type(value).__name__ != "AsyncIntermediateTensors"):
+            _fail("UNSUPPORTED_VLLM_ABI", "Native lazy PP requires the pinned AsyncIntermediateTensors class")
+        if ({"_comm_waited", "_comm_handles", "_comm_postprocess", "tensors"} - stored.keys()
+                or type(stored.get("_comm_waited")) is not bool
+                or not isinstance(stored.get("tensors"), dict)
+                or not all(stored.get(name) is None or isinstance(stored.get(name), list)
+                           for name in ("_comm_handles", "_comm_postprocess"))):
+            _fail("UNSUPPORTED_VLLM_ABI", "Native lazy PP synchronization storage differs from the pinned ABI")
+        if stored["_comm_waited"]:
+            self._external_receive_ready(frame, info)
+            if not self._closed:
+                info["already_waited_external"] = True
+            return lambda: None
+        original = value.wait_for_comm
+        _signature(original, (), "AsyncIntermediateTensors.wait_for_comm")
+        previous = stored.get("wait_for_comm", _MISSING)
+
+        def release() -> None:
+            if vars(value).get("wait_for_comm") is observe:
+                if previous is _MISSING:
+                    vars(value).pop("wait_for_comm", None)
+                else:
+                    value.wait_for_comm = previous
+            self._receive_methods = [entry for entry in self._receive_methods if entry[0] is not value]
+
+        @functools.wraps(original)
+        def observe():
+            # Repeated calls retain the source method's idempotence and never
+            # create additional intervals for its no-op path.
+            if self._closed or vars(value).get("_comm_waited") is True:
+                return original()
+            start = None
+            try:
+                if info.get("natural_receive_observed"):
+                    _fail("UNSUPPORTED_VLLM_BOUNDARY", "A native receive restarted after completion")
+                # ProcessGroupNCCL posts irecv on its own communication stream.
+                # Before Work.wait the current compute stream does not depend
+                # on that receive. Drain prepared H2D work here so the later
+                # receive completion sync cannot subtract it from stage cost.
+                self._sync_current()
+                if not self._closed:
+                    info["pre_wait_compute_stream_synchronized"] = True
+                    start = self._now()
+            except Exception as exc:
+                if not self._closed:
+                    self._error(frame, exc)
+            try:
+                result = original()
+            except BaseException as exc:
+                if not self._closed:
+                    self._error(frame, exc if isinstance(exc, Exception) else RuntimeError(type(exc).__name__), "FAILED")
+                raise
+            if not self._closed and start is not None:
+                try:
+                    if vars(value).get("_comm_waited") is not True:
+                        _fail("UNSUPPORTED_VLLM_ABI", "Natural lazy receive did not mark communication complete")
+                    # Original waits and postprocess must run before completion
+                    # synchronization. The following local input copy remains
+                    # inside the independent stage service interval.
+                    self._sync()
+                    if self._closed:
+                        return result
+                    end = self._now()
+                    if end < start:
+                        _fail("INVALID_TIMING_SAMPLE", "Native receive interval moved backwards")
+                    frame["pp_receive_timing"] = {"method": "natural_wait_for_comm_v1",
+                        "intervals": [{"start_monotonic_ns": start, "end_monotonic_ns": end}],
+                        "excluded_ns": end - start}
+                    info.update(natural_receive_observed=True, receive_wait_completed=True,
+                                receive_completion_scope="natural_wait_for_comm")
+                except Exception as exc:
+                    self._error(frame, exc)
+            return result
+
+        try:
+            value.wait_for_comm = observe
+            self._receive_methods.append((value, previous, observe))
+        except Exception:
+            release()
+            raise
+        return release
+
+    def _external_receive_ready(self, frame: dict, info: dict) -> None:
+        """Exclude already-enqueued external communication before stage entry."""
+        self._sync()
+        if self._closed:
+            return
+        baseline = deepcopy(self._allocator())
+        if self._closed:
+            return
+        frame["allocator_baseline"] = baseline
+        frame["start_monotonic_ns"] = self._now()
+        info.update(receive_wait_completed=True, receive_completion_scope="before_runner_entry",
+                    external_receive_synchronized=True)
+
+    def _native_descriptor(self, tensors: Any) -> dict:
+        if not isinstance(tensors, dict) or set(tensors) != {"hidden_states", "residual"}:
+            _fail("UNSUPPORTED_VLLM_ABI", "Native PP requires actual hidden_states and residual tensors")
+        entries: list[dict[str, Any]] = []
+        tp = self.exp.strategy.tensor_parallel_size
+        padded_tokens = None
+        for name in ("hidden_states", "residual"):
+            tensor = tensors[name]
+            shape = [_int(size, f"{name}.shape", 1) for size in tuple(getattr(tensor, "shape", ()))]
+            if len(shape) != 2 or (padded_tokens is not None and shape[0] != padded_tokens):
+                _fail("UNSUPPORTED_VLLM_ABI", "Native PP tensor shapes must share their physical token rows")
+            padded_tokens = shape[0]
+            dtype = str(getattr(tensor, "dtype", "")).removeprefix("torch.")
+            if not callable(getattr(tensor, "numel", None)) or not callable(getattr(tensor, "element_size", None)):
+                _fail("UNSUPPORTED_VLLM_ABI", "Native PP tensor metadata methods are missing")
+            numel, element_size = _int(tensor.numel(), f"{name}.numel", 1), _int(
+                tensor.element_size(), f"{name}.element_size", 1)
+            full_bytes = numel * element_size
+            sliced = tp > 1 and numel % tp == 0
+            entries.append({"name": name, "shape": shape, "dtype": dtype,
+                "element_size": element_size, "numel": numel, "full_bytes": full_bytes,
+                "tp_sliced": sliced, "wire_bytes_per_rank": full_bytes // tp if sliced else full_bytes,
+                "receiver_allgather": sliced})
+        descriptor = {"contract": "vllm_native_pp_v1", "padded_tokens": padded_tokens, "tensors": entries,
+            "resident_bytes_per_rank": sum(entry["full_bytes"] for entry in entries),
+            "wire_bytes_per_rank": sum(entry["wire_bytes_per_rank"] for entry in entries)}
+        return validate_native_pp_descriptor(self.exp, descriptor)
+
+    def _bind_native_persistent(self) -> None:
+        """Bind actual loaded receive buffers, not just the current small batch."""
+        if not self._native_pp() or self.stage_index == 0:
+            return
+        capacity = _int(getattr(self.runner, "max_num_tokens", None), "runner.max_num_tokens", 1)
+        if capacity > pipeline_transport_max_tokens(self.exp):
+            _fail("HARDWARE_IDENTITY_MISMATCH", "Loaded native PP persistent capacity exceeds the configured bound")
+        value = getattr(self.runner, "intermediate_tensors", None)
+        stored = vars(value) if value is not None and hasattr(value, "__dict__") else {}
+        descriptor = self._native_descriptor(stored.get("tensors"))
+        if descriptor["padded_tokens"] != capacity:
+            _fail("HARDWARE_IDENTITY_MISMATCH", "Loaded native PP persistent shapes differ from runner.max_num_tokens")
+        binding = {"max_num_tokens": capacity, "descriptor": descriptor,
+                   "scope": "loaded_runner_intermediate_buffers"}
+        previous = self.header["metadata"].get("native_pp_persistent_binding")
+        if previous is not None and previous != binding:
+            _fail("HARDWARE_IDENTITY_MISMATCH", "Native PP persistent buffer capacity changed during capture")
+        self.header["metadata"]["native_pp_persistent_binding"] = binding
+
     def _transport(self, frame: dict, value: Any, direction: str) -> None:
         """Inspect only stored metadata; never dereference lazy .tensors."""
         if self.exp.strategy.pipeline_parallel_size == 1:
@@ -577,9 +786,39 @@ class RunnerCapture:
         names = {base.__name__ for base in type(value).__mro__} if value is not None else set()
         lazy = "AsyncIntermediateTensors" in names
         stored = vars(value) if value is not None and hasattr(value, "__dict__") else {}
+        info: dict[str, Any]
+        if self._native_pp():
+            info = frame.setdefault("transport_metadata", {}).setdefault(direction, {})
+            info.update(object_type=type(value).__module__ + "." + type(value).__name__,
+                        lazy_incoming=lazy, modeled_transport="vllm_native_pp_v1",
+                        profile_transport_compatible=False, incoming_communication_excluded=False)
+            self.header["metadata"]["pp_transport_scope"] = (
+                "native_two_tensor_sliced_p2p_receiver_allgather_observe_natural_receive")
+            if direction == "incoming" and self.stage_index == 0 and value is None:
+                info.update(profile_transport_compatible=True, incoming_communication_excluded=True,
+                            default_tp_sliced_p2p_receiver_allgather=False)
+                return
+            descriptor = self._native_descriptor(stored.get("tensors"))
+            info.update(native_descriptor=descriptor,
+                        materialized_tensor_keys=[entry["name"] for entry in descriptor["tensors"]],
+                        default_tp_sliced_p2p_receiver_allgather=any(
+                            entry["tp_sliced"] for entry in descriptor["tensors"]))
+            if (not frame.get("query_tokens")
+                    or descriptor["padded_tokens"] < sum(frame["query_tokens"])):
+                _fail("UNSUPPORTED_VLLM_BOUNDARY", "Native PP payload does not cover the prepared query tokens")
+            persistent = self.header["metadata"].get("native_pp_persistent_binding")
+            if self.stage_index > 0 and (not self.fixture or persistent is not None):
+                if (not isinstance(persistent, dict)
+                        or descriptor["padded_tokens"] > persistent["max_num_tokens"]):
+                    _fail("UNSUPPORTED_VLLM_BOUNDARY", "Native PP payload exceeds the actual loaded persistent capacity")
+            if direction == "incoming" and info.get("receive_wait_completed") is not True:
+                frame.update(profile_eligible=False, canonical_rejection_reason="NATIVE_PP_RECEIVE_NOT_OBSERVED")
+                return
+            info.update(profile_transport_compatible=True, incoming_communication_excluded=True)
+            return
         tensors = stored.get("tensors") if not lazy else None
         keys = sorted(str(key) for key, tensor in tensors.items() if tensor is not None) if isinstance(tensors, dict) else None
-        info: dict[str, Any] = {"object_type": type(value).__module__ + "." + type(value).__name__,
+        info = {"object_type": type(value).__module__ + "." + type(value).__name__,
             "lazy_incoming": lazy, "materialized_tensor_keys": keys,
             "modeled_transport": "one_unpadded_full_hidden_tensor_per_rank",
             "default_tp_sliced_p2p_receiver_allgather": self.exp.strategy.tensor_parallel_size > 1,
@@ -618,6 +857,7 @@ class RunnerCapture:
     def _snapshot(self, frame: dict, scheduler_output: Any, num_scheduled_tokens: Any) -> None:
         if not self.fixture:
             self.header["metadata"]["stage_layer_binding"] = _stage_layer_binding(self.runner, self.exp, self.stage_index)
+            self._bind_native_persistent()
         batch = self.runner.input_batch
         count = _int(batch.num_reqs, "input_batch.num_reqs", 1)
         ids = _list(batch.req_ids, "input_batch.req_ids")[:count]
@@ -662,20 +902,35 @@ class RunnerCapture:
             frame["request_phases"] = roles
 
     def _finish_clock(self, frame: dict) -> None:
+        if self._closed:
+            return
         try:
-            self._sync()
+            # An unconsumed native lazy receive must never be consumed by the
+            # instrumentation's final synchronization, even for a raw sample.
+            incoming = frame.get("transport_metadata", {}).get("incoming", {})
+            if not (self._native_pp() and self.stage_index > 0) or incoming.get("receive_wait_completed") is True:
+                self._sync()
+            if self._closed:
+                return
             end = self._now()
             frame["end_monotonic_ns"] = end
             if "start_monotonic_ns" in frame:
-                duration = (end - frame["start_monotonic_ns"]) / 1e6
+                wall_ns = end - frame["start_monotonic_ns"]
+                receive_timing = frame.get("pp_receive_timing")
+                excluded_ns = receive_timing["excluded_ns"] if receive_timing is not None else 0
+                duration = (wall_ns - excluded_ns) / 1e6
                 if not math.isfinite(duration) or duration <= 0:
                     _fail("INVALID_TIMING_SAMPLE", "Captured service must advance the monotonic clock")
                 frame["duration_ms"] = duration
+                if receive_timing is not None:
+                    receive_timing["wall_duration_ms"] = wall_ns / 1e6
             frame["allocator_after"] = deepcopy(self._allocator())
         except Exception as exc:
             self._error(frame, exc, "FAILED")
 
     def _complete(self, frame: dict, output: Any, *, sampling: bool) -> None:
+        if self._closed:
+            return
         try:
             if not frame.get("request_ids"):
                 _fail("UNSUPPORTED_VLLM_ABI", "No actual prepared batch was observed")
@@ -691,6 +946,8 @@ class RunnerCapture:
                     _fail("UNSUPPORTED_VLLM_BOUNDARY", "Output sampling counts do not match final-prompt/decode membership")
                 frame["sampled_token_counts"] = counts
             self._finish_clock(frame)
+            if self._closed:
+                return
             if frame.get("status") not in ("UNSUPPORTED", "FAILED"):
                 frame.update(status="COMPLETED", forward_complete=True, sampling_complete=sampling)
                 if frame["async_output"]:
@@ -750,6 +1007,9 @@ class RunnerCapture:
             if self._pending is not None:
                 self._error(self._pending, SimulationError("INCOMPLETE_VLLM_ITERATION", "Capture closed before sampling"), "INCOMPLETE")
                 self._pending = None
+            if self._active is not None:
+                self._error(self._active, SimulationError("INCOMPLETE_VLLM_ITERATION", "Capture closed during execution"), "INCOMPLETE")
+                self._active = None
             for name, original in self._saved.items():
                 if original is _MISSING:
                     vars(self.runner).pop(name, None)
@@ -763,6 +1023,13 @@ class RunnerCapture:
                 else:
                     future.get_output = previous
             self._future_methods.clear()
+            for value, previous, observe in self._receive_methods:
+                if vars(value).get("wait_for_comm") is observe:
+                    if previous is _MISSING:
+                        vars(value).pop("wait_for_comm", None)
+                    else:
+                        value.wait_for_comm = previous
+            self._receive_methods.clear()
 
     def flush(self) -> str | None:
         with self._lock:

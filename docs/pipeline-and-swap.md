@@ -32,7 +32,9 @@ concurrently. See [mixed batching](mixed-batching.md).
 | `pipeline_microbatch_size` | `1` | Maximum sequences in one pipeline microbatch |
 | `pipeline_max_inflight_microbatches` | `8` | Bound on outstanding microbatches across the pipeline |
 | `pipeline_feedback_latency_us` | `0.0` | Sampled-Token feedback delay before the same request continues |
-| `pipeline_p2p` | `true` | Model activation P2P; `false` explicitly selects zero-link-cost teaching mode |
+| `pipeline_p2p` | `true` | Model activation transport; `false` explicitly selects zero-link-cost teaching mode |
+| `pipeline_transport` | `"full_hidden"` | Legacy one-tensor/full-rank transport or explicit `"vllm_native"` dual-tensor/sliced P2P and receiver AllGather |
+| `pipeline_transport_max_tokens` | `0` | Native physical-token bound; zero resolves to `max_batch_tokens`, nonzero must cover it |
 
 Batch Token limits still apply. The scheduler never uses a request's future
 actual output length to choose its work. Each request has at most one outstanding
@@ -53,11 +55,19 @@ iteration early.
 ## Communication and activation memory
 
 Each adjacent-stage boundary has a serialized activation-transfer resource.
-TP ranks use paired independent links with replicated per-rank activations.
-A rank's payload is `sum(query_tokens) × hidden_size × activation_bytes`;
+With the default `full_hidden` transport, TP ranks use paired independent links
+with replicated per-rank activations. A rank's payload is `sum(query_tokens) × hidden_size × activation_bytes`;
 neither dividing it by TP nor multiplying a single link's latency by TP matches
 this model. Boundaries do not compete for a shared fabric. These link/topology
 assumptions must match the experiment being interpreted.
+
+Explicit `vllm_native` transport instead retains `hidden_states` and `residual`
+physical shapes/dtypes, including padding. Each tensor uses a TP wire slice only
+when its element count is divisible by TP; reconstructed slices require receiver
+AllGather. Those costs are separate from isolated stage Profile time and are
+charged once using the same rule in `predict` and the online engine. They remain
+analytical, rather than being fitted from upstream-dependent receive waiting.
+See [native PP sampling and calibration](native-pp-capture.md).
 
 Before stage 0 launches an iteration, the planner conservatively reserves its
 target KV length on every stage/rank. It also budgets persistent activation
@@ -72,14 +82,25 @@ adjacent_boundaries(stage)
 ```
 
 An endpoint has one adjacent boundary, an interior stage has two, and PP=1 has
-none. Activations are replicated per TP rank. This budget is separate from
+none. Activations are replicated per TP rank in the default model. Native transport instead uses the
+effective `pipeline_transport_max_tokens` bound and distinguishes output,
+receive/reconstruction backing and the persistent input-copy destination.
+With `H = bound × hidden_size × activation_bytes` and `I` inflight waves,
+each outgoing boundary reserves `I × 2H`. Each incoming boundary reserves
+`I × (2H + B)` where `B` is the retained full backing of sliced tensors, plus
+one fixed `2H` input-copy target per receiving stage. `B=2H` when both tensors
+are sliced and zero when neither is sliced. Interior stages sum incoming and
+outgoing reservations. Wire slicing never divides this budget by TP; see the
+[native allocation contract](native-pp-capture.md#charge-transport-once-and-reserve-full-buffers).
+This budget is separate from
 `communication_buffer_bytes`; it stays reserved rather than tracking only the
 currently live tensor bytes. Large inflight/Token caps can therefore make a
 layout infeasible even with few active requests. Reduce the configured bounds
 when a smaller working set is intended.
 
-Whole-stage Profile times already include local collectives. PP boundary P2P
-and explicit feedback are separate. Profile queries preserve phase, stage and
+Whole-stage Profile times already include local model collectives. PP boundary
+P2P, native receiver AllGather and explicit feedback are separate. Native stage
+Profiles preserve the physical transport descriptor and are exact-only. Profile queries preserve phase, stage and
 microbatch shape, with the same strict domain rules as other execution paths.
 Mixed shapes additionally preserve the ordered `request_phases` array and
 require exact mixed observations. One mixed service is estimated per stage;

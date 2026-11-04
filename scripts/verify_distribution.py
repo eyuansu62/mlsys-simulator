@@ -153,6 +153,27 @@ for index in range(2):
 cluster = replace(cluster, calibration=CalibrationSpec(backend="profile",
     replica_profile_paths=tuple(cluster_paths), profile_version="installed-replicas-v1", allow_test_fixture=True))
 Path("cluster-profile.json").write_text(json.dumps(asdict(cluster)))
+native = replace(pp, infra=InfraSpec(devices=tuple(DeviceSpec(f"native-{i}") for i in range(4))),
+    strategy=replace(pp.strategy, tensor_parallel_size=2, pipeline_transport="vllm_native",
+        max_batch_tokens=32, model=replace(pp.strategy.model, activation_dtype="float16")))
+native_records = []
+for stage in range(2):
+    for phase, query, context in (("prefill", 16, 0), ("decode", 1, 16)):
+        descriptor = mlsys_sim.native_pp_descriptor(native, query)
+        assert descriptor["wire_bytes_per_rank"] * 2 == descriptor["resident_bytes_per_rank"]
+        native_records.append({"record_id": f"{stage}-{phase}", "group_id": phase,
+            "phase": phase, "stage_index": stage, "query_tokens": [query], "context_lengths": [context],
+            "duration_ms": stage + 1, "workspace_peak_bytes": None,
+            "pp_transport": {"outgoing" if stage == 0 else "incoming": descriptor}})
+native_dataset = {"schema_version": 1, "dataset_id": "installed-native-pp-fixture",
+    "identity": profile_identity(native), "records": native_records,
+    "source": {"kind": "test_fixture", "reference": "Native PP hand geometry, not GPU/network timings"}}
+native_profile = mlsys_sim.calibrate_dataset(native_dataset, profile_version="native-installed-v1",
+                                            allow_test_fixture=True)
+Path("native-profile.json").write_text(json.dumps(native_profile))
+native = replace(native, calibration=replace(native.calibration, backend="profile",
+    profile_path="native-profile.json", profile_version="native-installed-v1", allow_test_fixture=True))
+Path("native-pp.json").write_text(json.dumps(asdict(native)))
 print(json.dumps({"version": mlsys_sim.__version__, "wheel_api": "passed"}))
 '''
 
@@ -177,7 +198,7 @@ def verify(dist: Path) -> dict:
         assert "mlsys_sim/batching.py" in names
         assert "mlsys_sim/replicas.py" in names
         for module in ("hardware", "rocm_steps", "rccl_adapter", "runtime_adapter",
-                       "hardware_validation", "release_adapter", "qwen3", "vllm_hooks", "vllm_capture"):
+                       "hardware_validation", "release_adapter", "qwen3", "vllm_hooks", "vllm_capture", "pp_transport"):
             assert f"mlsys_sim/{module}.py" in names
         assert not any(name.startswith(("tests/", "sample-runs/", "work/")) for name in names)
         assert archive.testzip() is None
@@ -195,6 +216,7 @@ def verify(dist: Path) -> dict:
                          "examples/v1_5/fixture-validation.plan.json", "examples/v1_5/runtime-trace.fixture.json",
                          "docs/qwen3-and-vllm-hooks.md", "examples/v1_6/qwen3-4b.hf.json",
                          "examples/v1_6/qwen3-r2-tp2-pp2.json", "examples/v1_6/hook-import.fixture.plan.json",
+                         "docs/native-pp-capture.md", "tests/test_native_pp_capture.py",
                          "scripts/verify_distribution.py"):
             assert required in names, f"Source distribution missing {required}"
         assert not any(name.startswith(("sample-runs/", "work/")) for name in names)
@@ -216,6 +238,14 @@ def verify(dist: Path) -> dict:
         for source in (Path(__file__).resolve().parents[1] / "examples/v1_6").glob("*.json"):
             (qwen_inputs / source.name).write_bytes(source.read_bytes())
         run([str(python), "-I", "-c", SMOKE_CODE], outside, env)
+        for mode in ("predict", "simulate"):
+            target = f"native-pp-{mode}"
+            run([str(console), mode, "--experiment", "native-pp.json", "--out", target], outside, env)
+            native_result = json.loads((outside / target / "result.json").read_text())
+            if mode == "simulate":
+                assert native_result["counts"]["completed"] == 1
+            else:
+                assert native_result["communication"]["prefill_p2p_ms"] > 0
         run([str(console), "import-model", "--kind", "qwen3", "--config", str(qwen_inputs / "qwen3-4b.hf.json"),
              "--name", "Qwen3-4B", "--revision", "installed-qwen-fixture", "--out", "qwen-import"], outside, env)
         imported = json.loads((outside / "qwen-import/result.json").read_text())
@@ -373,6 +403,7 @@ def verify(dist: Path) -> dict:
             "installed_replica_routing_resources_and_profiles": "passed",
             "installed_rocm_collection_and_validation_fixture": "passed",
             "installed_qwen_geometry_dormant_plugin_and_capture_fixture": "passed",
+            "installed_native_pp_exact_profile_and_transport": "passed",
             "installed_calibration_comparison_holdout": "passed"}
 
 

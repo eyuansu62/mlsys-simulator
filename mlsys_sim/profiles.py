@@ -19,6 +19,7 @@ from typing import Any, TYPE_CHECKING
 
 from .batching import batch_members
 from .layout import stage_layer_counts
+from .pp_transport import pipeline_transport_max_tokens, validate_native_pp_descriptor
 from .schema import Experiment, SimulationError, StepEstimate
 
 if TYPE_CHECKING:
@@ -115,6 +116,9 @@ def profile_identity(experiment: Experiment) -> dict:
         identity["parallelism"]["replicas"] = strategy.replicas
     if calibration.runtime_config_sha256 != "":
         identity["runtime"]["runtime_config_sha256"] = calibration.runtime_config_sha256
+    if strategy.pipeline_transport != "full_hidden":
+        identity["parallelism"]["pipeline_transport"] = strategy.pipeline_transport
+        identity["parallelism"]["pipeline_transport_max_tokens"] = pipeline_transport_max_tokens(experiment)
     return identity
 
 
@@ -126,9 +130,16 @@ def _identity(value: Any) -> dict:
                        set(), "identity")
     parallel = _object(identity["parallelism"],
                        {"tensor_parallel_size", "pipeline_parallel_size", "stage_layers", "shard_plan"},
-                       {"replicas"}, "identity.parallelism")
+                       {"replicas", "pipeline_transport", "pipeline_transport_max_tokens"}, "identity.parallelism")
     if parallel["shard_plan"] != "megatron_dense_no_sp":
         _invalid("identity has an unsupported shard plan")
+    transport = parallel.get("pipeline_transport", "full_hidden")
+    maximum = parallel.get("pipeline_transport_max_tokens", 0)
+    _integer(maximum, "identity.parallelism.pipeline_transport_max_tokens")
+    if transport == "vllm_native":
+        _integer(maximum, "identity.parallelism.pipeline_transport_max_tokens", 1)
+    elif maximum != 0:
+        _invalid("A full-hidden identity cannot declare a native transport token bound")
     topology = _object(identity["topology"], {"name", "link_bandwidth_gbps", "link_latency_us"},
                        set(), "identity.topology")
     runtime = _object(identity["runtime"],
@@ -160,7 +171,9 @@ def _identity(value: Any) -> dict:
                          "tensor_parallel_size": parallel["tensor_parallel_size"],
                          "pipeline_parallel_size": parallel["pipeline_parallel_size"],
                          "replicas": parallel.get("replicas", 1),
-                         "stage_layers": parallel["stage_layers"], "memory": execution},
+                         "stage_layers": parallel["stage_layers"], "memory": execution,
+                         "pipeline_transport": transport, "pipeline_transport_max_tokens": maximum,
+                         **({"max_batch_tokens": maximum} if transport == "vllm_native" else {})},
             "infra": {"devices": identity["devices"], "topology": topology["name"],
                       "link_bandwidth_gbps": topology["link_bandwidth_gbps"],
                       "link_latency_us": topology["link_latency_us"]},
@@ -242,15 +255,18 @@ def shape_key(phase: str, query_tokens: Sequence[int], context_lengths: Sequence
     return json.dumps(key, separators=(",", ":"))
 
 
-def _observation(value: Any, *, profile: bool, stage_count: int) -> dict:
+def _observation(value: Any, *, profile: bool, identity: dict) -> dict:
     required = {"phase", "stage_index", "query_tokens", "context_lengths", "duration_ms"}
     required |= {"sample_count"} if profile else {"record_id", "group_id"}
-    row = _object(value, required, {"workspace_peak_bytes", "request_phases"}, "sample" if profile else "record")
+    row = _object(value, required, {"workspace_peak_bytes", "request_phases", "pp_transport"},
+                  "sample" if profile else "record")
     if row["phase"] != "mixed" and "request_phases" in row:
         _invalid("request_phases metadata is only valid for mixed observations")
     phase, stage, queries, contexts, members = _shape(
         row["phase"], row["query_tokens"], row["context_lengths"],
         row["stage_index"], row.get("request_phases"))
+    parallel = identity["parallelism"]
+    stage_count = parallel["pipeline_parallel_size"]
     if stage >= stage_count:
         _invalid("Observation stage_index exceeds the identity pipeline stage count")
     result: dict[str, Any] = {"phase": phase, "stage_index": stage, "query_tokens": list(queries),
@@ -258,6 +274,30 @@ def _observation(value: Any, *, profile: bool, stage_count: int) -> dict:
               "workspace_peak_bytes": None}
     if phase == "mixed":
         result["request_phases"] = list(members)
+    if parallel.get("pipeline_transport", "full_hidden") == "vllm_native":
+        from .config import experiment_from_dict
+        directions = ({"incoming"} if stage > 0 else set()) | ({"outgoing"} if stage < stage_count - 1 else set())
+        supplied = _object(row.get("pp_transport"), directions, set(), "pp_transport")
+        transport_experiment = experiment_from_dict({
+            "strategy": {"model": identity["model"],
+                "tensor_parallel_size": parallel["tensor_parallel_size"],
+                "pipeline_parallel_size": stage_count, "stage_layers": parallel["stage_layers"],
+                "pipeline_transport": "vllm_native",
+                "pipeline_transport_max_tokens": parallel["pipeline_transport_max_tokens"],
+                "max_batch_tokens": parallel["pipeline_transport_max_tokens"]},
+            "infra": {"devices": identity["devices"]}})
+        descriptors = {}
+        for direction in sorted(directions):
+            try:
+                descriptor = validate_native_pp_descriptor(transport_experiment, supplied[direction])
+            except SimulationError as exc:
+                _invalid(f"Invalid {direction} PP descriptor: {exc}")
+            if descriptor["padded_tokens"] < sum(queries):
+                _invalid("PP padded_tokens cannot be smaller than the logical query count")
+            descriptors[direction] = descriptor
+        result["pp_transport"] = descriptors
+    elif "pp_transport" in row:
+        _invalid("PP transport descriptors require a native transport identity")
     workspace = row.get("workspace_peak_bytes")
     if workspace is not None:
         result["workspace_peak_bytes"] = _integer(workspace, "workspace_peak_bytes")
@@ -282,8 +322,7 @@ def validate_dataset(data: dict, *, allow_test_fixture: bool = False) -> dict:
             _invalid("Step datasets require a one-replica identity; calibrate each replica separately")
         if not isinstance(value["records"], list) or not value["records"]:
             _invalid("dataset.records must be a nonempty array")
-        records = [_observation(row, profile=False,
-                                stage_count=identity["parallelism"]["pipeline_parallel_size"])
+        records = [_observation(row, profile=False, identity=identity)
                    for row in value["records"]]
         if len({row["record_id"] for row in records}) != len(records):
             _invalid("Duplicate dataset record_id")
@@ -317,8 +356,7 @@ def validate_profile(data: dict, *, allow_test_fixture: bool = False) -> dict:
         _invalid("Stage Profiles require a one-replica identity; calibrate each replica separately")
     if not isinstance(value["samples"], list) or not value["samples"]:
         _invalid("profile.samples must be a nonempty array")
-    samples = [_observation(row, profile=True,
-                            stage_count=identity["parallelism"]["pipeline_parallel_size"])
+    samples = [_observation(row, profile=True, identity=identity)
                for row in value["samples"]]
     keys = [shape_key(row["phase"], row["query_tokens"], row["context_lengths"], row["stage_index"],
                       request_phases=row.get("request_phases"))
@@ -428,6 +466,9 @@ def estimate_profile(profile: dict, phase: str, query_tokens: Sequence[int],
         duration, workspace, contributors = exact["duration_ms"], exact["workspace_peak_bytes"], [key]
         method = "exact"
     else:
+        if profile["identity"]["parallelism"].get("pipeline_transport") == "vllm_native":
+            raise SimulationError("OUT_OF_CALIBRATION_DOMAIN",
+                                  "Native PP Profiles require an exact shape and observed payload descriptor")
         if phase == "mixed":
             raise SimulationError("OUT_OF_CALIBRATION_DOMAIN",
                                   "Mixed batches require an exact query/context/ordered-phase stage sample")
@@ -461,13 +502,16 @@ def estimate_profile(profile: dict, phase: str, query_tokens: Sequence[int],
     if not math.isfinite(duration) or duration <= 0:
         raise SimulationError("OUT_OF_CALIBRATION_DOMAIN", "Profile prediction is not positive and finite")
     source = "measured_profile" if profile["source"]["kind"] == "measured" else "test_fixture_profile"
-    return StepEstimate(duration, {"extrapolated": extrapolated,
+    breakdown = {"extrapolated": extrapolated,
         "method": {"exact": "exact", "multilinear": "interpolation", "extrapolated": "extrapolation"}[method],
         "workspace_peak_bytes": workspace, "profile": {
         "duration_ms": duration, "lookup": method, "profile_version": profile["profile_version"],
         "workspace_peak_bytes": workspace, "extrapolated": extrapolated,
         "timing_includes_communication": True, "contributing_shapes": contributors,
-    }}, source, (
+    }}
+    if exact is not None and "pp_transport" in exact:
+        breakdown["pp_transport"] = deepcopy(exact["pp_transport"])
+    return StepEstimate(duration, breakdown, source, (
         "Whole-stage profile includes local collectives and output/sampling; do not add them again.",
         "Inter-stage PP P2P is not included in stage samples.",
         "No Attention/Linear/Misc attribution can be inferred from total step time.",

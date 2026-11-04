@@ -113,6 +113,16 @@ def validate_experiment(experiment: Experiment) -> None:
     if strategy.pipeline_microbatch_size > strategy.max_batch_size:
         _invalid("strategy.pipeline_microbatch_size", "cannot exceed max_batch_size")
     _positive(strategy.pipeline_feedback_latency_us, "strategy.pipeline_feedback_latency_us", zero=True)
+    if strategy.pipeline_transport not in ("full_hidden", "vllm_native"):
+        raise SimulationError("UNSUPPORTED_MECHANISM", "pipeline_transport must be full_hidden or vllm_native")
+    _positive(strategy.pipeline_transport_max_tokens, "strategy.pipeline_transport_max_tokens", zero=True)
+    if strategy.pipeline_transport_max_tokens and strategy.pipeline_transport_max_tokens < strategy.max_batch_tokens:
+        _invalid("strategy.pipeline_transport_max_tokens", "must cover max_batch_tokens")
+    if strategy.pipeline_transport == "vllm_native":
+        if strategy.pipeline_parallel_size <= 1:
+            _invalid("strategy.pipeline_transport", "vllm_native requires PP > 1")
+        if model.activation_dtype == "auto":
+            _invalid("strategy.model.activation_dtype", "vllm_native requires an explicit activation dtype")
     if strategy.replica_routing not in ("round_robin", "least_loaded", "prefix_aware"):
         raise SimulationError("UNSUPPORTED_MECHANISM", "replica_routing must be round_robin, least_loaded or prefix_aware")
     if strategy.scheduler not in ("fifo", "continuous_batching"):

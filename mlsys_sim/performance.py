@@ -7,6 +7,7 @@ from typing import Any
 from .batching import batch_members
 from .config import validate_experiment
 from .layout import layer_parameters, local_kv_heads, stage_layer_counts
+from .pp_transport import estimate_pipeline_transfer
 from .schema import Experiment, SimulationError, StepEstimate
 
 
@@ -185,10 +186,13 @@ def predict_experiment(experiment: Experiment) -> dict[str, Any]:
     queries = [r.input_tokens for r in requests] or [1]
     contexts = [0] * len(queries)
     stages = []
+    prefill_estimates, decode_estimates = [], []
     prefill_total, decode_total = 0.0, 0.0
     for stage, layers in enumerate(stage_layer_counts(exp)):
         prefill = predictor.estimate_step("prefill", queries, contexts, stage)
         decode = predictor.estimate_step("decode", [1] * len(queries), queries, stage)
+        prefill_estimates.append(prefill)
+        decode_estimates.append(decode)
         stages.append({"stage": stage, "layers": layers,
                        "device_ids": [d.id for d in exp.infra.devices[
                            stage * strategy.tensor_parallel_size:(stage + 1) * strategy.tensor_parallel_size]],
@@ -199,19 +203,30 @@ def predict_experiment(experiment: Experiment) -> dict[str, Any]:
         prefill_total += prefill.duration_ms
         decode_total += decode.duration_ms
     boundaries = strategy.pipeline_parallel_size - 1
-    prefill_payload = sum(queries) * strategy.model.hidden_size * strategy.model.activation_bytes
-    decode_payload = len(queries) * strategy.model.hidden_size * strategy.model.activation_bytes
+    prefill_payload: int | float | None = sum(queries) * strategy.model.hidden_size * strategy.model.activation_bytes
+    decode_payload: int | float | None = len(queries) * strategy.model.hidden_size * strategy.model.activation_bytes
 
-    def transfer(payload):
-        if not boundaries or not strategy.pipeline_p2p:
-            return 0.0
-        bandwidth = _finite(exp.infra.link_bandwidth_gbps * 1e6, "effective P2P bytes/ms")
-        return _finite(boundaries * (exp.infra.link_latency_us / 1000
-                                     + payload / bandwidth), "P2P duration", allow_zero=True)
+    def transfer(queries, estimates):
+        rows = [estimate_pipeline_transfer(exp, queries, estimates[stage]) for stage in range(boundaries)]
+        if strategy.pipeline_transport == "vllm_native":
+            for stage, row in enumerate(rows):
+                incoming = estimates[stage + 1].breakdown.get("pp_transport", {}).get("incoming")
+                if incoming is not None and incoming != row["descriptor"]:
+                    raise SimulationError("CALIBRATION_MISMATCH", "Adjacent PP stage payload descriptors disagree")
+        # Identical legacy links keep the original arithmetic and result.
+        duration = (sum(row["duration_ms"] for row in rows) if strategy.pipeline_transport == "vllm_native"
+                    else boundaries * rows[0]["duration_ms"] if rows else 0.0)
+        return _finite(duration, "P2P duration", allow_zero=True), rows
 
     targets = {r.request_id: r.input_tokens for r in requests} or {"shape": 1}
     memory = planner.check(targets, queries, "prefill")
-    prefill_p2p, decode_p2p = transfer(prefill_payload), transfer(decode_payload)
+    prefill_p2p, prefill_transfers = transfer(queries, prefill_estimates)
+    decode_p2p, decode_transfers = transfer([1] * len(queries), decode_estimates)
+    if strategy.pipeline_transport == "vllm_native":
+        prefill_payloads = [row["bytes_per_rank"] for row in prefill_transfers]
+        decode_payloads = [row["bytes_per_rank"] for row in decode_transfers]
+        prefill_payload = prefill_payloads[0] if len(set(prefill_payloads)) == 1 else None
+        decode_payload = decode_payloads[0] if len(set(decode_payloads)) == 1 else None
     isolated_prefill = _finite(prefill_total + prefill_p2p, "isolated prefill duration")
     isolated_decode = _finite(decode_total + decode_p2p, "isolated decode duration")
     provenance = getattr(predictor, "provenance", None)
@@ -234,7 +249,11 @@ def predict_experiment(experiment: Experiment) -> dict[str, Any]:
                               "prefill_p2p_bytes_per_rank_per_boundary": prefill_payload,
                               "decode_p2p_bytes_per_rank_per_boundary": decode_payload,
                               "prefill_p2p_ms": prefill_p2p,
-                              "decode_p2p_ms": decode_p2p},
+                              "decode_p2p_ms": decode_p2p,
+                              **({"pipeline_transport": "vllm_native", "boundaries": [
+                                  {"boundary": stage, "prefill": prefill_transfers[stage],
+                                   "decode": decode_transfers[stage]} for stage in range(boundaries)]}
+                                 if strategy.pipeline_transport == "vllm_native" else {})},
             "isolated_prefill_ms": isolated_prefill,
             "isolated_decode_step_ms": isolated_decode,
             "online_metrics": {"ttft_ms": None, "tpot_ms": None, "p99_ms": None,
@@ -242,7 +261,9 @@ def predict_experiment(experiment: Experiment) -> dict[str, Any]:
             "online_metrics_reason": "SHAPE_ANALYSIS_HAS_NO_ARRIVALS_OR_QUEUEING",
             "assumptions": [
                 "Analyzes one phase batch containing every workload row, ignoring arrival times.",
-                "PP activations replicated per TP rank; identical independent links, no contention.",
+                ("Native hidden/residual tensors use observed or configured padding; sliced P2P and receiver AllGather are analytical."
+                 if strategy.pipeline_transport == "vllm_native" else
+                 "PP activations replicated per TP rank; identical independent links, no contention."),
                 "No sampling/feedback latency included in PP forward path.",
                 ("Stage timings use the supplied whole-stage profile; PP transfers remain analytical."
                  if provenance else "Stage timings are analytical/synthetic, without measured calibration."),

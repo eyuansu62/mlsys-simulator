@@ -1,4 +1,4 @@
-# Version 1.6 software specification
+# Version 1.7 software specification
 
 The CPU simulator separates system events, performance/communication models and
 calibration data. It has no required third-party runtime dependency and performs
@@ -31,7 +31,10 @@ is `num_attention_heads × head_dim`, independently of that residual width.
 Q/O matrix parameters per TP rank therefore use
 `2 × hidden_size × query_projection_size / TP`; K/V matrices and KV storage
 continue using local KV heads × head dimension, including GQA replication.
-PP transports residual activations, so its payload width remains `hidden_size`.
+PP payload width remains `hidden_size`, independently of the query projection.
+The default transport carries one full-hidden tensor per rank; explicit
+`vllm_native` carries Qwen3 hidden/residual tensors with observed padding and
+conditional TP wire slicing plus receiver AllGather.
 
 Optional `qk_norm` adds two shared head-dimension Norm vectors per layer/rank;
 `final_norm` adds a residual-width Norm vector on the last stage/rank. With
@@ -102,8 +105,14 @@ All ranks must pass a candidate reservation before any allocation commits.
 PP conservatively reserves target KV on every stage before launch at stage 0.
 Per-rank persistent activation storage is adjacent stage boundaries multiplied by
 max inflight microbatches, max Batch Tokens, hidden size and activation bytes.
-Endpoints have one boundary, interior stages two and PP=1 none; activations are
-replicated per TP rank. This is separate from collective communication buffers.
+Native transport instead uses its effective physical-token bound and separates
+outgoing full hidden/residual pairs, incoming reconstruction plus retained
+sliced-receive backing per inflight wave, and one fixed full input-copy target
+pair per receiving stage. An interior stage sums incoming and outgoing budgets.
+Wire slicing never divides the resident budget by TP. A payload descriptor's
+resident bytes represent one final pair, not total allocator peak. See the
+[native buffer contract](native-pp-capture.md#charge-transport-once-and-reserve-full-buffers).
+This is separate from collective communication buffers.
 Workspace uses a supported Profile observation when available; otherwise its
 source is explicitly analytical. Releasing request blocks preserves the fixed
 pool's physical allocation and cannot by itself solve a Workspace OOM.
@@ -167,7 +176,9 @@ observation, even if exploratory extrapolation is enabled; there is no mixed
 interpolation, homogeneous timing substitution or phase-sum fallback.
 Workspace queries use that same complete shape. Explicit extrapolation for
 supported homogeneous grids is flagged. Local collectives are already included in
-stage times; PP boundary P2P is separate. See [calibration](calibration.md).
+stage times; PP boundary P2P and native receiver AllGather are separate.
+Native Profiles preserve physical payload descriptors and use exact-only
+lookup, without interpolation or extrapolation. See [calibration](calibration.md).
 
 Step datasets and Profiles describe one replica. Profile-backed cluster runs
 select one file per replica through `replica_profile_paths`; each must match
@@ -185,12 +196,15 @@ independent of architecture fingerprints, and both participate in identity when
 present. Collection perturbation and hardware validation remain explicit. See
 [Qwen3 and internal hooks](qwen3-and-vllm-hooks.md).
 
-This pinned Runtime's combined TP/PP transport can slice outgoing tensors and
-perform receiver-side TP AllGather, with lazy incoming work inside a Runner
-interval. Such intervals remain raw-only when they do not isolate stage service
-from transport. Sequence-parallel execution is outside this capture boundary.
-The simulator's TP/PP model and its synthetic demonstrations retain their
-separate declared communication semantics.
+The pinned Runtime's native PP path can slice each outgoing tensor and run
+receiver TP AllGather through lazy incoming postprocessing. With explicit
+`vllm_native` transport, capture observes the original natural wait without early
+consumption, excludes its wait/AllGather interval and retains subsequent input
+copy in stage service. Physical hidden/residual descriptors, actual padding,
+TP agreement and adjacent-stage edge agreement are required for calibration.
+Raw receive waiting includes upstream dependencies and is not independent
+network service. Sequence-parallel execution remains outside the boundary. See
+[native PP capture](native-pp-capture.md).
 
 Independent communication observations can fit alpha-beta parameters per
 primitive/rank group and produce an explicit Infra patch. A selected patch must
@@ -199,7 +213,9 @@ summed with whole-stage Profile timings.
 
 Online PP uses independent stage compute resources and a serialized activation
 link for each adjacent boundary. TP boundary links are paired and independent,
-with replicated per-rank payload; shared fabric contention is not modeled.
+with full per-rank payload by default. Native transport uses per-tensor wire
+slices where applicable, followed by receiver AllGather. Both predict and the
+online engine charge that boundary once; shared fabric contention is not modeled.
 `pipeline_p2p=False` explicitly disables link cost for ideal teaching cases;
 default `True` includes it. Explicit feedback remains separate from stage costs.
 

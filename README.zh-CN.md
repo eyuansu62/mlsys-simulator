@@ -1,9 +1,9 @@
 # LLM 推理系统模拟器
 
 [English](README.md) · [Python API](docs/api.md) · [校准](docs/calibration.md) ·
-[验证规范](docs/validation-protocol.md) · [系统规范](docs/specification.md) · [PP 与 CPU swap](docs/pipeline-and-swap.md) · [Prefix Cache 与分块预填充](docs/prefix-cache-and-chunking.md) · [混合批处理](docs/mixed-batching.md) · [多副本路由](docs/multi-replica.md) · [ROCm 采集](docs/rocm-collection.md) · [Qwen3 与 vLLM 内部 hook](docs/qwen3-and-vllm-hooks.md)
+[验证规范](docs/validation-protocol.md) · [系统规范](docs/specification.md) · [PP 与 CPU swap](docs/pipeline-and-swap.md) · [Prefix Cache 与分块预填充](docs/prefix-cache-and-chunking.md) · [混合批处理](docs/mixed-batching.md) · [多副本路由](docs/multi-replica.md) · [ROCm 采集](docs/rocm-collection.md) · [Qwen3 与 vLLM 内部 hook](docs/qwen3-and-vllm-hooks.md) · [原生 PP 采样与 Profile](docs/native-pp-capture.md)
 
-1.6 版增加 Qwen3 模型几何兼容、HF 配置导入和带版本检查的 vLLM 内部采集，并保留可选 AMD/ROCm Adapter、显式验收、多副本调度／负载均衡、Prefill/Decode 混合批处理、Prefix Cache、Chunked Prefill、PP、CPU KV swap、解析模型、Profile、校准、留出验证和方案比较。用户提供的 AMD/NVIDIA 真机参考包用于格式适配与审计；原始包及 prompt/output 全文不随库分发，现有覆盖不代表通用硬件预测准确率。仓库为[私有仓库](https://github.com/eyuansu62/mlsys-simulator)，许可证待选择，尚未发布 PyPI。
+1.7 版补齐 vLLM 原生 PP 延迟接收和切片传输的阶段采样／Profile 契约，并保留 Qwen3 模型几何兼容、HF 配置导入和带版本检查的内部采集，并保留可选 AMD/ROCm Adapter、显式验收、多副本调度／负载均衡、Prefill/Decode 混合批处理、Prefix Cache、Chunked Prefill、PP、CPU KV swap、解析模型、Profile、校准、留出验证和方案比较。用户提供的 AMD/NVIDIA 真机参考包用于格式适配与审计；原始包及 prompt/output 全文不随库分发，现有覆盖不代表通用硬件预测准确率。仓库为[私有仓库](https://github.com/eyuansu62/mlsys-simulator)，许可证待选择，尚未发布 PyPI。
 
 ## 安装和运行
 
@@ -108,6 +108,15 @@ mlsys-sim simulate --experiment examples/v1_6/qwen3-r2-tp2-pp2.json --out runs/q
 
 Qwen3-4B 的 residual hidden width=2560，query projection width=32×128=4096，保持真实维度。权重和性能模型补充 tied embeddings、Q/K Norm 与最终 RMSNorm；同一物理 rank 的词表权重去重，PP 两端位于不同设备时各有副本。组合示例使用 synthetic 时间，实际触发 R2×TP2×PP2、缓存、混合批处理和 CPU swap，不加载模型权重或证明真机吞吐。配置指纹与内部采集边界见[专门说明](docs/qwen3-and-vllm-hooks.md)。
 
+## vLLM 原生 PP 延迟接收与切片传输
+
+```bash
+mlsys-sim simulate --experiment examples/v1_7/qwen3-native-r2-tp2-pp2.json \
+  --out runs/qwen3-native-combined
+```
+
+`strategy.pipeline_transport="vllm_native"` 显式使用 Qwen3 的 `hidden_states`／`residual` 双张量、按张量判断的 TP 切片 P2P 与接收端 AllGather。固定 MRv1 版本的 hook 只观察实际自然触发的接收，不提前读取 lazy tensor 或消费输出；阶段 Profile 扣除接收等待及其 AllGather，仍计输入拷贝与计算。Profile 保留实际 padding／张量描述并只允许精确查找，传输成本单独按解析模型计费一次。接收端完整驻留 Buffer 不随 wire slice 除以 TP。示例仍是 CPU 上的 synthetic stage 模拟，实机采集、校准方法与支持边界见[原生 PP 文档](docs/native-pp-capture.md)。
+
 ## Python 库接口
 
 ```python
@@ -131,7 +140,7 @@ print(run.result["counts"])
 
 固定 KV pool 释放逻辑 block 不会缩小 GPU 预分配 tensor。Workspace 可使用 Profile 中的观测；缺少数据时明确回退解析假设，不声称实测。张量分配器碎片和 Kernel 周期不做细粒度模拟。
 
-性能后端分为 `synthetic`、`analytical` 和 `profile`。Profile 严格核对模型、设备、软件版本、并行布局与计时边界；ragged 形状只精确匹配，同质 Batch 仅在所需角点齐全时插值。混合形状还按有序成员 phase 精确匹配，不做插值或外推。其它形状越界默认拒绝，显式外推会记录来源。Profile 的整 stage 时间已包含局部 collective，不重复加通信。
+性能后端分为 `synthetic`、`analytical` 和 `profile`。Profile 严格核对模型、设备、软件版本、并行布局与计时边界；ragged 形状只精确匹配，同质 Batch 仅在所需角点齐全时插值。混合形状还按有序成员 phase 精确匹配；原生 PP Profile 也只允许精确形状，并保留实际 padding／传输描述，二者均不做插值或外推。其它形状越界默认拒绝，显式外推会记录来源。Profile 的整 stage 时间已包含局部 collective，不重复加通信。
 
 Warmup 使用独立时间线，不进入测量指标，也不把 KV 留给测量。当前仅支持 `empty_cache` 初始状态。测量到达窗口为半开区间，窗外请求为 `NOT_ADMITTED`；是否 drain 及最大 drain 时间显式配置。
 

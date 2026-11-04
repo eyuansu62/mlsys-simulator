@@ -35,6 +35,7 @@ class _RankBudget:
     kv_block_bytes: int
     pool_blocks: int
     pipeline_buffer_reserved_bytes: int
+    pipeline_buffer_breakdown: dict | None = None
 
 
 _PrefixKey = tuple[str, int, bytes]
@@ -108,10 +109,35 @@ class MemoryPlanner:
             block_bytes = kv_per_token * self.config.kv_block_tokens
             weights = rank_weight_bytes(experiment, stage)
             boundaries = int(stage > 0) + int(stage < pp - 1)
-            pipeline_buffers = int(
-                boundaries * strategy.pipeline_max_inflight_microbatches
-                * strategy.max_batch_tokens * strategy.model.hidden_size
-                * strategy.model.activation_bytes)
+            native_buffers = None
+            if strategy.pipeline_transport == "vllm_native":
+                from .pp_transport import native_pp_descriptor, pipeline_transport_max_tokens
+                descriptor = native_pp_descriptor(experiment, pipeline_transport_max_tokens(experiment))
+                resident = descriptor["resident_bytes_per_rank"]
+                inflight = strategy.pipeline_max_inflight_microbatches
+                # irecv allocates full backing before slicing. The callback's
+                # default argument keeps that backing alive after AllGather has
+                # allocated another full tensor. Runner additionally owns a
+                # persistent full input-copy target on every receiving stage.
+                outgoing = resident * inflight if stage < pp - 1 else 0
+                incoming = resident * inflight if stage > 0 else 0
+                backing = (sum(tensor["full_bytes"] for tensor in descriptor["tensors"]
+                           if tensor["tp_sliced"]) * inflight if stage > 0 else 0)
+                persistent = resident if stage > 0 else 0
+                native_buffers = {
+                    "scope": "native_pp_full_resident_per_rank_upper_bound",
+                    "outgoing_inflight_bytes": outgoing,
+                    "incoming_inflight_bytes": incoming,
+                    "incoming_slice_backing_bytes": backing,
+                    "persistent_input_copy_bytes": persistent,
+                    "max_padded_tokens": descriptor["padded_tokens"],
+                }
+                pipeline_buffers = outgoing + incoming + backing + persistent
+            else:
+                pipeline_buffers = int(
+                    boundaries * strategy.pipeline_max_inflight_microbatches
+                    * strategy.max_batch_tokens * strategy.model.hidden_size
+                    * strategy.model.activation_bytes)
             # Safety margin and external users are constraints, not allocations
             # owned by this model. Preserve this distinction in the snapshots.
             physical = (weights + self.config.kv_pool_bytes + self.config.graph_bytes
@@ -141,6 +167,7 @@ class MemoryPlanner:
                     kv_block_bytes=block_bytes,
                     pool_blocks=self.config.kv_pool_bytes // block_bytes,
                     pipeline_buffer_reserved_bytes=pipeline_buffers,
+                    pipeline_buffer_breakdown=native_buffers,
                 ))
 
     def _validate_memory_config(self) -> None:
@@ -580,6 +607,8 @@ class MemoryPlanner:
                 "fixed_budget_bytes": rank.fixed_budget_bytes,
                 "kv_pool_reserved_bytes": self.config.kv_pool_bytes,
                 "pipeline_buffer_reserved_bytes": rank.pipeline_buffer_reserved_bytes,
+                **({"pipeline_buffer_breakdown": dict(rank.pipeline_buffer_breakdown)}
+                   if rank.pipeline_buffer_breakdown is not None else {}),
                 "kv_bytes_per_token": rank.kv_bytes_per_token,
                 "kv_block_bytes": rank.kv_block_bytes,
                 "pool_blocks": rank.pool_blocks,

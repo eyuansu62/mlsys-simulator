@@ -1,5 +1,37 @@
 # Changelog
 
+## 1.7.0 — 2026-11-04
+
+Pinned native PP capture separates dependency waiting from reusable stage
+service and preserves the physical transfer geometry through calibration.
+
+### Added
+
+- Explicit native Qwen3 PP transport contract with hidden/residual tensor
+  descriptors, actual padding, conditional per-tensor TP slicing and receiver
+  AllGather; legacy full-hidden transport remains the default.
+- Reversible observation of the Runtime's natural lazy receive, without early
+  tensor access or a pre-receive device-wide synchronization. A natural-wait
+  compute-stream boundary retains preparation work in stage service; raw wait
+  evidence is retained while service excludes receive/postprocess AllGather.
+- Exact native stage Profile lookup, strict repeated-shape payload agreement,
+  complete TP and adjacent-stage descriptor checks, and quarantine for missing
+  or unsupported evidence.
+- Shared online/offline boundary accounting and full resident activation
+  buffer budgets, including retained sliced-receive backing, persistent input
+  copies and a declared physical-token bound.
+- A native R2×TP2×PP2/cache/chunk/swap/mixed CPU example and sampling/calibration
+  documentation.
+
+### Evidence limits
+
+- Native receive wait includes upstream dependency delay. It is not fitted as
+  independent network latency; P2P and receiver AllGather remain explicitly
+  analytical communication costs, separate from calibrated stage service.
+- Source-contract/CPU verification does not establish live AMD/vLLM accuracy.
+  Async output, SP, DBO, native DP/EP, broadcast PP and unsupported ABIs remain
+  outside the canonical sampling domain.
+
 ## 1.6.0 — 2026-11-04
 
 Qwen3 geometry keeps residual and query projection widths distinct while

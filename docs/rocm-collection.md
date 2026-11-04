@@ -358,3 +358,9 @@ For version-pinned internal vLLM collection, see
 [Qwen3 and internal hooks](qwen3-and-vllm-hooks.md). It obtains runner shapes
 and supported complete service boundaries directly; the supplied historical
 client-content records are not retroactively upgraded to those new boundaries.
+
+Native PP lazy receive and TP-sliced dual-tensor transport can provide isolated
+stage records under the explicit 1.7 contract; see [native PP capture](native-pp-capture.md).
+Its dependency-wait diagnostics are not independent P2P latency measurements,
+and boundary costs remain explicitly analytical. The historical packages do not
+retroactively establish this multi-GPU coverage.
