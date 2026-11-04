@@ -1,6 +1,28 @@
 """The supported dense GQA shard plan, shared by timing and memory models."""
 
-from .schema import Experiment, ModelSpec
+from dataclasses import replace
+
+from .schema import Experiment, ModelSpec, SimulationError
+
+
+def replica_experiment(experiment: Experiment, replica_index: int) -> Experiment:
+    """Slice replica-major/stage-major/TP-rank placement into a local model."""
+    from .config import validate_experiment
+
+    validate_experiment(experiment)
+    replicas = experiment.strategy.replicas
+    if type(replica_index) is not int or not 0 <= replica_index < replicas:
+        raise SimulationError("INVALID_CONFIG", "replica_index is outside the configured replica set")
+    width = experiment.strategy.tensor_parallel_size * experiment.strategy.pipeline_parallel_size
+    devices = experiment.infra.devices[replica_index * width:(replica_index + 1) * width]
+    calibration = experiment.calibration
+    if replicas > 1 and calibration.backend == "profile":
+        if len(calibration.replica_profile_paths) != replicas:
+            raise SimulationError("INVALID_CONFIG", "one Profile path is required per replica")
+        calibration = replace(calibration, profile_path=calibration.replica_profile_paths[replica_index],
+                              replica_profile_paths=())
+    return replace(experiment, infra=replace(experiment.infra, devices=devices),
+                   strategy=replace(experiment.strategy, replicas=1), calibration=calibration)
 
 
 def stage_layer_counts(experiment: Experiment) -> tuple[int, ...]:

@@ -1,4 +1,4 @@
-# Version 1.3 software specification
+# Version 1.4 software specification
 
 The CPU simulator separates system events, performance/communication models and
 calibration data. It has no required third-party runtime dependency and performs
@@ -14,8 +14,8 @@ sections, with strict unknown-field/type/range checks:
 | --- | --- |
 | `workload` | Unique request IDs, nonnegative arrival ms, positive input/output lengths, priority, optional relative timeout and explicit prompt token IDs/cache namespace |
 | `infra` | Ordered devices, memory bytes, effective compute/bandwidth assumptions and named topology/link parameters |
-| `strategy` | Dense model/revision, one replica, TP/PP/stage layers, microbatch/inflight/feedback/link policy, Batch/chunk limits, mixed batching, Prefix Cache and preemption/fallback |
-| `calibration` | Analytical/synthetic parameters or Profile path/version, full software identity and explicit fixture/extrapolation policy |
+| `strategy` | Dense model/revision, replica count/routing, TP/PP/stage layers, microbatch/inflight/feedback/link policy, Batch/chunk limits, mixed batching, Prefix Cache and preemption/fallback |
+| `calibration` | Analytical/synthetic parameters or local/per-replica Profile paths/version, full software identity and explicit fixture/extrapolation policy |
 | `evaluation` | Optional TTFT/TPOT SLA, half-open arrival window, drain and optional drain limit |
 | `execution` | Seed, time/event limits, detailed logging, isolated warmup requests and `empty_cache` initial state |
 
@@ -26,7 +26,8 @@ are toy assumptions. Measured data needs explicit non-placeholder identities.
 
 ## Event and scheduling semantics
 
-For PP=1, one GPU or synchronous TP group executes one Batch at a time.
+For PP=1, each replica has one GPU or synchronous TP group executing one Batch
+at a time.
 Homogeneous phase batches remain the default. FIFO holds one request until it finishes. Continuous batching selects
 Prefill at safe boundaries before Decode by default, with a pressure-drain
 policy for recovery. Enabling Chunked Prefill instead gives Decode priority;
@@ -42,12 +43,22 @@ different stages can execute different microbatches concurrently.
 Each stage owns a TP group. Every prefill chunk is a separate iteration through
 the stages and feedback boundary. A mixed microbatch records ordered
 `request_phases`, queries and contexts through all stages; each member advances
-according to its own phase. Multi-replica routing remains unsupported.
+according to its own phase. Multiple replicas route requests on a shared global
+event timeline; each replica retains independent local scheduling/resources.
 
 The stable heap orders completion/release, timeout, arrival and new scheduling.
 Prefill builds input KV and emits the first output only when the final prompt
 chunk completes. The latest sampled output is processed by the next Decode, so committed output count and computed KV position
 are distinct. The future output target is available only to the execution oracle.
+
+For R replicas, devices are ordered replica-major, then stage-major, then TP
+rank. Routing policies are round-robin, least current unfinished load, or
+longest local prefix among the minimum-load replicas. The router uses arrived
+state only, with inflight work and used KV blocks as deterministic tie-breaks.
+Requests stay on their chosen replica through recovery. All replicas share one
+clock, arrival window and time/event budget; local execution remains independent.
+Local resource stops make a replica unavailable while other replicas continue,
+and the cluster retains an unresolved result rather than hiding local failures.
 
 A PP request has at most one outstanding iteration. The final stage includes
 output/sampling in its service cost, then the request waits
@@ -103,6 +114,9 @@ during DMA. Copies are block-aligned and aggregated across stages/TP ranks.
 Swap copies the full request, including shared blocks, then restores private
 GPU blocks. Unreferenced GPU cache entries remain separately reclaimable;
 there is no CPU Prefix Cache tier.
+For multiple replicas, these GPU/cache/host capacities and DMA lanes are local
+to each replica. Shared host bandwidth and cross-replica fabric contention are
+not modeled; requests and KV are not migrated between replicas.
 Timeouts and cutoffs retain pending source/destination references. Host-capacity
 failure is explicit; only `swap_fallback="recompute"` allows recompute fallback.
 Impossible shapes and bounded no-progress/preemption conditions end explicitly.
@@ -133,6 +147,12 @@ Workspace queries use that same complete shape. Explicit extrapolation for
 supported homogeneous grids is flagged. Local collectives are already included in
 stage times; PP boundary P2P is separate. See [calibration](calibration.md).
 
+Step datasets and Profiles describe one replica. Profile-backed cluster runs
+select one file per replica through `replica_profile_paths`; each must match
+that local layout. Online comparison instead retains the full cluster identity
+and routing strategy. CLI artifacts snapshot every local Profile, preserving
+its raw bytes, hash, version and source for both timing and Workspace.
+
 Independent communication observations can fit alpha-beta parameters per
 primitive/rank group and produce an explicit Infra patch. A selected patch must
 match the intended topology and workload model; it is never automatically
@@ -148,6 +168,8 @@ default `True` includes it. Explicit feedback remains separate from stage costs.
 It performs no prefix lookup, chunk scheduling or online mixed batching. It has no arrival queue, so
 online metrics are null with
 `SHAPE_ANALYSIS_HAS_NO_ARRIVALS_OR_QUEUEING`. Use `simulate` for the PP timeline.
+With multiple replicas, prediction reports isolated `replica_predictions` and
+annotated memory rows; it does not route or infer online aggregate throughput.
 Detailed configuration, lifetimes and ideal bubbles are described in
 [pipeline and swap](pipeline-and-swap.md).
 
@@ -157,6 +179,7 @@ Warmup uses the same configured model/backend on a separate timeline. It must
 finish successfully before measurement; its costs are reported separately and
 its request KV and retained prefix entries are discarded. Measurement starts
 with an empty cache; warmup does not seed measured prefix hits.
+Multi-replica warmup also resets routing state and its round-robin cursor.
 
 With a measurement window, arrivals are admitted in `[0, window)` only. Other
 rows are `NOT_ADMITTED` and excluded from completion denominators. With
@@ -169,6 +192,8 @@ output gaps; single-Token TPOT is null. ITL retains recovery gaps. Failed,
 timed-out and unfinished admitted requests remain in completion denominators.
 Goodput counts completed requests meeting all declared SLAs. Percentiles use
 linear interpolation; empty/unavailable values remain null.
+Cluster metrics are recomputed from every request on the common evaluation
+window rather than averaging local percentiles or summing local rate reports.
 
 ## Data and result contracts
 
@@ -199,3 +224,5 @@ irrelevant metadata.
 See [Prefix Cache and Chunked Prefill](prefix-cache-and-chunking.md) for field
 defaults, cache lifecycle, result fields and examples.
 See [mixed batching](mixed-batching.md) for member-phase and joint-Profile contracts.
+See [multi-replica routing](multi-replica.md) for placement, resource scope,
+dispatch policies and per-replica diagnostics.

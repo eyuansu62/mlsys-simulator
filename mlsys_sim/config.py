@@ -112,8 +112,8 @@ def validate_experiment(experiment: Experiment) -> None:
     if strategy.pipeline_microbatch_size > strategy.max_batch_size:
         _invalid("strategy.pipeline_microbatch_size", "cannot exceed max_batch_size")
     _positive(strategy.pipeline_feedback_latency_us, "strategy.pipeline_feedback_latency_us", zero=True)
-    if strategy.replicas != 1:
-        raise SimulationError("UNSUPPORTED_MECHANISM", "multiple replicas are not implemented")
+    if strategy.replica_routing not in ("round_robin", "least_loaded", "prefix_aware"):
+        raise SimulationError("UNSUPPORTED_MECHANISM", "replica_routing must be round_robin, least_loaded or prefix_aware")
     if strategy.scheduler not in ("fifo", "continuous_batching"):
         raise SimulationError("UNSUPPORTED_MECHANISM", "unsupported scheduler")
     if strategy.preemption not in ("none", "recompute", "swap"):
@@ -138,8 +138,8 @@ def validate_experiment(experiment: Experiment) -> None:
         if (len(strategy.stage_layers) != pp or min(strategy.stage_layers) <= 0
                 or sum(strategy.stage_layers) != model.num_layers):
             _invalid("strategy.stage_layers", "positive counts must cover all layers exactly")
-    if len(infra.devices) != tp * pp:
-        _invalid("infra.devices", "must contain exactly TP × PP devices in stage-major order")
+    if len(infra.devices) != strategy.replicas * tp * pp:
+        _invalid("infra.devices", "must contain exactly replicas × PP × TP devices in replica/stage/rank order")
     ids = [device.id for device in infra.devices]
     if len(set(ids)) != len(ids) or not all(ids):
         _invalid("infra.devices", "device IDs must be unique and nonempty")
@@ -160,9 +160,17 @@ def validate_experiment(experiment: Experiment) -> None:
     if calibration.backend not in ("analytical", "synthetic", "profile"):
         raise SimulationError("UNSUPPORTED_MECHANISM", "supported backends are analytical, synthetic and profile")
     if calibration.backend == "profile":
-        if calibration.profile_path is None or not calibration.profile_path.strip():
-            _invalid("calibration.profile_path", "profile backend requires a profile file")
-    elif calibration.profile_path is not None or calibration.allow_extrapolation or calibration.allow_test_fixture:
+        if strategy.replicas == 1:
+            if calibration.profile_path is None or not calibration.profile_path.strip():
+                _invalid("calibration.profile_path", "profile backend requires a profile file")
+            if calibration.replica_profile_paths:
+                _invalid("calibration.replica_profile_paths", "single replicas use profile_path")
+        elif (calibration.profile_path is not None
+              or len(calibration.replica_profile_paths) != strategy.replicas
+              or any(not path.strip() for path in calibration.replica_profile_paths)):
+            _invalid("calibration.replica_profile_paths", "multiple replicas require one path each and no profile_path")
+    elif (calibration.profile_path is not None or calibration.replica_profile_paths
+          or calibration.allow_extrapolation or calibration.allow_test_fixture):
         _invalid("calibration", "profile file and domain/source overrides require backend=profile")
     for name in ("runtime_name", "runtime_version", "driver_version", "rocm_version", "rccl_version",
                  "timing_boundary"):
@@ -303,6 +311,10 @@ def load_experiment(path: str | Path) -> Experiment:
         calibration = dict(mapping["calibration"])
         if isinstance(calibration.get("profile_path"), str):
             calibration["profile_path"] = str((calibration_root / calibration["profile_path"]).resolve())
+        if isinstance(calibration.get("replica_profile_paths"), (list, tuple)):
+            calibration["replica_profile_paths"] = [
+                str((calibration_root / path).resolve()) if isinstance(path, str) else path
+                for path in calibration["replica_profile_paths"]]
         mapping["calibration"] = calibration
     if isinstance(mapping.get("execution"), dict):
         execution = dict(mapping["execution"])

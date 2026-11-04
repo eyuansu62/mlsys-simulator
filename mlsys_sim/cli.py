@@ -70,6 +70,8 @@ def _experiment_inputs(manifest: dict, path: Path, experiment: Any) -> None:
         _record_input(manifest, execution_root / execution["warmup"])
     if experiment.calibration.profile_path:
         _record_input(manifest, experiment.calibration.profile_path)
+    for profile_path in experiment.calibration.replica_profile_paths:
+        _record_input(manifest, profile_path)
 
 
 def _read_json(path: Path) -> tuple[Any, bytes]:
@@ -103,8 +105,56 @@ def _simulation(args: argparse.Namespace, manifest: dict) -> dict:
                      "calibration_source": original.calibration.backend,
                      "profile_version": original.calibration.profile_version})
     experiment, profile = original, None
+    replica_profiles: list[dict] = []
     origin = None
-    if original.calibration.backend == "profile":
+    if original.calibration.backend == "profile" and original.strategy.replicas > 1:
+        from .layout import replica_experiment
+        from .profiles import profile_identity, validate_profile
+
+        snapshots = []
+        (args.out / "profiles").mkdir()
+        for replica_index, profile_path in enumerate(original.calibration.replica_profile_paths):
+            source = Path(profile_path).resolve()
+            payload, raw = _read_json(source)
+            current = validate_profile(payload, allow_test_fixture=original.calibration.allow_test_fixture)
+            expected = profile_identity(replica_experiment(original, replica_index))
+            if current["identity"] != expected:
+                raise SimulationError("CALIBRATION_MISMATCH",
+                                      f"Profile identity does not match replica {replica_index}")
+            requested_version = original.calibration.profile_version
+            if requested_version != "uncalibrated-v1" and requested_version != current["profile_version"]:
+                raise SimulationError("CALIBRATION_MISMATCH",
+                                      f"Profile version does not match replica {replica_index}")
+            snapshot_file = f"profiles/replica-{replica_index}.json"
+            snapshot = args.out / snapshot_file
+            with snapshot.open("xb") as stream:
+                stream.write(raw)
+            profile_hash = hashlib.sha256(raw).hexdigest()
+            _record_input(manifest, source, raw)
+            replica_profiles.append({
+                "replica_index": replica_index, "origin_profile_path": str(source),
+                "snapshot_file": snapshot_file, "sha256": profile_hash,
+                "profile_id": current["profile_id"], "profile_version": current["profile_version"],
+                "source_kind": current["source"]["kind"], "source_reference": current["source"]["reference"],
+            })
+            # Keep partial snapshot provenance available if a later input fails.
+            manifest["replica_profiles"] = replica_profiles
+            snapshots.append(str(snapshot.resolve()))
+        kinds = {item["source_kind"] for item in replica_profiles}
+        versions = {item["profile_version"] for item in replica_profiles}
+        manifest.update(
+            profile_version=next(iter(versions)) if len(versions) == 1 else "per_replica",
+            calibration_source=("measured_profile" if kinds == {"measured"} else
+                                "test_fixture_profile" if kinds == {"test_fixture"} else
+                                "mixed_replica_profiles"),
+        )
+        experiment = replace(original, calibration=replace(original.calibration,
+                                                           replica_profile_paths=tuple(snapshots)))
+        manifest["config_sha256"] = hashlib.sha256(_json({
+            "experiment": expanded,
+            "replica_profile_sha256": [item["sha256"] for item in replica_profiles],
+        }).encode()).hexdigest()
+    elif original.calibration.backend == "profile":
         from .profiles import validate_profile
 
         if original.calibration.profile_path is None:
@@ -145,6 +195,25 @@ def _simulation(args: argparse.Namespace, manifest: dict) -> dict:
         if isinstance(provenance, dict):
             provenance.update(origin_profile_path=str(origin), snapshot_file="profile.json")
             manifest["profile_provenance"] = dict(provenance)
+    if replica_profiles:
+        indexed = {item["replica_index"]: item for item in replica_profiles}
+
+        def annotate(provenance, replica_index):
+            if isinstance(provenance, dict) and replica_index in indexed:
+                item = indexed[replica_index]
+                provenance.update(origin_profile_path=item["origin_profile_path"],
+                                  snapshot_file=item["snapshot_file"])
+
+        provenance = result.get("profile_provenance")
+        if isinstance(provenance, dict):
+            for item in provenance.get("replicas", []):
+                if isinstance(item, dict):
+                    annotate(item, item.get("replica_index"))
+            manifest["profile_provenance"] = dict(provenance)
+        for collection, local_key in (("replicas", "result"), ("replica_predictions", "prediction")):
+            for item in result.get(collection, []):
+                if isinstance(item, dict) and isinstance(item.get(local_key), dict):
+                    annotate(item[local_key].get("profile_provenance"), item.get("replica_index"))
     for name, rows in (("requests.jsonl", requests), ("events.jsonl", events)):
         if name == "events.jsonl" and not experiment.execution.detailed_events:
             continue

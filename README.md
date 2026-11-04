@@ -8,11 +8,12 @@ request timelines, per-rank memory accounting and service metrics.
 [Calibration](docs/calibration.md) · [Validation protocol](docs/validation-protocol.md) ·
 [Specification](docs/specification.md) · [PP and CPU swap](docs/pipeline-and-swap.md) ·
 [Prefix Cache and Chunked Prefill](docs/prefix-cache-and-chunking.md) ·
-[Mixed batching](docs/mixed-batching.md) ·
+[Mixed batching](docs/mixed-batching.md) · [Multi-replica routing](docs/multi-replica.md) ·
 [Contributing](CONTRIBUTING.md)
 
-**Version 1.3 software scope:** serving simulation with mixed Prefill/Decode
-batches, Prefix Cache, Chunked Prefill, online PP and optional CPU KV swap, analytical models, versioned lookup
+**Version 1.4 software scope:** multi-replica routing and load balancing with
+mixed Prefill/Decode batches, Prefix Cache, Chunked Prefill, online TP/PP and
+optional CPU KV swap, analytical models, versioned lookup
 profiles, calibration, grouped holdout evaluation and run/candidate comparison.
 No AMD measurements have been supplied or hardware accuracy established. The
 repository is [private](https://github.com/eyuansu62/mlsys-simulator), the license
@@ -100,6 +101,23 @@ separate `calibration.mixed_ms` value. Profile-backed mixed execution requires
 exact query/context arrays and ordered `request_phases`; pure-phase times cannot
 stand in for missing mixed measurements. See [mixed batching](docs/mixed-batching.md).
 
+## Run multi-replica routing
+
+```bash
+mlsys-sim simulate --experiment examples/v1_4/round_robin.json --out runs/round-robin
+mlsys-sim simulate --experiment examples/v1_4/prefix_aware.json --out runs/prefix-aware
+mlsys-sim simulate --experiment examples/v1_4/replicas_pp_mixed_cache_swap.json --out runs/replicas-pp-mixed-cache-swap
+```
+
+`strategy.replicas` selects independent model replicas. Devices are ordered by
+replica, stage and TP rank. `replica_routing` supports `round_robin`,
+`least_loaded` and `prefix_aware`; routing observes current load and local
+cached prefixes without reading future output lengths. Each request keeps its
+selected replica through recovery. KV/cache/host budgets and DMA lanes are local
+to each replica, while clock, evaluation window and execution budgets are global.
+Profile-backed runs supply one `replica_profile_paths` entry per replica. See
+[multi-replica routing](docs/multi-replica.md) for contracts and diagnostics.
+
 ## Exercise the calibration loop
 
 The supplied V1 records are **hand-calculated test fixtures, not measurements**.
@@ -145,7 +163,8 @@ queueing. Profile and validation APIs are described in [docs/api.md](docs/api.md
 ## Model and evidence boundaries
 
 The online engine supports FIFO and simplified continuous batching
-on one GPU, one synchronous TP group, or a pipeline of TP groups. Dense MHA/GQA
+within each replica on one GPU, one synchronous TP group, or a pipeline of TP
+groups. Multiple replicas run on one global event timeline. Dense MHA/GQA
 models use explicit sharding and KV replication. PP reserves all-stage KV before
 launch and budgets persistent activation buffers. Request preemption either
 rebuilds KV or swaps it through a bounded CPU pool, preserving output history and
@@ -169,8 +188,7 @@ behavior and budgets are explicit. See the [specification](docs/specification.md
 
 `simulate` models online PP stage queues, P2P transfers and feedback dependencies.
 `predict` remains shape-only analysis and never supplies online SLA metrics.
-Multiple replicas, NVMe swap and quantized storage
-formats remain outside this version. Allocator fragmentation, kernel cycles and
+NVMe swap and quantized storage formats remain outside this version. Allocator fragmentation, kernel cycles and
 live CUDA/HIP or host DMA execution are not simulated.
 The [capability matrix](docs/coverage-matrix.md) separates software support from
 hardware evidence. A calibrated profile does not itself establish held-out
@@ -183,7 +201,8 @@ optional `events.jsonl`, and `logs.txt`. Pipeline runs add per-stage activity an
 progress diagnostics; swap-enabled runs add host/DMA resources and per-request
 copy counters, byte counts and timing. Prefix/chunk runs expose cache occupancy,
 reuse and actual prompt work. Mixed runs record member phases and joint-batch
-execution diagnostics. Manifests retain effective configuration,
+execution diagnostics. Multi-replica runs add per-request routing, independent
+resource reports and global metrics recomputed on one window. Manifests retain effective configuration,
 code/input hashes, comparison contracts and profile provenance. Calibration and
 validation preserve dataset lineage and fit/holdout membership. A completed
 command can still report failed requests, incomplete domain coverage or missed

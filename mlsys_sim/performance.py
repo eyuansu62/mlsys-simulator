@@ -43,6 +43,9 @@ class AnalyticalModel:
 
     def __init__(self, experiment: Experiment) -> None:
         validate_experiment(experiment)
+        if experiment.strategy.replicas != 1:
+            raise SimulationError("UNSUPPORTED_MECHANISM",
+                                  "AnalyticalModel describes one replica; use replica_experiment first")
         if experiment.calibration.backend == "profile":
             raise SimulationError("UNSUPPORTED_MECHANISM",
                                   "Use create_performance_model for whole-stage profile predictions")
@@ -156,6 +159,8 @@ def predict_experiment(experiment: Experiment) -> dict[str, Any]:
     from .profiles import create_performance_model
 
     validate_experiment(experiment)
+    if experiment.strategy.replicas > 1:
+        return _predict_replicas(experiment)
     exp, strategy = experiment, experiment.strategy
     predictor = create_performance_model(exp)
     planner = MemoryPlanner(exp)
@@ -226,3 +231,54 @@ def predict_experiment(experiment: Experiment) -> dict[str, Any]:
                  if provenance else "Stage timings are analytical/synthetic, without measured calibration."),
                 "Profile calibration does not itself establish held-out hardware prediction accuracy.",
             ]}
+
+
+def _predict_replicas(experiment: Experiment) -> dict[str, Any]:
+    """Compare each local shape without assigning online workload arrivals."""
+    from .layout import replica_experiment
+
+    predictions: list[dict[str, Any]] = []
+    memory: list[dict[str, Any]] = []
+    provenance: list[dict[str, Any]] = []
+    versions: list[dict[str, Any]] = []
+    sources: set[str] = set()
+    for index in range(experiment.strategy.replicas):
+        local = replica_experiment(experiment, index)
+        result = predict_experiment(local)
+        predictions.append({"replica_index": index,
+                            "device_ids": [device.id for device in local.infra.devices],
+                            "prediction": result})
+        memory.extend({"replica_index": index, **rank} for rank in result["memory"])
+        versions.append({"replica_index": index, "profile_version": result["profile_version"]})
+        if result["profile_provenance"] is not None:
+            item = result["profile_provenance"]
+            provenance.append({"replica_index": index, **item})
+            sources.add("measured_profile" if item["source_kind"] == "measured"
+                        else "test_fixture_profile")
+    if not sources:
+        sources.add(experiment.calibration.backend)
+    version_set = {item["profile_version"] for item in versions}
+    return {
+        "status": "COMPLETED", "mode": "predict", "backend": "simulated",
+        "source": experiment.calibration.backend,
+        "calibration_source": next(iter(sources)) if len(sources) == 1 else "mixed_replica_profiles",
+        "hardware_validated": False,
+        "replica_count": experiment.strategy.replicas,
+        "replica_predictions": predictions,
+        "profile_version": next(iter(version_set)) if len(version_set) == 1 else "per_replica",
+        "profile_versions": versions,
+        "profile_provenance": {"replicas": provenance} if provenance else None,
+        "memory": memory,
+        "prefill_memory_feasible": all(item["prediction"]["prefill_memory_feasible"]
+                                        for item in predictions),
+        "online_metrics": {"ttft_ms": None, "tpot_ms": None, "p99_ms": None,
+                           "goodput_requests_per_s": None},
+        "online_metrics_reason": "SHAPE_ANALYSIS_HAS_NO_ARRIVALS_OR_QUEUEING",
+        "replica_routing_applied": False,
+        "assumptions": [
+            "Every workload row forms the same isolated phase batch on each replica for shape comparison.",
+            "No arrival routing, queueing, cache reuse, chunking or mixed online batching is executed.",
+            "Replica resources and paired TP/PP links are independent; shared fabric contention is not modeled.",
+            "Profile calibration does not itself establish held-out hardware prediction accuracy.",
+        ],
+    }

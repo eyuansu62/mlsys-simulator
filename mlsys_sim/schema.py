@@ -86,6 +86,7 @@ class StrategySpec:
     chunked_prefill: bool = False
     prefill_chunk_tokens: int = 512
     mixed_batching: bool = False
+    replica_routing: str = "least_loaded"
 
 
 @dataclass(frozen=True)
@@ -113,6 +114,7 @@ class CalibrationSpec:
     recompute_ms: float = 10.0
     mixed_ms: float = 10.0
     profile_path: str | None = None
+    replica_profile_paths: tuple[str, ...] = ()
     allow_extrapolation: bool = False
     allow_test_fixture: bool = False
     runtime_name: str = "unspecified"

@@ -1,5 +1,30 @@
 # Changelog
 
+## 1.4.0 — 2026-11-04
+
+Arriving requests can share a global serving timeline across independent model
+replicas, with current-state load balancing and local cache affinity.
+
+### Added
+
+- Round-robin, least-loaded and minimum-load prefix-aware routing, with sticky
+  request ownership and no future-output information in routing decisions.
+- Replica-major TP/PP placement, independent KV/cache/host/DMA budgets and
+  per-replica mixed-batching/recovery execution under global time/event limits.
+- Routing assignments, per-replica diagnostics, common-window global metrics
+  and explicit isolation of local resource/no-progress stops.
+- Per-replica Profile paths, strict local identity checks, immutable CLI
+  snapshots and full-cluster online comparison identities.
+- Multi-replica shape prediction and synthetic routing/cache/PP/swap examples.
+
+### Limits
+
+- Requests and cache entries do not migrate or share storage across replicas.
+- Dispatcher latency is zero-cost and shared fabric/host bandwidth contention
+  is not modeled; GPU/DMA assumptions remain conservative within each replica.
+- Step Profiles remain single-replica observations. Software support does not
+  establish hardware accuracy or change pending license/private-repository status.
+
 ## 1.3.0 — 2026-11-04
 
 Prefill and Decode can share a stage batch while retaining their separate

@@ -28,6 +28,21 @@ TP/PP/stage layers and shard plan, Runtime/software versions, timing boundary,
 KV block size and persistent execution assumptions. A mismatch fails with
 `CALIBRATION_MISMATCH`. Profile labels are independent of software versions.
 
+Step datasets and Profiles retain a single-replica identity. For a deployment
+with multiple replicas, calibrate each local TP/PP layout separately and supply
+one `replica_profile_paths` entry per replica. A cluster identity is valid for
+online Compare, but is rejected as a step dataset/Profile identity because the
+records have no replica coordinate. `profile_identity` adds
+`parallelism.replicas` only for multi-replica cluster identities; the earlier
+single-replica structure is unchanged.
+
+Multi-replica CLI runs preserve raw Profiles in `profiles/replica-0.json`,
+`profiles/replica-1.json`, etc. The manifest binds each origin/snapshot path,
+hash, version and declared source. Each replica's timing and Workspace use the
+same immutable snapshot. Fixture and measured sources remain distinct even
+when a cluster contains different source kinds. See
+[multi-replica routing](multi-replica.md) for configuration and prediction scope.
+
 ## Dataset schema
 
 A JSON dataset has these fields:

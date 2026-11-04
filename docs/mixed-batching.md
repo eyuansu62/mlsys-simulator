@@ -93,6 +93,10 @@ pins source and destination through copy completion, copies complete
 block-aligned request KV and restores private GPU blocks. Partial Prefill
 resumes its input after recovery, while Decode retains its output history. DMA
 is serialized and does not overlap stage execution in this model.
+With multiple replicas, every local scheduler applies these same rules after
+one global arrival route. Mixed microbatches never span replicas; resource
+budgets and host/DMA lanes remain independent. Global metrics use the common
+evaluation window. See [multi-replica routing](multi-replica.md).
 
 ## Timing and Profile contract
 

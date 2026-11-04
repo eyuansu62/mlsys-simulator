@@ -5,14 +5,14 @@ does not free the live pool allocation from device memory. Reservations are
 checked for every TP rank and pipeline stage before any state is committed.
 """
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Iterator, Mapping, Sequence
 from dataclasses import dataclass
 
 from .batching import batch_members
 import hashlib
 
 from .layout import rank_kv_bytes_per_token, rank_weight_bytes, stage_layer_counts
-from .schema import Experiment, SimulationError
+from .schema import Experiment, RequestSpec, SimulationError
 
 
 @dataclass(frozen=True)
@@ -56,6 +56,8 @@ class MemoryPlanner:
     """Plan safe fixed-pool reservations for the supported dense shard plan."""
 
     def __init__(self, experiment: Experiment):
+        if experiment.strategy.replicas != 1:
+            raise SimulationError("UNSUPPORTED_MECHANISM", "MemoryPlanner requires one replica; slice the experiment first")
         self.experiment = experiment
         self.config = experiment.strategy.memory
         self.allocations: dict[str, int] = {}
@@ -160,27 +162,56 @@ class MemoryPlanner:
         self._prefix_clock += 1
         self._prefix_entries[key].last_used = self._prefix_clock
 
-    def _request_prefix_keys(self, request_id: str) -> tuple[_PrefixKey, ...]:
-        """Hash each block with its parent digest, using linear identity storage."""
-        if request_id in self._prefix_request_keys:
-            return self._prefix_request_keys[request_id]
-        request = self._prefix_specs[request_id]
+    def register_request(self, request: RequestSpec) -> None:
+        """Register the identity of a request dynamically assigned to this replica."""
+        if not isinstance(request, RequestSpec) or not isinstance(request.request_id, str) or not request.request_id:
+            raise SimulationError("INVALID_CONFIG", "A request with a nonempty string ID is required")
+        _integer(request.input_tokens, "input_tokens", 1)
+        _integer(request.output_tokens, "output_tokens", 1)
+        previous = self._prefix_specs.get(request.request_id)
+        if previous is not None and previous != request:
+            raise SimulationError("INVALID_PREFIX_STATE", "A registered request identity cannot change")
+        if request.prompt_token_ids:
+            # Validate without retaining cache references or changing LRU state.
+            self._validate_prefix_identity(request)
+        self._prefix_specs[request.request_id] = request
+
+    def _validate_prefix_identity(self, request: RequestSpec) -> None:
         tokens = request.prompt_token_ids
         if (not isinstance(tokens, (tuple, list)) or len(tokens) != request.input_tokens
                 or not isinstance(request.cache_namespace, str)
                 or any(type(token) is not int or not 0 <= token < min(
                     2**63, self.experiment.strategy.model.vocab_size) for token in tokens)):
             raise SimulationError("INVALID_CONFIG", "Prefix identity requires one valid vocabulary token per input token")
+
+    def _iter_prefix_keys(self, request: RequestSpec) -> Iterator[_PrefixKey]:
+        self._validate_prefix_identity(request)
+        tokens = request.prompt_token_ids
         block = self.config.kv_block_tokens
         digest = b""
-        keys = []
         for end in range(block, request.input_tokens + 1, block):
             payload = b"".join(token.to_bytes(8, "big") for token in tokens[end - block:end])
             digest = hashlib.sha256(digest + payload).digest()
-            keys.append((request.cache_namespace, end, digest))
-        result = tuple(keys)
+            yield request.cache_namespace, end, digest
+
+    def _request_prefix_keys(self, request_id: str) -> tuple[_PrefixKey, ...]:
+        """Hash each block with its parent digest, using linear identity storage."""
+        if request_id in self._prefix_request_keys:
+            return self._prefix_request_keys[request_id]
+        result = tuple(self._iter_prefix_keys(self._prefix_specs[request_id]))
         self._prefix_request_keys[request_id] = result
         return result
+
+    def peek_prefix_tokens(self, request: RequestSpec) -> int:
+        """Observe a local cache match without registration, pinning or LRU changes."""
+        if not self._prefix_enabled or not request.prompt_token_ids:
+            return 0
+        tokens = 0
+        for key in self._iter_prefix_keys(request):
+            if key[1] >= request.input_tokens or key not in self._prefix_entries:
+                break
+            tokens = key[1]
+        return tokens
 
     def _idle_prefix_keys(self) -> list[_PrefixKey]:
         return sorted((key for key, entry in self._prefix_entries.items() if not entry.references),

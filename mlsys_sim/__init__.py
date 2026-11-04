@@ -6,11 +6,12 @@ Changes to this import surface and the versioned data contracts are recorded
 in the changelog. Calibration provenance and hardware validation are separate.
 """
 
-__version__ = "1.3.0"
+__version__ = "1.4.0"
 
 from .config import experiment_from_dict, load_experiment, validate_experiment
 from .engine import SimulationResult, simulate
 from .memory import MemoryDecision, MemoryPlanner
+from .layout import replica_experiment
 from .performance import AnalyticalModel, predict_experiment, ring_allreduce_ms
 from .schema import (
     CalibrationSpec,
@@ -47,6 +48,7 @@ __all__ = [
     "MemoryConfig",
     "MemoryDecision",
     "MemoryPlanner",
+    "replica_experiment",
     "ModelSpec",
     "RequestSpec",
     "SimulationError",

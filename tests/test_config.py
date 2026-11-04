@@ -77,7 +77,7 @@ class ConfigTests(unittest.TestCase):
     def test_unsupported_backends_and_modes_are_explicit(self):
         self.assert_invalid({"calibration": {"backend": "measured"}}, "UNSUPPORTED_MECHANISM")
         self.assert_invalid({"strategy": {"preemption": "nvme_swap"}}, "UNSUPPORTED_MECHANISM")
-        self.assert_invalid({"strategy": {"replicas": 2}}, "UNSUPPORTED_MECHANISM")
+        self.assert_invalid({"strategy": {"replica_routing": "random_unseeded"}}, "UNSUPPORTED_MECHANISM")
 
     def test_quantized_storage_does_not_silently_omit_metadata(self):
         for field in ("weight_bytes", "kv_bytes", "activation_bytes"):

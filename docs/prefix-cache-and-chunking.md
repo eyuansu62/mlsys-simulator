@@ -34,6 +34,10 @@ must equal `input_tokens`. Prompt length alone cannot identify a prefix.
 Namespace is part of every key: callers should use separate namespaces for
 tenants or contexts whose KV must not be shared. Model and layout identity are
 fixed by the experiment; the cache is not shared across runs or replicas.
+Multi-replica `prefix_aware` routing can prefer a local cached prefix among
+replicas with minimum unfinished load. Its probe does not pin blocks, change
+LRU or count as an actual lookup. The selected request still follows local
+admission and safe publication rules; see [multi-replica routing](multi-replica.md).
 
 Both policies are opt-in. A disabled chunk policy still computes the entire
 remaining prompt in one batch after any cache hit, so that residual query must

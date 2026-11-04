@@ -1,6 +1,6 @@
-# Version 1.3 capability matrix
+# Version 1.4 capability matrix
 
-This table describes the version 1.3 software scope. Available fixture demonstrations and
+This table describes the version 1.4 software scope. Available fixture demonstrations and
 unit tests do not establish AMD hardware accuracy.
 
 | Capability | Software status | Supported scope and evidence boundary |
@@ -18,7 +18,7 @@ unit tests do not establish AMD hardware accuracy.
 | PP analysis | Implemented | Shape-only capacity/forward/P2P; online metrics remain null because analysis has no queue |
 | Online PP | Implemented | Stage/microbatch queues, boundary P2P, one outstanding iteration/request and sampled-Token feedback |
 | PP activation budgets | Implemented | Conservative persistent per-rank buffers and all-stage KV reservation before stage 0 |
-| CPU KV swap | Implemented | Bounded global host tier, serial D2H/H2D, safe source/destination ownership, explicit fallback |
+| CPU KV swap | Implemented | Bounded host tier and serial D2H/H2D per replica, safe source/destination ownership, explicit fallback |
 | PP pressure and DMA | Implemented | Drain in-flight waves before reclaim; no new GPU work during DMA, conservative no-overlap policy |
 | Versioned step Profiles | Implemented | Strict identity/source, exact ragged/mixed lookup, complete homogeneous interpolation cells, explicit homogeneous exploratory extrapolation |
 | Calibration and lineage | Implemented | Repeated-shape mean time/max Workspace, new versions, input and training provenance |
@@ -29,7 +29,7 @@ unit tests do not establish AMD hardware accuracy.
 | Prefix Cache | Implemented | Explicit token ancestry/namespace, full shared KV blocks in the fixed pool, reference pinning and bounded idle-block LRU |
 | Chunked Prefill/recompute | Implemented | Retained contexts, final-chunk-only output, decode priority; single-group and TP×PP recovery |
 | Mixed Prefill/Decode batches | Implemented | Opt-in shared stage execution, decode-first packing, ordered member roles, joint Workspace and exact mixed Profiles; PP/cache/swap lifetimes preserved |
-| Multiple replicas | Unsupported | No replica routing |
+| Multiple replicas and load balancing | Implemented | Global causal DES; round-robin, least-loaded and load-bounded prefix affinity; independent TP/PP/cache/swap/mixed execution |
 | NVMe swap and quantized formats | Unsupported, rejected | CPU swap only; 2/4/8-byte float storage assumptions only |
 
 The shipped calibration data uses `source.kind="test_fixture"`. Fixture opt-in is explicit
@@ -50,3 +50,9 @@ need matching context-domain evidence. See [Prefix Cache and chunking](prefix-ca
 Mixed execution uses an uncalibrated joint macro model, declared synthetic
 service or exact mixed-stage records. It does not execute a GPU kernel or infer
 mixed latency from homogeneous measurements. See [mixed batching](mixed-batching.md).
+
+Multi-replica routing keeps request ownership and resources local while sharing
+clock, execution budgets and evaluation. Each replica needs its own strict
+Profile identity; online Compare retains the cluster identity. Shared-fabric
+contention and cross-replica migration are outside the model. See
+[multi-replica routing](multi-replica.md).

@@ -1,14 +1,14 @@
-# V1.3 软件验证记录
+# V1.4 软件验证记录
 
 日期：2026-11-04  
 环境：Python 3.14.3，macOS，CPU 执行  
-版本：1.3.0
+版本：1.4.0
 
 ## 自动检查
 
-- `python3 -m unittest discover -s tests -v`：380 项测试通过，覆盖混合 Prefill/Decode、Prefix Cache、Chunked Prefill、PP、CPU swap、资源引用、Profile、校准、Compare、留出与 CLI 闭环；含固定 seed 的有界生成负载。
+- `python3 -m unittest discover -s tests -v`：440 项测试通过，覆盖多副本路由、混合 Prefill/Decode、Prefix Cache、Chunked Prefill、PP、CPU swap、资源引用、Profile、校准、Compare、留出与 CLI 闭环；含固定 seed 的有界生成负载。
 - Ruff 0.17.3：检查通过。
-- mypy 2.4.1：`mypy mlsys_sim`，18 个源文件检查通过。
+- mypy 2.4.1：`mypy mlsys_sim`，19 个源文件检查通过。
 - `python3 -m compileall -q mlsys_sim tests scripts`：通过。
 
 Ruff/mypy 为临时开发检查工具，没有加入项目运行依赖。测试覆盖配置拒绝、
@@ -20,6 +20,7 @@ Ruff/mypy 为临时开发检查工具，没有加入项目运行依赖。测试�
 PP 新增 stage/link 不重叠、气泡手算、反馈因果、微批容量、TP×PP、部分执行与排队等待的截止统计。Swap 检查完整／部分拷贝、双侧预留、取消、Host 不足、显式回退及无重复输出。共享状态与指标抽取先通过原 175 项回归，再实现新调度路径。
 Prefix Cache 检查 namespace、完整 token ancestry 的 SHA256 链、保留最终 prompt token、共享引用与同池计账、LRU/pin、失败准入回滚、长 prompt 线性身份存储和 warmup 隔离。Chunked Prefill 检查逐块 context、decode 优先、无中间输出、Profile Workspace 一致、TP×PP 反馈边界及部分 prompt 的 swap／重算；新增 CLI 示例执行与重放字节一致性、旧 Compare 指纹兼容测试。缓存命中后准入失败曾可能阻塞已有 decoder，已用单组和 PP 的 preemption=none 复现锁定修复。
 混合批处理检查 decode 优先装箱与共享 Token/序列预算、同一次 stage 估计/预留、按成员提交进度、非最终 Prefill 不采样、联合 Workspace 的跨 rank 原子失败，以及 PP feedback/cache/swap 生命周期。混合 Profile 测试保留有序成员 phase、单 Token Prefill 与 Decode 的区分、精确形状域、校准重复统计与训练泄漏检查。在线 Profile 手算只提供首次 Prefill 与实际混合形状而不提供虚构的单成员 Decode 样本；单组和 TP2×PP2 均通过。混合开关默认关闭，旧 Compare 契约补默认值；生成负载覆盖日志关闭、截止、Host 不足及显式重算。
+多副本检查共享事件时序、轮询／最少未完成请求／受负载约束的缓存亲和路由、到达时可见状态、固定归属、独立Host/DMA与纯读缓存探测。两条本地引擎仅抽取可逐事件驱动和幂等finalization接口，驱动结果与原run路径的请求、事件和资源报告逐项相等。全局预算/窗口、PP反馈和swap截止保留引用；局部停止不阻断健康副本，全部副本不可用时未来请求保持未路由。全局分位数从合并请求重算，三请求手算全局TTFT中位数为2ms，而局部中位数平均为2.5ms。Profile与CLI检查每副本身份、原始字节快照、有序hash、版本/来源、完整集群Compare，以及warmup缓存和路由游标重置。
 
 ## CLI 示例证据
 
@@ -39,6 +40,9 @@ Prefix Cache 检查 namespace、完整 token ancestry 的 SHA256 链、保留最
 | PP＋Prefix Cache＋Chunked Prefill | 两请求完成，复用8 Token；4 chunks／16 prompt Token，feedback安全边界发布，最终无请求引用 |
 | 混合 Prefill/Decode | 两请求完成，2次真实混合批次，混合计算6ms，总模拟9ms；非最终prompt chunk不输出 |
 | PP＋混合＋Cache＋CPU swap | 5请求完成，2混合微批，复用12 Token，D2H/H2D各1次，总模拟53.6584ms；零重算，最终请求/Host引用全部释放 |
+| 多副本轮询 | 4请求路由0/1/0/1，R2 FIFO总模拟6ms；同工作负载单副本FIFO为12ms |
+| 多副本缓存亲和 | 3请求路由0/1/1，repeat在副本1实际复用4 Token，总模拟7ms |
+| R2＋PP2＋混合＋Cache＋CPU swap | 10请求完成，4混合微批、24缓存Token，D2H/H2D各2次，总模拟53.6584ms，零重算；请求/Host引用全部释放 |
 | Step 校准 | 6 条手算观测，5 个精确形状；重复观测取均值，版本及输入哈希保留 |
 | Profile 模拟 | 1 个请求，3 个输出 Token；完整 Step 不再叠加解析 TP 通信 |
 | Online Compare | 19 项指标均可比较，覆盖率 100%；请求按 ID 配对 |
@@ -51,13 +55,13 @@ Prefix Cache 检查 namespace、完整 token ancestry 的 SHA256 链、保留最
 ## 当前限制
 
 本地执行环境为 Python 3.14.3；Python 3.11 至 3.14 的远程结果以该提交对应的 Actions 记录为准。
-Profile、PP 在线流水线、CPU swap、Prefix Cache、Chunked Prefill 与混合 Prefill/Decode 均已实现。当前没有 AMD 原始测量数据，硬件留出误差、真实容量拐点、在线 SLA 和策略排序的预测有效性仍未建立。模型采用全 stage 预留、持久激活缓冲上界、排空 wave 后回收，以及 DMA 不与 GPU 计算重叠的保守策略；没有真实 CUDA/HIP DMA、NVMe 或分配器细粒度模拟。混合解析模型假设共享权重和宏观通信，混合 Profile 只接受精确成员形状，不推断真实 Kernel 效率；每chunk保守计入输出／sampling服务边界，缓存CPU开销未测量，swap恢复为完整私有KV。缓存占用在请求结束后保留是预期行为。组合手算示例显式使用单inflight微批和零P2P，另有TP2×PP2启用P2P与正反馈延迟的组合检查。
+Profile、PP 在线流水线、CPU swap、Prefix Cache、Chunked Prefill、混合 Prefill/Decode 与多副本调度均已实现。当前没有 AMD 原始测量数据，硬件留出误差、真实容量拐点、在线 SLA 和策略排序的预测有效性仍未建立。模型采用全 stage 预留、持久激活缓冲上界、排空 wave 后回收，以及 DMA 不与 GPU 计算重叠的保守策略；没有真实 CUDA/HIP DMA、NVMe 或分配器细粒度模拟。混合解析模型假设共享权重和宏观通信，混合 Profile 只接受精确成员形状，不推断真实 Kernel 效率；每chunk保守计入输出／sampling服务边界，缓存CPU开销未测量，swap恢复为完整私有KV。缓存占用在请求结束后保留是预期行为。组合手算示例显式使用单inflight微批和零P2P，另有R2×TP2×PP2启用P2P与正反馈延迟的组合检查。副本资源和DMA独立；未模拟共享fabric争用、跨副本请求迁移或实测路由开销。
 
 ## 库化与分发验证
 
 - Setuptools 84.2.1 通过标准 PEP 517 隔离构建生成 sdist，再从该 sdist 构建 wheel。
 - Twine 7.0.0 对两种分发文件的元数据检查通过。
-- `scripts/verify_distribution.py` 在源码目录以外创建新虚拟环境，离线安装 wheel；公共 API、PP 在线、单组／PP swap、单组／PP Prefix Cache＋Chunked Prefill、混合批处理和PP/缓存/swap组合、PP 解析、校准→Profile→Compare→留出及通信校准 CLI 均通过。
+- `scripts/verify_distribution.py` 在源码目录以外创建新虚拟环境，离线安装 wheel；公共 API、PP 在线、单组／PP swap、单组／PP Prefix Cache＋Chunked Prefill、混合批处理和PP/缓存/swap组合、多副本三种路由/组合与逐副本Profile模拟和预测、PP 解析、校准→Profile→Compare→留出及通信校准 CLI 均通过。
 - Wheel 内含 `py.typed`，安装元数据无必需第三方运行依赖；sdist 包含测试、示例和公共文档。
 - CI 覆盖 Python 3.11 至 3.14 的回归测试、lint、类型和分发检查，使用固定 Actions SHA。
 

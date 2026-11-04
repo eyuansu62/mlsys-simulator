@@ -6,7 +6,7 @@ all waves; DMA and stage execution do not overlap in this conservative model.
 """
 
 from collections import deque
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 import heapq
 import math
 from typing import Any
@@ -16,7 +16,7 @@ from .config import validate_experiment
 from .memory import MemoryPlanner
 from .profiles import create_performance_model
 from .reporting import report_simulation
-from .schema import Experiment, SimulationError, StepEstimate
+from .schema import Experiment, RequestSpec, SimulationError, StepEstimate
 from .state import RequestState, SimulationResult, TERMINAL
 
 
@@ -56,6 +56,8 @@ class PipelineSimulation:
         validate_experiment(experiment)
         if experiment.strategy.pipeline_parallel_size < 2:
             raise SimulationError("INVALID_CONFIG", "Pipeline engine requires at least two stages")
+        if experiment.strategy.replicas != 1:
+            raise SimulationError("UNSUPPORTED_MECHANISM", "The pipeline engine requires one local replica")
         self.exp = experiment
         self.memory = MemoryPlanner(experiment)
         self.performance = create_performance_model(experiment)
@@ -65,6 +67,7 @@ class PipelineSimulation:
         self._output_targets = {r.request_id: r.output_tokens for r in experiment.workload}
         self.now = 0.0
         self.stop_reason: str | None = None
+        self._final_result: SimulationResult | None = None
         self.queue: list[tuple[float, int, int, str, Any]] = []
         self.sequence = 0
         self.handled_events = 0
@@ -749,7 +752,38 @@ class PipelineSimulation:
     def _has_references(self) -> bool:
         return bool(self.waves or self.swap_transfer is not None)
 
+    def accept_request(self, spec: RequestSpec) -> None:
+        """Register a single routed arrival in this replica's resource domain."""
+        if self._final_result is not None:
+            raise SimulationError("INVALID_DRIVER_STATE", "A finalized replica cannot accept requests")
+        validate_experiment(replace(self.exp, workload=(spec,)))
+        if spec.request_id in self.requests or spec.arrival_ms != self.now:
+            raise SimulationError("INVALID_DRIVER_STATE", "Arrival must be new and match the replica clock")
+        self.memory.register_request(spec)
+        self.requests[spec.request_id] = RequestState(spec.request_id, spec.arrival_ms,
+                                                    spec.input_tokens, spec.priority)
+        self._output_targets[spec.request_id] = spec.output_tokens
+        self.stage_progress[spec.request_id] = [0] * self.pp
+        self.handle_event("REQUEST_ARRIVAL", spec.request_id)
+        if spec.timeout_ms is not None:
+            self._push(spec.arrival_ms + spec.timeout_ms, 1, "REQUEST_TIMEOUT", spec.request_id)
+
+    def handle_event(self, kind: str, payload: Any) -> None:
+        if self._final_result is not None:
+            raise SimulationError("INVALID_DRIVER_STATE", "A finalized replica cannot handle events")
+        self.handled_events += 1
+        self._handle(kind, payload)
+
+    def schedule_ready(self) -> None:
+        if self._final_result is None and self.stop_reason is None:
+            self._schedule()
+
+    def has_inflight(self) -> bool:
+        return self._has_references()
+
     def run(self) -> SimulationResult:
+        if self._final_result is not None:
+            return self._final_result
         while self.queue:
             when = self.queue[0][0]
             if when > self.cutoff_ms:
@@ -777,6 +811,19 @@ class PipelineSimulation:
                 break
             if not self._has_references() and all(r.status in TERMINAL for r in self.requests.values()):
                 break
+        return self.finalize()
+
+    def finalize(self, now_ms: float | None = None,
+                 stop_reason: str | None = None) -> SimulationResult:
+        """Observe the stop boundary once without releasing unfinished waves."""
+        if self._final_result is not None:
+            return self._final_result
+        if now_ms is not None:
+            if (isinstance(now_ms, bool) or not isinstance(now_ms, (int, float))
+                    or not math.isfinite(now_ms) or now_ms < self.now):
+                raise SimulationError("INVALID_DRIVER_STATE", "Finalization time must be finite and monotonic")
+            self.now = now_ms
+        self.stop_reason = self.stop_reason or stop_reason
         if any(r.status not in TERMINAL for r in self.requests.values()):
             self.stop_reason = self.stop_reason or "MEMORY_NO_PROGRESS"
         for task in self.stage_busy:
@@ -830,4 +877,5 @@ class PipelineSimulation:
             "activation_buffer_policy": "persistent bound per stage/rank",
             "recovery_policy": "quiesce all waves before request eviction or DMA",
         }
+        self._final_result = result
         return result

@@ -1,0 +1,50 @@
+{
+  "schema_version": 1,
+  "workload": [
+    {
+      "request_id": "r0",
+      "arrival_ms": 0,
+      "input_tokens": 4,
+      "output_tokens": 2
+    },
+    {
+      "request_id": "r1",
+      "arrival_ms": 0,
+      "input_tokens": 4,
+      "output_tokens": 2
+    },
+    {
+      "request_id": "r2",
+      "arrival_ms": 0,
+      "input_tokens": 4,
+      "output_tokens": 2
+    },
+    {
+      "request_id": "r3",
+      "arrival_ms": 0,
+      "input_tokens": 4,
+      "output_tokens": 2
+    }
+  ],
+  "infra": {
+    "devices": [
+      {
+        "id": "replica0-gpu0"
+      },
+      {
+        "id": "replica1-gpu0"
+      }
+    ]
+  },
+  "strategy": {
+    "replicas": 2,
+    "replica_routing": "round_robin",
+    "scheduler": "fifo",
+    "max_batch_size": 1
+  },
+  "calibration": {
+    "backend": "synthetic",
+    "prefill_ms": 2,
+    "decode_ms": 1
+  }
+}

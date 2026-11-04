@@ -175,6 +175,8 @@ swap conservatively copies all block-aligned request KV, including shared
 blocks; it detaches GPU references on safe D2H completion and restores private
 GPU blocks. Retained GPU cache entries remain subject to idle-block LRU. Partial
 prefill/recompute resumes its remaining input rather than entering Decode early.
-NVMe, multiple replicas and quantized storage remain
+With multiple replicas, these GPU/host capacities and DMA lanes belong to each
+replica independently; the global coordinator retains shared clock and budgets.
+See [multi-replica routing](multi-replica.md). NVMe and quantized storage remain
 outside the supported scope. Actual transfer measurements and hardware holdout
 validation remain separate work.

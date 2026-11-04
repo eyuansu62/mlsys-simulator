@@ -1,9 +1,9 @@
 # LLM 推理系统模拟器
 
 [English](README.md) · [Python API](docs/api.md) · [校准](docs/calibration.md) ·
-[验证规范](docs/validation-protocol.md) · [系统规范](docs/specification.md) · [PP 与 CPU swap](docs/pipeline-and-swap.md) · [Prefix Cache 与分块预填充](docs/prefix-cache-and-chunking.md) · [混合批处理](docs/mixed-batching.md)
+[验证规范](docs/validation-protocol.md) · [系统规范](docs/specification.md) · [PP 与 CPU swap](docs/pipeline-and-swap.md) · [Prefix Cache 与分块预填充](docs/prefix-cache-and-chunking.md) · [混合批处理](docs/mixed-batching.md) · [多副本路由](docs/multi-replica.md)
 
-1.3 版软件覆盖 Prefill/Decode 混合批处理、Prefix Cache、Chunked Prefill、PP 在线流水线、CPU KV swap、CPU 在线服务模拟、解析模型、版本化 Profile、校准、分组留出验证和运行／候选方案比较。当前没有 AMD 实测数据，也未建立真实硬件预测准确率。仓库为[私有仓库](https://github.com/eyuansu62/mlsys-simulator)，许可证待选择，尚未发布 PyPI。
+1.4 版软件覆盖多副本调度／负载均衡、Prefill/Decode 混合批处理、Prefix Cache、Chunked Prefill、PP 在线流水线、CPU KV swap、CPU 在线服务模拟、解析模型、版本化 Profile、校准、分组留出验证和运行／候选方案比较。当前没有 AMD 实测数据，也未建立真实硬件预测准确率。仓库为[私有仓库](https://github.com/eyuansu62/mlsys-simulator)，许可证待选择，尚未发布 PyPI。
 
 ## 安装和运行
 
@@ -57,6 +57,16 @@ mlsys-sim simulate --experiment examples/v1_3/pp_mixed_cache_swap.json --out run
 
 Synthetic 混合批次使用独立的 `calibration.mixed_ms`。Profile 必须提供包含 `request_phases` 的精确混合形状，不能通过相加／取最大纯阶段耗时补齐缺失数据。配置、形状和计时约定见[混合批处理说明](docs/mixed-batching.md)。
 
+## 多副本调度与负载均衡
+
+```bash
+mlsys-sim simulate --experiment examples/v1_4/round_robin.json --out runs/round-robin
+mlsys-sim simulate --experiment examples/v1_4/prefix_aware.json --out runs/prefix-aware
+mlsys-sim simulate --experiment examples/v1_4/replicas_pp_mixed_cache_swap.json --out runs/replicas-pp-mixed-cache-swap
+```
+
+`strategy.replicas` 配置独立模型副本，设备按副本／PP stage／TP rank 排列。`replica_routing` 支持轮询、最小未完成负载和最小负载内的缓存亲和选择。路由只使用到达时可见状态，不读取未来输出长度；请求选定副本后保持绑定。各副本独立计 KV、缓存、Host swap 容量和 DMA，时钟、测量窗口和执行预算则是全局一份。Profile 后端通过 `replica_profile_paths` 为每个副本提供严格匹配的 Profile，见[多副本说明](docs/multi-replica.md)。
+
 ## 校准与验证闭环
 
 下面的数据是**手算测试 fixture，不是实测**。显式允许 fixture 后，所有派生 Profile 和报告仍保留 fixture 来源，不会转成实测证据。
@@ -93,7 +103,7 @@ print(run.result["counts"])
 
 ## 机制与模型边界
 
-在线引擎支持单卡、同步 TP group 和多个 TP group 组成的 PP 流水线。单组 FIFO 独占一个请求直至结束；Continuous Batching 在安全边界重选工作。PP 默认每个 microbatch 只有一个 phase；开启混合策略后，可在同一 microbatch 中放入 Prefill 和 Decode。不同 stage 可以推进不同 microbatch，这仍是声明了简化条件的调度器。
+每个副本的在线引擎支持单卡、同步 TP group 和多个 TP group 组成的 PP 流水线；多个副本在同一全局事件时间线上独立推进。单组 FIFO 独占一个请求直至结束；Continuous Batching 在安全边界重选工作。PP 默认每个 microbatch 只有一个 phase；开启混合策略后，可在同一 microbatch 中放入 Prefill 和 Decode。不同 stage 可以推进不同 microbatch，这仍是声明了简化条件的调度器。
 
 首次 Prefill 构建输入 KV，最终输入块完成后生成首 Token；最新采样 Token 的 KV 在下一 Decode 才计算。已输出数量和已计算 KV 位置分别记录。每步先检查物理预算和逻辑 KV，再跨 rank 原子预留；PP 在进入 stage 0 前为整个流水线预留 KV，并另计常驻激活 Buffer。压力下限制准入／缩 Batch，必要时在安全边界按配置重算恢复或经 CPU swap 保存／恢复 KV；历史输出不重复生成，停顿计入延迟。PP 回收先排空在途 wave，DMA 期间不启动新的 GPU 工作。
 
@@ -103,11 +113,11 @@ print(run.result["counts"])
 
 Warmup 使用独立时间线，不进入测量指标，也不把 KV 留给测量。当前仅支持 `empty_cache` 初始状态。测量到达窗口为半开区间，窗外请求为 `NOT_ADMITTED`；是否 drain 及最大 drain 时间显式配置。
 
-PP 在线模拟已支持 stage 队列、P2P 和反馈依赖；`predict` 仍是未分块、无缓存的形状分析，不执行在线混合调度或输出在线 SLA。多副本、NVMe swap 和量化存储格式仍未实现。混合 stage 使用共享权重与通信的解析假设或精确 Profile，不执行真实 GPU Kernel。软件功能不等于真实硬件验证完成，具体见[能力矩阵](docs/coverage-matrix.md)。
+PP 在线模拟已支持 stage 队列、P2P 和反馈依赖；`predict` 仍是未分块、无缓存的形状分析，不执行在线混合调度或输出在线 SLA。NVMe swap 和量化存储格式仍未实现。混合 stage 使用共享权重与通信的解析假设或精确 Profile，不执行真实 GPU Kernel。软件功能不等于真实硬件验证完成，具体见[能力矩阵](docs/coverage-matrix.md)。
 
 ## 指标和输出
 
-输出包括 `manifest.json`、`result.json`、`requests.jsonl`、可选 `events.jsonl` 和日志。Prefix／分块运行另报缓存占用、命中和实际输入计算量。PP 结果补充各 stage 忙时／空泡和在途进度，swap 结果补充主机占用、DMA 状态及逐请求搬运次数／字节／耗时。Manifest 保存展开配置、代码／输入哈希、Profile 来源及比较契约；校准和验证报告保存数据来源、训练／留出成员及覆盖域。
+输出包括 `manifest.json`、`result.json`、`requests.jsonl`、可选 `events.jsonl` 和日志。Prefix／分块运行另报缓存占用、命中和实际输入计算量。PP 结果补充各 stage 忙时／空泡和在途进度，swap 结果补充主机占用、DMA 状态及逐请求搬运次数／字节／耗时。多副本结果补充逐请求路由和各副本资源诊断，并在统一窗口重算全局指标。Manifest 保存展开配置、代码／输入哈希、各副本 Profile 快照／来源及比较契约；校准和验证报告保存数据来源、训练／留出成员及覆盖域。
 
 `TTFT = first_token - arrival`。正常完成且输出至少两个 Token 时，`TPOT = (last_token-first_token)/(outputs-1)`；单 Token 的 TPOT 为 null。ITL 包括抢占与重算停顿，恢复不重置首 Token 时刻。完成率保留已准入请求中的失败、超时和未完成项，排除窗外未准入请求。
 

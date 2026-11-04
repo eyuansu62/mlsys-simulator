@@ -1,6 +1,6 @@
 # Python API
 
-Install distribution `mlsys-simulator` and import `mlsys_sim`. Version 1.3 exposes the
+Install distribution `mlsys-simulator` and import `mlsys_sim`. Version 1.4 exposes the
 simulation, profile, calibration and comparison functions through this package;
 `mlsys_sim.__version__` is the software version. JSON schema and Profile version
 labels are separate contracts.
@@ -51,6 +51,53 @@ status.
 mixed batching. Its
 shape remains the complete input batch even when those online policies are
 enabled; compare online policies through `simulate`.
+
+## Configure multiple replicas
+
+```python
+from mlsys_sim import (
+    CalibrationSpec, DeviceSpec, Experiment, InfraSpec, RequestSpec,
+    StrategySpec, simulate,
+)
+
+experiment = Experiment(
+    workload=tuple(RequestSpec(f"r{i}", 0, 4, 2) for i in range(4)),
+    infra=InfraSpec(devices=(DeviceSpec("replica0"), DeviceSpec("replica1"))),
+    strategy=StrategySpec(replicas=2, replica_routing="round_robin", scheduler="fifo"),
+    calibration=CalibrationSpec(backend="synthetic", prefill_ms=2, decode_ms=1),
+)
+run = simulate(experiment)
+print(run.result["routing"], run.result["replicas"])
+```
+
+`replicas` defaults to `1`; `replica_routing` defaults to `"least_loaded"` and
+also accepts `"round_robin"` and `"prefix_aware"`. Provide exactly R×PP×TP devices
+in replica/stage/TP-rank order. Each replica owns its GPU KV pool, Prefix Cache,
+host swap pool and DMA lane; `cpu_swap_bytes` is per replica. Clock, arrival
+window and execution budgets remain global. Requests stay on their selected
+replica through recovery. The router never uses future output targets.
+
+`result.replicas` contains `{replica_index, device_ids, result}` records.
+`result.routing` retains assignments and load observations; request rows and
+local events carry `replica_index`. Global service metrics are recomputed on
+one common window. They are not averages of local percentiles. See
+[multi-replica routing](multi-replica.md) for policy tie-breaks and failure scope.
+
+For `backend="profile"` with R>1, supply exactly R
+`CalibrationSpec.replica_profile_paths` entries and leave `profile_path=None`.
+Each file describes that replica alone and must match its local device
+identity. CLI runs snapshot these as `profiles/replica-0.json`, etc., and retain
+hashes/sources in `manifest.replica_profiles`. R=1 keeps `profile_path` and the
+existing `profile.json` artifact. Multi-replica prediction returns
+`replica_predictions`, analyzing the same isolated input shape on each layout;
+it performs no online routing and supplies no online SLA.
+
+`MemoryPlanner` and direct performance models operate on one replica.
+The internal layout helper `mlsys_sim.layout.replica_experiment(experiment, i)`
+constructs the corresponding local experiment for these resource/shape APIs.
+`MemoryPlanner.peek_prefix_tokens(request_spec)` observes a local match without
+registering the request, pinning KV, changing counters or touching LRU order.
+Dynamic request registration remains an engine/coordinator responsibility.
 
 ## Configure Prefix Cache and Chunked Prefill
 

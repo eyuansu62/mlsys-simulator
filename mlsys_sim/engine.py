@@ -13,7 +13,7 @@ from .batching import batch_members, batch_phase
 from .config import validate_experiment
 from .memory import MemoryPlanner
 from .reporting import report_simulation
-from .schema import Experiment, SimulationError
+from .schema import Experiment, RequestSpec, SimulationError
 from .state import RequestState as _Request, SimulationResult, TERMINAL
 
 if TYPE_CHECKING:
@@ -61,6 +61,7 @@ class _Simulation:
         self.events: list[dict] = []
         self.handled_events = 0
         self.stop_reason: str | None = None
+        self._final_result: SimulationResult | None = None
         self.recompute_execution_ms = 0.0
         self.compute_busy_ms = 0.0
         self.mixed_batch_count = 0
@@ -715,7 +716,44 @@ class _Simulation:
                 self.stop_reason = "MEMORY_NO_PROGRESS"
             return
 
+    def accept_request(self, spec: RequestSpec) -> None:
+        """Register one routed arrival without exposing future request targets."""
+        if self._final_result is not None:
+            raise SimulationError("INVALID_DRIVER_STATE", "A finalized replica cannot accept requests")
+        validate_experiment(replace(self.exp, workload=(spec,)))
+        if spec.request_id in self.requests or spec.arrival_ms != self.now:
+            raise SimulationError("INVALID_DRIVER_STATE", "Arrival must be new and match the replica clock")
+        self.memory.register_request(spec)
+        self.requests[spec.request_id] = _Request(spec.request_id, spec.arrival_ms,
+                                                 spec.input_tokens, spec.priority)
+        self._output_targets[spec.request_id] = spec.output_tokens
+        self.handle_event("REQUEST_ARRIVAL", spec.request_id)
+        if spec.timeout_ms is not None:
+            self._push(spec.arrival_ms + spec.timeout_ms, 1, "REQUEST_TIMEOUT", spec.request_id)
+
+    def handle_event(self, kind: str, payload: object) -> None:
+        """Commit one event selected by a shared-time coordinator."""
+        if self._final_result is not None:
+            raise SimulationError("INVALID_DRIVER_STATE", "A finalized replica cannot handle events")
+        self.handled_events += 1
+        self._handle(kind, payload)
+
+    def schedule_ready(self) -> None:
+        """Launch local ready work after the coordinator drains a timestamp."""
+        if (self._final_result is not None or self.stop_reason is not None
+                or self.busy is not None or self.swap_busy is not None):
+            return
+        if self.exp.strategy.scheduler == "fifo":
+            self._schedule_fifo()
+        else:
+            self._schedule_batch()
+
+    def has_inflight(self) -> bool:
+        return self.busy is not None or self.swap_busy is not None
+
     def run(self) -> SimulationResult:
+        if self._final_result is not None:
+            return self._final_result
         while self.queue:
             when = self.queue[0][0]
             if when > self.cutoff_ms:
@@ -751,6 +789,19 @@ class _Simulation:
             if (all(request.status in TERMINAL for request in self.requests.values())
                     and self.busy is None and self.swap_busy is None):
                 break
+        return self.finalize()
+
+    def finalize(self, now_ms: float | None = None,
+                 stop_reason: str | None = None) -> SimulationResult:
+        """Account an interrupted boundary once, retaining all pinned ownership."""
+        if self._final_result is not None:
+            return self._final_result
+        if now_ms is not None:
+            if (isinstance(now_ms, bool) or not isinstance(now_ms, (int, float))
+                    or not math.isfinite(now_ms) or now_ms < self.now):
+                raise SimulationError("INVALID_DRIVER_STATE", "Finalization time must be finite and monotonic")
+            self.now = now_ms
+        self.stop_reason = self.stop_reason or stop_reason
         if any(request.status not in TERMINAL for request in self.requests.values()):
             self.stop_reason = self.stop_reason or "MEMORY_NO_PROGRESS"
         if self.busy is not None:
@@ -781,13 +832,17 @@ class _Simulation:
             if request.status not in TERMINAL:
                 request.status = "UNFINISHED"
                 request.error_code = self.stop_reason
-        return self._report()
+        self._final_result = self._report()
+        return self._final_result
 
     def _report(self) -> SimulationResult:
         return report_simulation(self)
 
 
 def _run_timeline(experiment: Experiment) -> SimulationResult:
+    if experiment.strategy.replicas > 1:
+        from .replicas import MultiReplicaSimulation
+        return MultiReplicaSimulation(experiment).run()
     if experiment.strategy.pipeline_parallel_size > 1:
         from .pipeline import PipelineSimulation
         return PipelineSimulation(experiment).run()
@@ -829,6 +884,8 @@ def simulate(experiment: Experiment) -> SimulationResult:
             "pipeline": run.result.get("pipeline"),
             "swap": run.result.get("swap"),
             "batching": run.result.get("batching"),
+            "replicas": run.result.get("replicas"),
+            "routing": run.result.get("routing"),
         })
     measured = _run_timeline(experiment)
     measured.result["warmup"] = warmup_summary

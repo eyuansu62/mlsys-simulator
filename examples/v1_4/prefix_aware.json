@@ -1,0 +1,79 @@
+{
+  "schema_version": 1,
+  "workload": [
+    {
+      "request_id": "a-unrelated",
+      "arrival_ms": 0,
+      "input_tokens": 8,
+      "output_tokens": 1,
+      "prompt_token_ids": [
+        20,
+        21,
+        22,
+        23,
+        24,
+        25,
+        26,
+        27
+      ],
+      "cache_namespace": "demo"
+    },
+    {
+      "request_id": "b-seed",
+      "arrival_ms": 0,
+      "input_tokens": 8,
+      "output_tokens": 1,
+      "prompt_token_ids": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "cache_namespace": "demo"
+    },
+    {
+      "request_id": "repeat",
+      "arrival_ms": 5,
+      "input_tokens": 8,
+      "output_tokens": 1,
+      "prompt_token_ids": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "cache_namespace": "demo"
+    }
+  ],
+  "infra": {
+    "devices": [
+      {
+        "id": "replica0-gpu0"
+      },
+      {
+        "id": "replica1-gpu0"
+      }
+    ]
+  },
+  "strategy": {
+    "replicas": 2,
+    "replica_routing": "prefix_aware",
+    "prefix_cache": true,
+    "prefix_cache_max_blocks": 8,
+    "memory": {
+      "kv_block_tokens": 4
+    }
+  },
+  "calibration": {
+    "backend": "synthetic",
+    "prefill_ms": 2
+  }
+}

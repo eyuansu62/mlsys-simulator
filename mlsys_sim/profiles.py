@@ -82,7 +82,7 @@ def profile_identity(experiment: Experiment) -> dict:
     """Describe the exact model, software, physical layout and timing contract."""
     strategy, infra, calibration = experiment.strategy, experiment.infra, experiment.calibration
     memory = strategy.memory
-    return {
+    identity: dict[str, Any] = {
         "model": asdict(strategy.model),
         "devices": [asdict(device) for device in infra.devices],
         "parallelism": {
@@ -100,6 +100,9 @@ def profile_identity(experiment: Experiment) -> dict:
                       "runtime_bytes": memory.runtime_bytes,
                       "communication_buffer_bytes": memory.communication_buffer_bytes},
     }
+    if strategy.replicas != 1:
+        identity["parallelism"]["replicas"] = strategy.replicas
+    return identity
 
 
 def _identity(value: Any) -> dict:
@@ -110,7 +113,7 @@ def _identity(value: Any) -> dict:
                        set(), "identity")
     parallel = _object(identity["parallelism"],
                        {"tensor_parallel_size", "pipeline_parallel_size", "stage_layers", "shard_plan"},
-                       set(), "identity.parallelism")
+                       {"replicas"}, "identity.parallelism")
     if parallel["shard_plan"] != "megatron_dense_no_sp":
         _invalid("identity has an unsupported shard plan")
     topology = _object(identity["topology"], {"name", "link_bandwidth_gbps", "link_latency_us"},
@@ -139,6 +142,7 @@ def _identity(value: Any) -> dict:
             "strategy": {"model": identity["model"],
                          "tensor_parallel_size": parallel["tensor_parallel_size"],
                          "pipeline_parallel_size": parallel["pipeline_parallel_size"],
+                         "replicas": parallel.get("replicas", 1),
                          "stage_layers": parallel["stage_layers"], "memory": execution},
             "infra": {"devices": identity["devices"], "topology": topology["name"],
                       "link_bandwidth_gbps": topology["link_bandwidth_gbps"],
@@ -256,6 +260,8 @@ def validate_dataset(data: dict, *, allow_test_fixture: bool = False) -> dict:
             _invalid("dataset.schema_version must be 1")
         source = _source(value["source"], allow_test_fixture)
         identity = validate_identity(value["identity"], measured=source["kind"] == "measured")
+        if identity["parallelism"].get("replicas", 1) != 1:
+            _invalid("Step datasets require a one-replica identity; calibrate each replica separately")
         if not isinstance(value["records"], list) or not value["records"]:
             _invalid("dataset.records must be a nonempty array")
         records = [_observation(row, profile=False,
@@ -289,6 +295,8 @@ def validate_profile(data: dict, *, allow_test_fixture: bool = False) -> dict:
         _invalid("Lookup profiles must contain whole-stage time including communication")
     source = _source(value["source"], allow_test_fixture)
     identity = validate_identity(value["identity"], measured=source["kind"] == "measured")
+    if identity["parallelism"].get("replicas", 1) != 1:
+        _invalid("Stage Profiles require a one-replica identity; calibrate each replica separately")
     if not isinstance(value["samples"], list) or not value["samples"]:
         _invalid("profile.samples must be a nonempty array")
     samples = [_observation(row, profile=True,
@@ -456,6 +464,9 @@ class ProfileModel:
     def __init__(self, experiment: Experiment):
         from .config import validate_experiment
         validate_experiment(experiment)
+        if experiment.strategy.replicas != 1:
+            raise SimulationError("UNSUPPORTED_MECHANISM",
+                                  "ProfileModel describes one replica; use replica_experiment first")
         if not experiment.calibration.profile_path:
             raise SimulationError("INVALID_CONFIG", "profile_path is required for the profile backend")
         self.experiment = experiment

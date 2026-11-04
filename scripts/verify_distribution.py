@@ -65,7 +65,7 @@ pp_cache_chunks = replace(cache_chunks,
     strategy=replace(cache_chunks.strategy, pipeline_parallel_size=2, pipeline_p2p=False))
 Path("pp-prefix-chunk.json").write_text(json.dumps(asdict(pp_cache_chunks)))
 unsupported = asdict(pp)
-unsupported["strategy"]["replicas"] = 2
+unsupported["strategy"]["replica_routing"] = "unknown"
 Path("unsupported.json").write_text(json.dumps(unsupported))
 profile_base = Experiment(workload=(RequestSpec("profile-demo", 0, 16, 3),),
                           strategy=StrategySpec(scheduler="fifo"))
@@ -99,6 +99,31 @@ communication = {"schema_version": 1, "kind": "communication_measurements",
                               "primitive": "p2p", "ranks": 2, "message_bytes": size,
                               "duration_ms": .005 + size / 20e6} for size in [1000, 1000000]]}
 Path("communication.json").write_text(json.dumps(communication))
+cluster = Experiment(workload=(RequestSpec("p0", 0, 16, 1), RequestSpec("p1", 0, 16, 1)),
+    infra=InfraSpec(devices=(DeviceSpec("replica0"), DeviceSpec("replica1"))),
+    strategy=StrategySpec(replicas=2, replica_routing="round_robin"))
+cluster_paths = []
+for index in range(2):
+    local = mlsys_sim.replica_experiment(cluster, index)
+    local_records = []
+    for name, phase, queries, contexts, duration in [
+        ("single", "prefill", [16], [0], 2 + index),
+        ("batch", "prefill", [16, 16], [0, 0], 3 + index),
+        ("decode", "decode", [1, 1], [16, 16], 1 + index)]:
+        local_records.append({"record_id": name, "group_id": name, "phase": phase,
+            "stage_index": 0, "query_tokens": queries, "context_lengths": contexts,
+            "duration_ms": duration, "workspace_peak_bytes": None})
+    local_data = {"schema_version": 1, "dataset_id": f"installed-replica-{index}",
+        "identity": profile_identity(local), "records": local_records,
+        "source": {"kind": "test_fixture", "reference": "Local replica hand calculations only"}}
+    local_profile = mlsys_sim.calibrate_dataset(local_data, profile_version="installed-replicas-v1",
+                                               allow_test_fixture=True)
+    path = f"replica-profile-{index}.json"
+    Path(path).write_text(json.dumps(local_profile))
+    cluster_paths.append(path)
+cluster = replace(cluster, calibration=CalibrationSpec(backend="profile",
+    replica_profile_paths=tuple(cluster_paths), profile_version="installed-replicas-v1", allow_test_fixture=True))
+Path("cluster-profile.json").write_text(json.dumps(asdict(cluster)))
 print(json.dumps({"version": mlsys_sim.__version__, "wheel_api": "passed"}))
 '''
 
@@ -121,6 +146,7 @@ def verify(dist: Path) -> dict:
         assert "mlsys_sim/py.typed" in names, "Wheel is missing its typing marker"
         assert "mlsys_sim/__init__.py" in names
         assert "mlsys_sim/batching.py" in names
+        assert "mlsys_sim/replicas.py" in names
         assert not any(name.startswith(("tests/", "sample-runs/", "work/")) for name in names)
         assert archive.testzip() is None
     with tarfile.open(sdists[0]) as archive:
@@ -131,6 +157,8 @@ def verify(dist: Path) -> dict:
                          "examples/v1_2/prefix_cache.json", "docs/prefix-cache-and-chunking.md",
                          "examples/v1_3/mixed_batching.json", "examples/v1_3/pp_mixed_cache_swap.json",
                          "docs/mixed-batching.md",
+                         "docs/multi-replica.md", "examples/v1_4/round_robin.json",
+                         "examples/v1_4/replicas_pp_mixed_cache_swap.json",
                          "scripts/verify_distribution.py"):
             assert required in names, f"Source distribution missing {required}"
         assert not any(name.startswith(("sample-runs/", "work/")) for name in names)
@@ -147,6 +175,37 @@ def verify(dist: Path) -> dict:
         env.update(PIP_NO_INDEX="1", PIP_DISABLE_PIP_VERSION_CHECK="1")
         run([str(python), "-I", "-m", "pip", "install", "--no-deps", str(wheel)], outside, env)
         run([str(python), "-I", "-c", SMOKE_CODE], outside, env)
+        for example, completed in (("round_robin", 4), ("prefix_aware", 3),
+                                   ("replicas_pp_mixed_cache_swap", 10)):
+            source = Path(__file__).resolve().parents[1] / "examples" / "v1_4" / f"{example}.json"
+            config = outside / f"{example}.json"
+            config.write_bytes(source.read_bytes())
+            run([str(console), "simulate", "--experiment", str(config), "--out", example], outside, env)
+            replicated = json.loads((outside / example / "result.json").read_text())
+            assert replicated["counts"]["completed"] == completed
+            assert replicated["routing"]["assigned_requests"] == completed
+            assert len(replicated["replicas"]) == 2
+            if completed == 10:
+                assert replicated["batching"]["mixed_batches_completed"] == 4
+                assert replicated["prefix_cache"]["hit_tokens"] == 24
+                assert replicated["prefix_cache"]["attached_block_references"] == 0
+                assert replicated["swap"]["completed_transfers_by_direction"] == {"D2H": 2, "H2D": 2}
+                assert replicated["swap"]["host_reserved_bytes"] == 0
+        for mode, output in (("simulate", "cluster-profile-run"), ("predict", "cluster-profile-prediction")):
+            run([str(console), mode, "--experiment", "cluster-profile.json", "--out", output], outside, env)
+            report = json.loads((outside / output / "result.json").read_text())
+            manifest = json.loads((outside / output / "manifest.json").read_text())
+            assert report["calibration_source"] == "test_fixture_profile"
+            assert len(report["profile_provenance"]["replicas"]) == 2
+            assert len(manifest["replica_profiles"]) == 2
+            assert all((outside / output / item["snapshot_file"]).is_file()
+                       for item in manifest["replica_profiles"])
+            if mode == "simulate":
+                assert report["counts"]["completed"] == 2
+                assert report["latency_ms"]["ttft"]["p50"] == 2.5
+            else:
+                assert len(report["replica_predictions"]) == 2
+                assert report["replica_routing_applied"] is False
         for example, completed in (("mixed_batching", 2), ("pp_mixed_cache_swap", 5)):
             source = Path(__file__).resolve().parents[1] / "examples" / "v1_3" / f"{example}.json"
             config = outside / f"{example}.json"
@@ -217,6 +276,7 @@ def verify(dist: Path) -> dict:
             "installed_pipeline_and_swap": "passed",
             "installed_prefix_cache_and_chunking": "passed",
             "installed_mixed_batches_pipeline_cache_and_swap": "passed",
+            "installed_replica_routing_resources_and_profiles": "passed",
             "installed_calibration_comparison_holdout": "passed"}
 
 
