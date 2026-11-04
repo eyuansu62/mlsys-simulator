@@ -375,8 +375,11 @@ def _calibrate(args: argparse.Namespace, manifest: dict) -> dict:
     from .calibration import calibrate_dataset
     from .profiles import load_dataset, load_profile
 
-    _record_input(manifest, args.dataset)
     native = getattr(args, "native_pp_communication", False)
+    native_model = getattr(args, "native_pp_model", None)
+    if native_model is not None and not native:
+        raise SimulationError("INVALID_ARGUMENT", "--native-pp-model requires --native-pp-communication")
+    _record_input(manifest, args.dataset)
     workspace = getattr(args, "workspace", False)
     if workspace:
         from .workspace import calibrate_workspace, load_workspace_dataset
@@ -401,20 +404,26 @@ def _calibrate(args: argparse.Namespace, manifest: dict) -> dict:
             parent = load_profile(args.parent_profile, allow_test_fixture=args.allow_test_fixture)
     fit = (calibrate_workspace if workspace else calibrate_pp_communication if native
            else calibrate_communication if args.communication else calibrate_dataset)
+    options = ({"method": {"affine": "nonnegative_affine_ols_v1",
+                          "size-lookup": "piecewise_size_lookup_v1"}[native_model]}
+               if native_model is not None else {})
     profile = fit(dataset, profile_version=args.profile_version,
-                  parent_profile=parent, allow_test_fixture=args.allow_test_fixture)
+                  parent_profile=parent, allow_test_fixture=args.allow_test_fixture, **options)
     _write_json(args.out / "dataset.json", dataset)
     _write_json(args.out / "profile.json", profile)
     manifest.update(profile_version=profile["profile_version"], source=profile["source"],
                     dataset_sha256=profile["training"]["dataset_sha256"],
                     profile_sha256=hashlib.sha256((args.out / "profile.json").read_bytes()).hexdigest())
-    return {"status": "COMPLETED", "mode": "calibrate", "profile_id": profile["profile_id"],
+    result = {"status": "COMPLETED", "mode": "calibrate", "profile_id": profile["profile_id"],
             "profile_version": profile["profile_version"], "source": profile["source"],
             "training_record_count": len(profile["training"]["record_ids"]),
             "shape_count": len(profile.get("samples", [])),
             "communication_group_count": len(profile.get("groups", [])),
             "profile_kind": profile.get("kind", "step_profile"),
             "parent_profile_version": profile["training"]["parent_profile_version"]}
+    if native_model is not None:
+        result["profile_method"] = profile["method"]
+    return result
 
 
 def _validate(args: argparse.Namespace, manifest: dict) -> dict:
@@ -870,6 +879,8 @@ def _arguments(parser: argparse.ArgumentParser, mode: str) -> None:
             communication.add_argument("--communication", action="store_true")
             communication.add_argument("--native-pp-communication", action="store_true")
             communication.add_argument("--workspace", action="store_true")
+            parser.add_argument("--native-pp-model", choices=("affine", "size-lookup"),
+                                help="Native PP primitive fit (default: affine; requires --native-pp-communication)")
         else:
             profile = parser.add_mutually_exclusive_group()
             profile.add_argument("--profile", type=Path)

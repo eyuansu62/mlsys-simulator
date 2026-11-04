@@ -1,5 +1,33 @@
 # Changelog
 
+## 1.10.0 — 2026-11-04
+
+Small-message native PP calibration can retain nonmonotonic size regimes instead
+of forcing one global affine curve across a measured latency jump.
+
+### Added
+
+- Opt-in `--native-pp-model size-lookup` with per-placement arithmetic-mean
+  knots, all retained observations, recomputed dispersion/provenance and fixed
+  training-only guards for sparse coverage and latency jumps. Exact knots remain
+  usable; unsupported intervals and all outer extrapolation fail explicitly.
+- Independent holdout reports separate per-sample error from per-size observed
+  mean error, with full coverage/rejection counts, small-message results and
+  exact-versus-unseen size summaries.
+- Explicit `native_pp_primitives_v2` collection matching lazy world communicator
+  initialization. Protocol and selected transport/wait flags remain auditable;
+  parent calibration and holdout reject mixed measurement semantics.
+- TP/PP two-tensor charging, pre-admission failure and per-replica stage /
+  communication / Workspace Profile integration regressions with cache,
+  chunking, swap and mixed batches.
+
+### Compatibility
+
+- Affine fitting and benchmark v1 remain the defaults. Existing affine Profile
+  files and unconfigured analytical communication behavior retain their contract.
+- Sampling keeps real completion synchronization and correctness checks. It does
+  not subtract the small-message slow path or discard outliers.
+
 ## 1.9.1 — 2026-11-04
 
 ### Fixed

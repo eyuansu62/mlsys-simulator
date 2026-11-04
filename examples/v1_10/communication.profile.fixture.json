@@ -1,0 +1,418 @@
+{
+  "schema_version": 1,
+  "kind": "native_pp_communication_profile",
+  "method": "piecewise_size_lookup_v1",
+  "profile_id": "public-small-message-train:small-message-fixture-v1",
+  "profile_version": "small-message-fixture-v1",
+  "identity": {
+    "model": {
+      "name": "toy-dense-gqa",
+      "num_layers": 4,
+      "hidden_size": 128,
+      "intermediate_size": 512,
+      "num_attention_heads": 8,
+      "num_kv_heads": 2,
+      "head_dim": 16,
+      "vocab_size": 256,
+      "weight_bytes": 2.0,
+      "kv_bytes": 2.0,
+      "activation_bytes": 2.0,
+      "revision": "unspecified",
+      "weight_dtype": "auto",
+      "kv_dtype": "auto",
+      "activation_dtype": "float16"
+    },
+    "devices": [
+      {
+        "id": "fixture-rank-0",
+        "memory_bytes": 67108864,
+        "compute_tflops": 1.0,
+        "memory_bandwidth_gbps": 10.0,
+        "name": "public-cpu-fixture"
+      },
+      {
+        "id": "fixture-rank-1",
+        "memory_bytes": 67108864,
+        "compute_tflops": 1.0,
+        "memory_bandwidth_gbps": 10.0,
+        "name": "public-cpu-fixture"
+      }
+    ],
+    "parallelism": {
+      "tensor_parallel_size": 1,
+      "pipeline_parallel_size": 2,
+      "stage_layers": [
+        2,
+        2
+      ],
+      "shard_plan": "megatron_dense_no_sp",
+      "pipeline_transport": "vllm_native",
+      "pipeline_transport_max_tokens": 8
+    },
+    "topology": {
+      "name": "single-node-uncontended",
+      "link_bandwidth_gbps": 20.0,
+      "link_latency_us": 5.0
+    },
+    "runtime": {
+      "name": "public-fixture",
+      "version": "cpu-fixture-v1",
+      "driver_version": "unspecified",
+      "rocm_version": "unspecified",
+      "rccl_version": "unspecified",
+      "timing_boundary": "step_includes_output_and_sampling_v1"
+    },
+    "execution": {
+      "kv_block_tokens": 16,
+      "graph_bytes": 0,
+      "runtime_bytes": 1048576,
+      "communication_buffer_bytes": 0
+    }
+  },
+  "source": {
+    "kind": "test_fixture",
+    "reference": "Public CPU hand calculations only: size/mean ms = 128/.10, 256/.12, 512/.02, 1024/.04; five repetitions per training size. No GPU or network execution."
+  },
+  "benchmark": {
+    "protocol": "native_pp_primitives_v2",
+    "communicator_initialization": "lazy_world_and_pair_groups_v1",
+    "timing_boundary": "synchronized_host_primitive_completion_v1",
+    "p2p_direction": "unidirectional",
+    "allgather_bytes": "full_output",
+    "rank_reduction": "maximum_local_duration",
+    "barrier_in_timing": false,
+    "warmup_in_records": false,
+    "startup_in_timing": false,
+    "allocation_in_timing": false,
+    "buffer_policy": "preallocated_out_of_place",
+    "backend": "nccl",
+    "stack": {
+      "fixture": "Public CPU arithmetic; ROCm, PyTorch and RCCL are not loaded"
+    },
+    "launch": {
+      "fixture": true
+    }
+  },
+  "groups": [
+    {
+      "primitive": "p2p",
+      "stage_index": 1,
+      "tp_rank": 0,
+      "participants": [
+        0,
+        1
+      ],
+      "knots": [
+        {
+          "message_bytes": 128,
+          "duration_ms": 0.1,
+          "mean_ms": 0.1,
+          "median_ms": 0.1,
+          "min_ms": 0.098,
+          "max_ms": 0.10200000000000001,
+          "p10_ms": 0.0984,
+          "p90_ms": 0.1016,
+          "stddev_ms": 0.0014142135623730963,
+          "sample_count": 5,
+          "record_ids": [
+            "train-128-0",
+            "train-128-1",
+            "train-128-2",
+            "train-128-3",
+            "train-128-4"
+          ],
+          "group_ids": [
+            "train-128"
+          ],
+          "samples": [
+            {
+              "record_id": "train-128-0",
+              "group_id": "train-128",
+              "duration_ms": 0.098
+            },
+            {
+              "record_id": "train-128-1",
+              "group_id": "train-128",
+              "duration_ms": 0.099
+            },
+            {
+              "record_id": "train-128-2",
+              "group_id": "train-128",
+              "duration_ms": 0.1
+            },
+            {
+              "record_id": "train-128-3",
+              "group_id": "train-128",
+              "duration_ms": 0.101
+            },
+            {
+              "record_id": "train-128-4",
+              "group_id": "train-128",
+              "duration_ms": 0.10200000000000001
+            }
+          ]
+        },
+        {
+          "message_bytes": 256,
+          "duration_ms": 0.12,
+          "mean_ms": 0.12,
+          "median_ms": 0.12,
+          "min_ms": 0.118,
+          "max_ms": 0.122,
+          "p10_ms": 0.11839999999999999,
+          "p90_ms": 0.1216,
+          "stddev_ms": 0.0014142135623730963,
+          "sample_count": 5,
+          "record_ids": [
+            "train-256-0",
+            "train-256-1",
+            "train-256-2",
+            "train-256-3",
+            "train-256-4"
+          ],
+          "group_ids": [
+            "train-256"
+          ],
+          "samples": [
+            {
+              "record_id": "train-256-0",
+              "group_id": "train-256",
+              "duration_ms": 0.118
+            },
+            {
+              "record_id": "train-256-1",
+              "group_id": "train-256",
+              "duration_ms": 0.119
+            },
+            {
+              "record_id": "train-256-2",
+              "group_id": "train-256",
+              "duration_ms": 0.12
+            },
+            {
+              "record_id": "train-256-3",
+              "group_id": "train-256",
+              "duration_ms": 0.121
+            },
+            {
+              "record_id": "train-256-4",
+              "group_id": "train-256",
+              "duration_ms": 0.122
+            }
+          ]
+        },
+        {
+          "message_bytes": 512,
+          "duration_ms": 0.02,
+          "mean_ms": 0.02,
+          "median_ms": 0.02,
+          "min_ms": 0.018000000000000002,
+          "max_ms": 0.022,
+          "p10_ms": 0.0184,
+          "p90_ms": 0.0216,
+          "stddev_ms": 0.0014142135623730944,
+          "sample_count": 5,
+          "record_ids": [
+            "train-512-0",
+            "train-512-1",
+            "train-512-2",
+            "train-512-3",
+            "train-512-4"
+          ],
+          "group_ids": [
+            "train-512"
+          ],
+          "samples": [
+            {
+              "record_id": "train-512-0",
+              "group_id": "train-512",
+              "duration_ms": 0.018000000000000002
+            },
+            {
+              "record_id": "train-512-1",
+              "group_id": "train-512",
+              "duration_ms": 0.019
+            },
+            {
+              "record_id": "train-512-2",
+              "group_id": "train-512",
+              "duration_ms": 0.02
+            },
+            {
+              "record_id": "train-512-3",
+              "group_id": "train-512",
+              "duration_ms": 0.021
+            },
+            {
+              "record_id": "train-512-4",
+              "group_id": "train-512",
+              "duration_ms": 0.022
+            }
+          ]
+        },
+        {
+          "message_bytes": 1024,
+          "duration_ms": 0.04,
+          "mean_ms": 0.04,
+          "median_ms": 0.04,
+          "min_ms": 0.038,
+          "max_ms": 0.042,
+          "p10_ms": 0.0384,
+          "p90_ms": 0.0416,
+          "stddev_ms": 0.0014142135623730963,
+          "sample_count": 5,
+          "record_ids": [
+            "train-1024-0",
+            "train-1024-1",
+            "train-1024-2",
+            "train-1024-3",
+            "train-1024-4"
+          ],
+          "group_ids": [
+            "train-1024"
+          ],
+          "samples": [
+            {
+              "record_id": "train-1024-0",
+              "group_id": "train-1024",
+              "duration_ms": 0.038
+            },
+            {
+              "record_id": "train-1024-1",
+              "group_id": "train-1024",
+              "duration_ms": 0.039
+            },
+            {
+              "record_id": "train-1024-2",
+              "group_id": "train-1024",
+              "duration_ms": 0.04
+            },
+            {
+              "record_id": "train-1024-3",
+              "group_id": "train-1024",
+              "duration_ms": 0.041
+            },
+            {
+              "record_id": "train-1024-4",
+              "group_id": "train-1024",
+              "duration_ms": 0.042
+            }
+          ]
+        }
+      ],
+      "intervals": [
+        {
+          "left_bytes": 128,
+          "right_bytes": 256,
+          "supported": true,
+          "reason": null
+        },
+        {
+          "left_bytes": 256,
+          "right_bytes": 512,
+          "supported": false,
+          "reason": "downward_jump"
+        },
+        {
+          "left_bytes": 512,
+          "right_bytes": 1024,
+          "supported": true,
+          "reason": null
+        }
+      ],
+      "coverage": {
+        "message_bytes_min": 128,
+        "message_bytes_max": 1024,
+        "record_count": 20,
+        "distinct_message_sizes": 4
+      },
+      "mae_ms": 0.0012000000000000008,
+      "max_absolute_error_ms": 0.0020000000000000018,
+      "record_ids": [
+        "train-1024-0",
+        "train-1024-1",
+        "train-1024-2",
+        "train-1024-3",
+        "train-1024-4",
+        "train-128-0",
+        "train-128-1",
+        "train-128-2",
+        "train-128-3",
+        "train-128-4",
+        "train-256-0",
+        "train-256-1",
+        "train-256-2",
+        "train-256-3",
+        "train-256-4",
+        "train-512-0",
+        "train-512-1",
+        "train-512-2",
+        "train-512-3",
+        "train-512-4"
+      ],
+      "group_ids": [
+        "train-1024",
+        "train-128",
+        "train-256",
+        "train-512"
+      ]
+    }
+  ],
+  "training": {
+    "dataset_id": "public-small-message-train",
+    "dataset_sha256": "2f6add22d1cf12340cffcec5e9dec3ed7487a8b099c3df2488a5810687f4b3d3",
+    "record_ids": [
+      "train-1024-0",
+      "train-1024-1",
+      "train-1024-2",
+      "train-1024-3",
+      "train-1024-4",
+      "train-128-0",
+      "train-128-1",
+      "train-128-2",
+      "train-128-3",
+      "train-128-4",
+      "train-256-0",
+      "train-256-1",
+      "train-256-2",
+      "train-256-3",
+      "train-256-4",
+      "train-512-0",
+      "train-512-1",
+      "train-512-2",
+      "train-512-3",
+      "train-512-4"
+    ],
+    "group_ids": [
+      "train-1024",
+      "train-128",
+      "train-256",
+      "train-512"
+    ],
+    "parent_profile_version": null
+  },
+  "application": {
+    "explicit_native_boundary_only": true,
+    "no_local_stage_collectives": true,
+    "no_global_infra_patch": true,
+    "parent_parameters_reused": false
+  },
+  "limitations": [
+    "Fits describe preallocated standalone host dispatch and primitive device completion at the recorded placement.",
+    "They exclude vLLM metadata ingress, upstream waits, receiver output allocation and Runtime/framework contention.",
+    "AllGather message_bytes names the full logical output; P2P message_bytes names one unidirectional wire payload.",
+    "No Ring algorithm, symmetric/custom communicator or shared-fabric overlap equivalence is inferred.",
+    "Apply only to explicitly selected native PP boundaries, never to local whole-stage collectives or global InfraSpec.",
+    "Calibration and fixtures do not establish held-out AMD hardware validity.",
+    "Lookup predicts the arithmetic mean of all retained repetitions; slow samples are not trimmed.",
+    "Lookup interpolates in bytes only across adjacent knots passing fixed training-only size-gap and jump guards.",
+    "Exact knots remain usable across blocked intervals; lookup never extrapolates, even when affine extrapolation is enabled.",
+    "Knot p10/p90 use linear order-statistic interpolation and stddev_ms is the population standard deviation."
+  ],
+  "model_options": {
+    "min_samples_per_size": 5,
+    "max_size_ratio": 4.0,
+    "jump_ratio": 2.0,
+    "min_jump_ms": 0.05
+  }
+}

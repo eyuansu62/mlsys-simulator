@@ -1,12 +1,12 @@
-# V1.9.1 软件与限定真机验证记录
+# V1.10.0 软件与限定真机验证记录
 
 日期：2026-11-04  
 环境：Python 3.14.3，macOS，CPU 执行  
-版本：1.9.1
+版本：1.10.0
 
 ## 自动检查
 
-- `python3 -m unittest discover -s tests -v`：847 项 CPU 测试通过，新增真实 checkpoint tying、默认 RoPE 别名、跨 session 留出及加载后证明回归；保留完整 Workspace ledger/独立逐rank校准、三 Profile 联用、fresh Runtime 容量/OOM 区间与来源验证；保留独立 P2P/AllGather 微基准、同次运行校验、按位置校准/留出及验收来源绑定；保留原生 PP 自然接收、准备流、持久池容量、双张量/切片及 exact Profile 闭环；覆盖 Qwen3 几何/权重、vLLM 内部 Hook/聚合、ROCm/RCCL/Runtime 采集适配、显式硬件验收、参考包导入、多副本路由、混合 Prefill/Decode、Prefix Cache、Chunked Prefill、PP、CPU swap、资源引用、Profile、校准、Compare、留出与 CLI 闭环；含固定 seed 的有界生成负载。
+- `python3 -m unittest discover -s tests -v`：883 项 CPU 回归通过（沙箱跳过的两项 loopback HTTP 检查另行补跑通过），新增 36 项 lookup/v2/TP/PP/三 Profile 专项；保留真实 checkpoint tying、默认 RoPE 别名、跨 session 留出及加载后证明回归；保留完整 Workspace ledger/独立逐rank校准、三 Profile 联用、fresh Runtime 容量/OOM 区间与来源验证；保留独立 P2P/AllGather 微基准、同次运行校验、按位置校准/留出及验收来源绑定；保留原生 PP 自然接收、准备流、持久池容量、双张量/切片及 exact Profile 闭环；覆盖 Qwen3 几何/权重、vLLM 内部 Hook/聚合、ROCm/RCCL/Runtime 采集适配、显式硬件验收、参考包导入、多副本路由、混合 Prefill/Decode、Prefix Cache、Chunked Prefill、PP、CPU swap、资源引用、Profile、校准、Compare、留出与 CLI 闭环；含固定 seed 的有界生成负载。
 - Ruff 0.17.3：检查通过。
 - mypy 2.4.1：`mypy mlsys_sim`，36 个源文件检查通过。
 - `python3 -m compileall -q mlsys_sim tests scripts`：通过。
@@ -97,6 +97,10 @@ CPU 采集适配回归使用 fake backend、合成 RCCL 日志及本机 HTTP/SSE
 - 真实LLM fresh-runtime安全容量点16/64/128输入token全部成功，无删失/无OOM，报告UNBRACKETED。没有找到真实OOM阈值。实际manager容量0保持partial，不晋升完整Workspace。
 
 完整原始日志、软件/文件SHA和失败对照仅保存在独立验证目录，未纳入仓库/分发；共享模型保持只读，测试容器和自有进程已清理。密钥、主机地址与账号不进入源代码或报告分发。硬件预测的一般有效性仍未建立。
+
+## 1.10 小消息 P2P 真机复测
+
+同一对真实 GPU 完成四会话 19,080 条训练，模型冻结后另起会话采集 9,300 条独立留出，30 个未见尺寸加 4KB 独立重复，正确性错误为0。显式v2 lazy协议、Simple和blocking wait=0的同域对照中，逐尺寸均值MAPE由affine的100.3340%降至lookup的4.8772%，覆盖100%；逐次MAPE由120.0551%降至60.2526%，仍未达到预设15%目标。所有慢样本保留。4KB以下双峰波动仍在，结果只支持本pair/精度/环境的均值预测改善，不授予整体硬件PASS。训练拐点加密在留出前完成，完整时间与SHA证明保存在独立证据目录。详见[小消息独立留出记录](p2p-small-message-validation.md)。
 
 ## 当前限制
 

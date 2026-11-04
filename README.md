@@ -227,7 +227,10 @@ mlsys-sim simulate --experiment examples/v1_8/native-pp-serving.fixture.json \
 
 The example selects a hand-calculated communication Profile and synthetic stage
 times. See [native communication calibration](docs/native-pp-communication.md)
-for collection, fitting, independent holdout and fixture provenance.
+for collection, fitting, independent holdout and fixture provenance. Opt into
+`calibrate --native-pp-communication --native-pp-model size-lookup` for repeated
+size knots with conservative jump/gap guards; affine remains the default.
+Lookup validation reports sample error and per-size mean error separately.
 
 ## Attribute Workspace and validate capacity
 

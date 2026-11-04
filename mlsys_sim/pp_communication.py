@@ -20,6 +20,11 @@ from .schema import Experiment, SimulationError
 
 
 _METHOD = "nonnegative_affine_ols_v1"
+_LOOKUP_METHOD = "piecewise_size_lookup_v1"
+_MODEL_OPTIONS = {"min_samples_per_size": 5, "max_size_ratio": 4.0,
+                  "jump_ratio": 2.0, "min_jump_ms": 0.05}
+_PROTOCOL_V2 = "native_pp_primitives_v2"
+_COMMUNICATOR_INITIALIZATION = "lazy_world_and_pair_groups_v1"
 _DATASET = "native_pp_communication_measurements"
 _PROFILE = "native_pp_communication_profile"
 _MAX_BYTES = 32 * 1024 * 1024
@@ -125,8 +130,12 @@ def _identity(value: Any, source: dict, code: str) -> dict:
 
 
 def _benchmark(value: Any, identity: dict, source: dict, code: str) -> dict:
-    value = _object(value, set(_BENCHMARK) | {"stack", "launch"}, set(), "benchmark", code)
-    for name, expected in _BENCHMARK.items():
+    expected_fields = dict(_BENCHMARK)
+    if isinstance(value, dict) and value.get("protocol") == _PROTOCOL_V2:
+        expected_fields.update(protocol=_PROTOCOL_V2,
+                               communicator_initialization=_COMMUNICATOR_INITIALIZATION)
+    value = _object(value, set(expected_fields) | {"stack", "launch"}, set(), "benchmark", code)
+    for name, expected in expected_fields.items():
         actual = value[name]
         if type(actual) is not type(expected) or actual != expected:
             _fail(f"Unsupported benchmark.{name}", code)
@@ -149,6 +158,12 @@ def _benchmark(value: Any, identity: dict, source: dict, code: str) -> dict:
                 r"[0-9a-f]{64}", stack["communication_environment_sha256"]):
             _fail("Measured benchmark requires its communication-environment SHA256", code)
     return deepcopy(value)
+
+
+def _benchmark_semantics(value: dict) -> str:
+    # Launch paths/session IDs can change between independent measurements;
+    # protocol, policy, stack and communication environment must remain exact.
+    return _json({key: item for key, item in value.items() if key != "launch"}, "CALIBRATION_MISMATCH")
 
 
 def _placement(identity: dict, primitive: Any, stage_index: Any, tp_rank: Any, participants: Any,
@@ -283,14 +298,129 @@ def _strings(value: Any, label: str, code: str) -> list[str]:
     return values
 
 
+def _model_options(value: Any, code: str) -> dict:
+    value = _object(value, set(_MODEL_OPTIONS), set(), "model_options", code)
+    options: dict[str, int | float] = {"min_samples_per_size": _integer(value["min_samples_per_size"],
+                                                                     "min_samples_per_size", code, 1)}
+    for name in ("max_size_ratio", "jump_ratio", "min_jump_ms"):
+        options[name] = _number(value[name], name, code)
+    if options != _MODEL_OPTIONS:
+        _fail("Unsupported piecewise size lookup model options", code)
+    return dict(_MODEL_OPTIONS)
+
+
+def _lookup_statistics(samples: list[dict]) -> dict:
+    durations = sorted(sample["duration_ms"] for sample in samples)
+
+    def percentile(fraction: float) -> float:
+        position = (len(durations) - 1) * fraction
+        lower = int(position)
+        weight = position - lower
+        if weight == 0:
+            return durations[lower]
+        return (1 - weight) * durations[lower] + weight * durations[lower + 1]
+
+    mean = statistics.mean(durations)
+    return {"duration_ms": mean, "mean_ms": mean, "median_ms": percentile(0.5),
+        "min_ms": durations[0], "max_ms": durations[-1], "p10_ms": percentile(0.1),
+        "p90_ms": percentile(0.9), "stddev_ms": statistics.pstdev(durations),
+        "sample_count": len(samples)}
+
+
+def _lookup_interval(left: dict, right: dict) -> dict:
+    size_ratio = right["message_bytes"] / left["message_bytes"]
+    left_mean, right_mean = left["mean_ms"], right["mean_ms"]
+    reason = None
+    if size_ratio > _MODEL_OPTIONS["max_size_ratio"]:
+        reason = "size_gap"
+    elif abs(right_mean - left_mean) >= _MODEL_OPTIONS["min_jump_ms"]:
+        if left_mean / right_mean > _MODEL_OPTIONS["jump_ratio"]:
+            reason = "downward_jump"
+        elif right_mean / left_mean / size_ratio > _MODEL_OPTIONS["jump_ratio"]:
+            reason = "upward_jump"
+    return {"left_bytes": left["message_bytes"], "right_bytes": right["message_bytes"],
+            "supported": reason is None, "reason": reason}
+
+
+def _lookup_group(entry: dict, identity: dict, primitive: str, code: str) -> dict:
+    supplied = entry["knots"]
+    if not isinstance(supplied, list) or not 2 <= len(supplied) <= _MAX_RECORDS:
+        _fail("Lookup requires at least two bounded message-size knots", code)
+    knots = []
+    previous_size = 0
+    record_ids: set[str] = set()
+    group_ids: set[str] = set()
+    errors: list[float] = []
+    stat_fields = {"duration_ms", "mean_ms", "median_ms", "min_ms", "max_ms", "p10_ms", "p90_ms",
+                   "stddev_ms", "sample_count"}
+    for supplied_knot in supplied:
+        knot = _object(supplied_knot, stat_fields | {"message_bytes", "record_ids", "group_ids", "samples"},
+                       set(), "lookup knot", code)
+        size = _message_bytes(identity, primitive, knot["message_bytes"], code)
+        if size <= previous_size:
+            _fail("Lookup knots must have strictly increasing unique message sizes", code)
+        previous_size = size
+        raw_samples = knot["samples"]
+        if not isinstance(raw_samples, list) or not _MODEL_OPTIONS["min_samples_per_size"] <= len(raw_samples) <= _MAX_RECORDS:
+            _fail("Each lookup knot requires at least five retained samples", code)
+        samples = []
+        for item in raw_samples:
+            item = _object(item, {"record_id", "group_id", "duration_ms"}, set(), "lookup sample", code)
+            samples.append({"record_id": _text(item["record_id"], "sample.record_id", code),
+                "group_id": _text(item["group_id"], "sample.group_id", code),
+                "duration_ms": _number(item["duration_ms"], "sample.duration_ms", code)})
+        ids = _strings(knot["record_ids"], "knot.record_ids", code)
+        sample_ids = [sample["record_id"] for sample in samples]
+        current_groups = _strings(knot["group_ids"], "knot.group_ids", code)
+        if (len(set(sample_ids)) != len(samples) or set(sample_ids) != set(ids)
+                or record_ids.intersection(ids)
+                or {sample["group_id"] for sample in samples} != set(current_groups)):
+            _fail("Lookup knot sample provenance is inconsistent", code)
+        record_ids.update(ids)
+        group_ids.update(current_groups)
+        stats = _lookup_statistics(samples)
+        for name in stat_fields:
+            supplied_stat = (_integer(knot[name], name, code, 5) if name == "sample_count"
+                             else _number(knot[name], name, code, zero=name == "stddev_ms"))
+            if supplied_stat != stats[name]:
+                _fail(f"Lookup knot {name} differs from retained sample statistics", code)
+        errors.extend(abs(sample["duration_ms"] - stats["mean_ms"]) for sample in samples)
+        knots.append({"message_bytes": size, **stats, "record_ids": list(ids),
+                      "group_ids": list(current_groups), "samples": samples})
+    expected_intervals = [_lookup_interval(left, right) for left, right in zip(knots, knots[1:])]
+    if _json(entry["intervals"], code) != _json(expected_intervals, code):
+        _fail("Lookup intervals must exactly match the training-only gap and jump rules", code)
+    expected_coverage = {"message_bytes_min": knots[0]["message_bytes"],
+        "message_bytes_max": knots[-1]["message_bytes"], "record_count": len(record_ids),
+        "distinct_message_sizes": len(knots)}
+    if (_json(entry["coverage"], code) != _json(expected_coverage, code)
+            or set(_strings(entry["record_ids"], "group.record_ids", code)) != record_ids
+            or set(_strings(entry["group_ids"], "group.group_ids", code)) != group_ids):
+        _fail("Lookup group coverage must equal all knot sample provenance", code)
+    mae, maximum_error = statistics.mean(errors), max(errors)
+    if (_number(entry["mae_ms"], "mae_ms", code, zero=True) != mae
+            or _number(entry["max_absolute_error_ms"], "max_absolute_error_ms", code, zero=True) != maximum_error):
+        _fail("Lookup residuals differ from the complete retained observations", code)
+    return {"knots": knots, "intervals": expected_intervals, "coverage": expected_coverage,
+            "mae_ms": mae, "max_absolute_error_ms": maximum_error,
+            "record_ids": list(entry["record_ids"]), "group_ids": list(entry["group_ids"])}
+
+
 def validate_pp_communication_profile(data: dict, *, allow_test_fixture: bool = False) -> dict:
-    """Validate standalone affine parameters and complete training lineage."""
+    """Validate a standalone model, its supported domain and complete lineage."""
     code = "INVALID_PP_COMMUNICATION_PROFILE"
     value = _object(data, {"schema_version", "kind", "profile_id", "profile_version", "identity", "source",
-        "benchmark", "method", "groups", "training", "application", "limitations"}, set(), "native PP profile", code)
+        "benchmark", "method", "groups", "training", "application", "limitations"}, {"model_options"}, "native PP profile", code)
     if (type(value["schema_version"]) is not int or value["schema_version"] != 1
-            or value["kind"] != _PROFILE or value["method"] != _METHOD):
+            or value["kind"] != _PROFILE or value["method"] not in (_METHOD, _LOOKUP_METHOD)):
         _fail("Unsupported native PP communication profile schema or method", code)
+    method = value["method"]
+    if method == _LOOKUP_METHOD:
+        _model_options(value.get("model_options"), code)
+        if len(_json(value, code).encode()) > _MAX_BYTES:
+            _fail("Native PP communication Profile exceeds its bounded read limit", code)
+    elif "model_options" in value:
+        _fail("Affine native PP profiles do not accept lookup model_options", code)
     source = _source(value["source"], allow_test_fixture, code)
     identity = _identity(value["identity"], source, code)
     benchmark = _benchmark(value["benchmark"], identity, source, code)
@@ -320,6 +450,8 @@ def validate_pp_communication_profile(data: dict, *, allow_test_fixture: bool = 
     all_group_ids: set[str] = set()
     fields = {"primitive", "stage_index", "tp_rank", "participants", "intercept_ms", "slope_ms_per_byte",
         "intercept_clamped", "coverage", "mae_ms", "max_absolute_error_ms", "record_ids", "group_ids"}
+    if method == _LOOKUP_METHOD:
+        fields = fields - {"intercept_ms", "slope_ms_per_byte", "intercept_clamped"} | {"knots", "intervals"}
     for entry in supplied:
         entry = _object(entry, fields, set(), "native PP profile group", code)
         primitive, stage, rank, participants = _placement(identity, entry["primitive"], entry["stage_index"],
@@ -328,6 +460,15 @@ def validate_pp_communication_profile(data: dict, *, allow_test_fixture: bool = 
         if key in keys:
             _fail("Duplicate primitive/placement profile group", code)
         keys.add(key)
+        if method == _LOOKUP_METHOD:
+            lookup = _lookup_group(entry, identity, primitive, code)
+            if all_ids.intersection(lookup["record_ids"]):
+                _fail("Profile groups cannot share training records", code)
+            all_ids.update(lookup["record_ids"])
+            all_group_ids.update(lookup["group_ids"])
+            groups.append({"primitive": primitive, "stage_index": stage, "tp_rank": rank,
+                           "participants": participants, **lookup})
+            continue
         intercept = _number(entry["intercept_ms"], "intercept_ms", code, zero=True)
         slope = _number(entry["slope_ms_per_byte"], "slope_ms_per_byte", code)
         if type(entry["intercept_clamped"]) is not bool or entry["intercept_clamped"] and intercept != 0:
@@ -361,13 +502,20 @@ def validate_pp_communication_profile(data: dict, *, allow_test_fixture: bool = 
             "record_ids": list(ids), "group_ids": list(group_ids)})
     if all_ids != set(training_ids) or all_group_ids != set(training_groups):
         _fail("Training provenance must exactly equal all primitive/placement groups", code)
-    return {"schema_version": 1, "kind": _PROFILE, "method": _METHOD,
+    result = {"schema_version": 1, "kind": _PROFILE, "method": method,
         "profile_id": _text(value["profile_id"], "profile_id", code), "profile_version": version,
         "identity": identity, "source": source, "benchmark": benchmark, "groups": groups,
         "training": {"dataset_id": training["dataset_id"], "dataset_sha256": training["dataset_sha256"],
                      "record_ids": list(training_ids), "group_ids": list(training_groups),
                      "parent_profile_version": parent}, "application": dict(_APPLICATION),
         "limitations": _strings(value["limitations"], "limitations", code)}
+    if method == _LOOKUP_METHOD:
+        result["model_options"] = dict(_MODEL_OPTIONS)
+        # The CLI writes this canonical pretty representation. Refuse a model
+        # that its bounded loader could not read back, including repeated IDs.
+        if len((json.dumps(result, indent=2, sort_keys=True, allow_nan=False) + "\n").encode()) > _MAX_BYTES:
+            _fail("Serialized native PP communication Profile exceeds its bounded read limit", code)
+    return result
 
 
 def load_pp_communication_profile(path: str | Path, *, allow_test_fixture: bool = False) -> dict:
@@ -376,9 +524,45 @@ def load_pp_communication_profile(path: str | Path, *, allow_test_fixture: bool 
     return validate_pp_communication_profile(value, allow_test_fixture=allow_test_fixture)
 
 
+def _fit_lookup(rows: list[dict]) -> dict:
+    sizes: dict[int, list[dict]] = {}
+    for row in rows:
+        sizes.setdefault(row["message_bytes"], []).append(row)
+    if len(sizes) < 2:
+        _fail("Lookup calibration requires at least two distinct message sizes", "INVALID_COMMUNICATION_FIT")
+    knots = []
+    errors: list[float] = []
+    for size, observations in sorted(sizes.items()):
+        if len(observations) < _MODEL_OPTIONS["min_samples_per_size"]:
+            _fail("Lookup calibration requires at least five samples per message size", "INVALID_COMMUNICATION_FIT")
+        samples = [{"record_id": row["record_id"], "group_id": row["group_id"], "duration_ms": row["duration_ms"]}
+                   for row in sorted(observations, key=lambda row: row["record_id"])]
+        stats = _lookup_statistics(samples)
+        knots.append({"message_bytes": size, **stats, "samples": samples,
+                      "record_ids": [sample["record_id"] for sample in samples],
+                      "group_ids": sorted({sample["group_id"] for sample in samples})})
+        errors.extend(abs(sample["duration_ms"] - stats["mean_ms"]) for sample in samples)
+    first = rows[0]
+    return {"primitive": first["primitive"], "stage_index": first["stage_index"],
+        "tp_rank": first["tp_rank"], "participants": list(first["participants"]),
+        "knots": knots, "intervals": [_lookup_interval(left, right) for left, right in zip(knots, knots[1:])],
+        "coverage": {"message_bytes_min": knots[0]["message_bytes"], "message_bytes_max": knots[-1]["message_bytes"],
+                     "record_count": len(rows), "distinct_message_sizes": len(knots)},
+        "mae_ms": statistics.mean(errors), "max_absolute_error_ms": max(errors),
+        "record_ids": sorted(row["record_id"] for row in rows),
+        "group_ids": sorted({row["group_id"] for row in rows})}
+
+
 def calibrate_pp_communication(data: dict, *, profile_version: str, parent_profile: dict | None = None,
-                               allow_test_fixture: bool = False) -> dict:
-    """Fit one independent nonnegative affine operation per physical placement."""
+                               allow_test_fixture: bool = False, method: str = _METHOD) -> dict:
+    """Fit each placement independently; lookup targets the untrimmed arithmetic mean.
+
+    The opt-in lookup retains every sample, uses population standard deviation
+    and linear order-statistic quantiles, and refuses extrapolation and guarded
+    gaps. Its gap/jump policy is fixed before holdout evaluation.
+    """
+    if method not in (_METHOD, _LOOKUP_METHOD):
+        _fail("Unsupported native PP communication calibration method", "INVALID_CONFIG")
     dataset = validate_pp_communication_dataset(data, allow_test_fixture=allow_test_fixture)
     version = _text(profile_version, "profile_version", "INVALID_CONFIG")
     previous_version = None
@@ -387,8 +571,8 @@ def calibrate_pp_communication(data: dict, *, profile_version: str, parent_profi
         parent = validate_pp_communication_profile(parent_profile, allow_test_fixture=allow_test_fixture)
         if parent["identity"] != dataset["identity"]:
             _fail("Parent native PP profile identity differs", "CALIBRATION_MISMATCH")
-        if parent["benchmark"]["stack"] != dataset["benchmark"]["stack"]:
-            _fail("Parent native PP profile benchmark stack differs", "CALIBRATION_MISMATCH")
+        if _benchmark_semantics(parent["benchmark"]) != _benchmark_semantics(dataset["benchmark"]):
+            _fail("Parent native PP profile benchmark semantics differ", "CALIBRATION_MISMATCH")
         previous_version = parent["profile_version"]
         if previous_version == version:
             _fail("Native PP calibration requires a new profile version", "PROFILE_VERSION_CONFLICT")
@@ -399,6 +583,9 @@ def calibrate_pp_communication(data: dict, *, profile_version: str, parent_profi
         grouped.setdefault(_key(row["primitive"], row["stage_index"], row["tp_rank"], row["participants"]), []).append(row)
     fits = []
     for _, rows in sorted(grouped.items()):
+        if method == _LOOKUP_METHOD:
+            fits.append(_fit_lookup(rows))
+            continue
         # Reuse the stable normalized affine solver only. Its temporary p2p/ranks
         # fields select T=a+b*bytes; no P2P semantic metadata escapes this step.
         mathematical_rows = [{"record_id": row["record_id"], "group_id": row["group_id"],
@@ -418,13 +605,21 @@ def calibrate_pp_communication(data: dict, *, profile_version: str, parent_profi
     code = "INVALID_PP_COMMUNICATION_DATASET"
     result = {"schema_version": 1, "kind": _PROFILE, "profile_id": f"{dataset['dataset_id']}:{version}",
         "profile_version": version, "identity": deepcopy(dataset["identity"]), "source": source,
-        "benchmark": deepcopy(dataset["benchmark"]), "method": _METHOD, "groups": fits,
+        "benchmark": deepcopy(dataset["benchmark"]), "method": method, "groups": fits,
         "training": {"dataset_id": dataset["dataset_id"],
             "dataset_sha256": hashlib.sha256(_json(data, code).encode()).hexdigest(),
             "record_ids": sorted(row["record_id"] for row in dataset["records"]),
             "group_ids": sorted({row["group_id"] for row in dataset["records"]}),
             "parent_profile_version": previous_version}, "application": dict(_APPLICATION),
         "limitations": list(_LIMITATIONS)}
+    if method == _LOOKUP_METHOD:
+        result["model_options"] = dict(_MODEL_OPTIONS)
+        result["limitations"].extend([
+            "Lookup predicts the arithmetic mean of all retained repetitions; slow samples are not trimmed.",
+            "Lookup interpolates in bytes only across adjacent knots passing fixed training-only size-gap and jump guards.",
+            "Exact knots remain usable across blocked intervals; lookup never extrapolates, even when affine extrapolation is enabled.",
+            "Knot p10/p90 use linear order-statistic interpolation and stddev_ms is the population standard deviation.",
+        ])
     return validate_pp_communication_profile(result, allow_test_fixture=allow_test_fixture)
 
 
@@ -451,12 +646,37 @@ def _estimate(profile: dict, primitive: str, message_bytes: int, stage_index: in
     group = candidates[0]
     coverage = group["coverage"]
     outside = not coverage["message_bytes_min"] <= size <= coverage["message_bytes_max"]
+    source = ("measured_native_pp_communication_profile" if profile["source"]["kind"] == "measured"
+              else "test_fixture_native_pp_communication_profile")
+    if profile["method"] == _LOOKUP_METHOD:
+        if outside:
+            _fail("Piecewise size lookup never extrapolates outside its observed knots", code)
+        exact = next((knot for knot in group["knots"] if knot["message_bytes"] == size), None)
+        interval = None
+        if exact is not None:
+            contributors = [exact]
+            duration = exact["mean_ms"]
+        else:
+            edges = [(left, right, edge) for left, right, edge in
+                     zip(group["knots"], group["knots"][1:], group["intervals"])
+                     if left["message_bytes"] < size < right["message_bytes"]]
+            left, right, interval = edges[0]
+            if not interval["supported"]:
+                _fail(f"Piecewise size lookup refuses the training {interval['reason']} interval", code)
+            weight = (size - left["message_bytes"]) / (right["message_bytes"] - left["message_bytes"])
+            duration = (1 - weight) * left["mean_ms"] + weight * right["mean_ms"]
+            contributors = [left, right]
+        return {"duration_ms": _number(duration, "primitive prediction", "INVALID_COMMUNICATION_FIT"),
+            "source": source, "extrapolated": False, "primitive": primitive, "stage_index": stage,
+            "tp_rank": rank, "participants": participants, "message_bytes": size, "coverage": deepcopy(coverage),
+            "model_method": _LOOKUP_METHOD, "exact": exact is not None,
+            "interpolation": "exact" if exact is not None else "linear_bytes", "interval": deepcopy(interval),
+            "contributors": [{name: knot[name] for name in ("message_bytes", "mean_ms", "sample_count")}
+                             for knot in contributors]}
     if outside and not allow_extrapolation:
         _fail("Message size is outside the calibrated native PP primitive domain", code)
     duration = _number(group["intercept_ms"] + group["slope_ms_per_byte"] * size,
                        "primitive prediction", "INVALID_COMMUNICATION_FIT")
-    source = ("measured_native_pp_communication_profile" if profile["source"]["kind"] == "measured"
-              else "test_fixture_native_pp_communication_profile")
     return {"duration_ms": duration, "source": source, "extrapolated": outside,
         "primitive": primitive, "stage_index": stage, "tp_rank": rank,
         "participants": participants, "message_bytes": size, "coverage": deepcopy(coverage),
@@ -509,6 +729,48 @@ class PPCommunicationModel:
         return result
 
 
+def _validation_summary(rows: list[dict]) -> dict:
+    evaluated = [row for row in rows if row["status"] == "EVALUATED"]
+    errors = [row["absolute_error_ms"] for row in evaluated]
+    relatives = [row["relative_error"] for row in evaluated if row["relative_error"] is not None]
+    return {"coverage": {"total_records": len(rows), "evaluated_records": len(evaluated),
+                         "rejected_records": len(rows) - len(evaluated),
+                         "fraction": len(evaluated) / len(rows) if rows else None},
+            "metrics": {"mae_ms": statistics.mean(errors) if errors else None,
+                        "max_absolute_error_ms": max(errors) if errors else None,
+                        "mape": statistics.mean(relatives) if relatives and len(relatives) == len(errors) else None}}
+
+
+def _validation_sizes(rows: list[dict]) -> list[dict]:
+    groups: dict[tuple, list[dict]] = {}
+    for row in rows:
+        groups.setdefault((row["primitive"], row["stage_index"], row["tp_rank"], row["message_bytes"]), []).append(row)
+    summaries = []
+    for (primitive, stage, rank, size), observations in sorted(groups.items()):
+        summary = _validation_summary(observations)
+        observed = statistics.mean(row["observed_ms"] for row in observations)
+        predicted = (statistics.mean(row["predicted_ms"] for row in observations)
+                     if summary["coverage"]["rejected_records"] == 0 else None)
+        absolute = abs(predicted - observed) if predicted is not None else None
+        relative = absolute / observed if absolute is not None else None
+        summaries.append({"primitive": primitive, "stage_index": stage, "tp_rank": rank, "message_bytes": size,
+            "training_size_relation": observations[0]["training_size_relation"], **summary,
+            "observed_mean_ms": observed, "predicted_mean_ms": predicted,
+            "mean_target_absolute_error_ms": absolute,
+            "mean_target_relative_error": relative if relative is not None and math.isfinite(relative) else None,
+            "sample_mape": summary["metrics"]["mape"]})
+    return summaries
+
+
+def _mean_target_summary(sizes: list[dict]) -> dict:
+    evaluated = [row for row in sizes if row["mean_target_absolute_error_ms"] is not None]
+    relatives = [row["mean_target_relative_error"] for row in evaluated if row["mean_target_relative_error"] is not None]
+    return {"total_sizes": len(sizes), "evaluated_sizes": len(evaluated),
+        "rejected_sizes": len(sizes) - len(evaluated),
+        "mae_ms": statistics.mean(row["mean_target_absolute_error_ms"] for row in evaluated) if evaluated else None,
+        "mape": statistics.mean(relatives) if relatives and len(relatives) == len(evaluated) else None}
+
+
 def validate_pp_communication_holdout(profile: dict, dataset: dict, *, allow_test_fixture: bool = False,
                                       allow_extrapolation: bool = False) -> dict:
     """Evaluate separate primitive observations without granting hardware PASS."""
@@ -518,13 +780,16 @@ def validate_pp_communication_holdout(profile: dict, dataset: dict, *, allow_tes
     data = validate_pp_communication_dataset(dataset, allow_test_fixture=allow_test_fixture)
     if current["identity"] != data["identity"]:
         _fail("Native PP holdout identity differs from training", "CALIBRATION_MISMATCH")
-    if current["benchmark"]["stack"] != data["benchmark"]["stack"]:
-        _fail("Native PP holdout benchmark stack differs from training", "CALIBRATION_MISMATCH")
+    if _benchmark_semantics(current["benchmark"]) != _benchmark_semantics(data["benchmark"]):
+        _fail("Native PP holdout benchmark semantics differ from training", "CALIBRATION_MISMATCH")
     leaked_ids = set(current["training"]["record_ids"]) & {row["record_id"] for row in data["records"]}
     leaked_groups = set(current["training"]["group_ids"]) & {row["group_id"] for row in data["records"]}
     if leaked_ids or leaked_groups:
         _fail("Native PP holdout shares training record_id or group_id", "CALIBRATION_LEAKAGE")
     fixture = current["source"]["kind"] == "test_fixture" or data["source"]["kind"] == "test_fixture"
+    training_sizes = {_key(group["primitive"], group["stage_index"], group["tp_rank"], group["participants"]):
+                      {knot["message_bytes"] for knot in group["knots"]}
+                      for group in current["groups"] if "knots" in group}
     rows = []
     errors = []
     relatives = []
@@ -532,6 +797,8 @@ def validate_pp_communication_holdout(profile: dict, dataset: dict, *, allow_tes
         result = {"record_id": row["record_id"], "group_id": row["group_id"], "primitive": row["primitive"],
             "stage_index": row["stage_index"], "tp_rank": row["tp_rank"], "message_bytes": row["message_bytes"],
             "observed_ms": row["duration_ms"]}
+        sizes = training_sizes.get(_key(row["primitive"], row["stage_index"], row["tp_rank"], row["participants"]))
+        result["training_size_relation"] = ("exact" if row["message_bytes"] in sizes else "unseen") if sizes is not None else "unknown"
         try:
             estimate = _estimate(current, row["primitive"], row["message_bytes"], row["stage_index"],
                                  row["tp_rank"], allow_extrapolation=allow_extrapolation)
@@ -548,8 +815,14 @@ def validate_pp_communication_holdout(profile: dict, dataset: dict, *, allow_tes
             result.update(status="EVALUATED", predicted_ms=estimate["duration_ms"], absolute_error_ms=absolute,
                           relative_error=relative if math.isfinite(relative) else None,
                           extrapolated=estimate["extrapolated"])
+            if current["method"] == _LOOKUP_METHOD:
+                result.update(model_method=estimate["model_method"], exact=estimate["exact"],
+                              interpolation=estimate["interpolation"], contributors=estimate["contributors"])
         rows.append(result)
     relative_values = [value for value in relatives if value is not None]
+    by_size = _validation_sizes(rows)
+    small_rows = [row for row in rows if row["message_bytes"] <= 65536]
+    small_sizes = [row for row in by_size if row["message_bytes"] <= 65536]
     return {"schema_version": 1, "kind": "native_pp_communication_validation", "status": "COMPLETED",
         "profile_id": current["profile_id"], "profile_version": current["profile_version"],
         "dataset_id": data["dataset_id"], "source": {"kind": "test_fixture" if fixture else "measured",
@@ -559,6 +832,15 @@ def validate_pp_communication_holdout(profile: dict, dataset: dict, *, allow_tes
         "metrics": {"mae_ms": statistics.mean(errors) if errors else None,
             "max_absolute_error_ms": max(errors) if errors else None,
             "mape": statistics.mean(relative_values) if relative_values and len(relative_values) == len(errors) else None},
+        "model_method": current["method"], "by_message_size": by_size,
+        "mean_target_metrics": _mean_target_summary(by_size),
+        "exact_vs_unseen": {"classification_basis": "retained_lookup_knots" if training_sizes else "unavailable_for_legacy_affine",
+            **{name: _validation_summary([row for row in rows if row["training_size_relation"] == name])
+               for name in ("exact", "unseen", "unknown")}},
+        "small_messages": {"threshold_bytes": 65536, **_validation_summary(small_rows),
+                           "mean_target_metrics": _mean_target_summary(small_sizes)},
         "records": rows, "hardware_validated": False,
         "notes": {"record_and_group_leakage_rejected": True, "training_parameters_refit": False,
-                  "rate_or_runtime_accuracy_inferred": False}}
+                  "rate_or_runtime_accuracy_inferred": False,
+                  "mean_target_requires_complete_size_coverage": True,
+                  "rejected_records_are_not_zero_error": True}}

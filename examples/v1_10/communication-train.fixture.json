@@ -1,0 +1,116 @@
+{
+  "schema_version": 1,
+  "kind": "native_pp_communication_measurements",
+  "dataset_id": "public-small-message-train",
+  "identity": {
+    "model": {
+      "name": "toy-dense-gqa",
+      "num_layers": 4,
+      "hidden_size": 128,
+      "intermediate_size": 512,
+      "num_attention_heads": 8,
+      "num_kv_heads": 2,
+      "head_dim": 16,
+      "vocab_size": 256,
+      "weight_bytes": 2.0,
+      "kv_bytes": 2.0,
+      "activation_bytes": 2.0,
+      "revision": "unspecified",
+      "weight_dtype": "auto",
+      "kv_dtype": "auto",
+      "activation_dtype": "float16"
+    },
+    "devices": [
+      {
+        "id": "fixture-rank-0",
+        "memory_bytes": 67108864,
+        "compute_tflops": 1.0,
+        "memory_bandwidth_gbps": 10.0,
+        "name": "public-cpu-fixture"
+      },
+      {
+        "id": "fixture-rank-1",
+        "memory_bytes": 67108864,
+        "compute_tflops": 1.0,
+        "memory_bandwidth_gbps": 10.0,
+        "name": "public-cpu-fixture"
+      }
+    ],
+    "parallelism": {
+      "tensor_parallel_size": 1,
+      "pipeline_parallel_size": 2,
+      "stage_layers": [
+        2,
+        2
+      ],
+      "shard_plan": "megatron_dense_no_sp",
+      "pipeline_transport": "vllm_native",
+      "pipeline_transport_max_tokens": 8
+    },
+    "topology": {
+      "name": "single-node-uncontended",
+      "link_bandwidth_gbps": 20.0,
+      "link_latency_us": 5.0
+    },
+    "runtime": {
+      "name": "public-fixture",
+      "version": "cpu-fixture-v1",
+      "driver_version": "unspecified",
+      "rocm_version": "unspecified",
+      "rccl_version": "unspecified",
+      "timing_boundary": "step_includes_output_and_sampling_v1"
+    },
+    "execution": {
+      "kv_block_tokens": 16,
+      "graph_bytes": 0,
+      "runtime_bytes": 1048576,
+      "communication_buffer_bytes": 0
+    }
+  },
+  "source": {
+    "kind": "test_fixture",
+    "reference": "Public CPU hand calculations only: size/mean ms = 128/.10, 256/.12, 512/.02, 1024/.04; five repetitions per training size. No GPU or network execution."
+  },
+  "benchmark": {
+    "protocol": "native_pp_primitives_v2",
+    "communicator_initialization": "lazy_world_and_pair_groups_v1",
+    "timing_boundary": "synchronized_host_primitive_completion_v1",
+    "p2p_direction": "unidirectional",
+    "allgather_bytes": "full_output",
+    "rank_reduction": "maximum_local_duration",
+    "barrier_in_timing": false,
+    "warmup_in_records": false,
+    "startup_in_timing": false,
+    "allocation_in_timing": false,
+    "buffer_policy": "preallocated_out_of_place",
+    "backend": "nccl",
+    "stack": {
+      "fixture": "Public CPU arithmetic; ROCm, PyTorch and RCCL are not loaded"
+    },
+    "launch": {
+      "fixture": true
+    }
+  },
+  "records": [
+    {"record_id":"train-128-0","group_id":"train-128","primitive":"p2p","stage_index":1,"tp_rank":0,"participants":[0,1],"message_bytes":128,"duration_ms":0.098,"rank_durations_ms":[{"rank":0,"duration_ms":0.098},{"rank":1,"duration_ms":0.098}],"correctness_errors":0},
+    {"record_id":"train-128-1","group_id":"train-128","primitive":"p2p","stage_index":1,"tp_rank":0,"participants":[0,1],"message_bytes":128,"duration_ms":0.099,"rank_durations_ms":[{"rank":0,"duration_ms":0.099},{"rank":1,"duration_ms":0.099}],"correctness_errors":0},
+    {"record_id":"train-128-2","group_id":"train-128","primitive":"p2p","stage_index":1,"tp_rank":0,"participants":[0,1],"message_bytes":128,"duration_ms":0.1,"rank_durations_ms":[{"rank":0,"duration_ms":0.1},{"rank":1,"duration_ms":0.1}],"correctness_errors":0},
+    {"record_id":"train-128-3","group_id":"train-128","primitive":"p2p","stage_index":1,"tp_rank":0,"participants":[0,1],"message_bytes":128,"duration_ms":0.101,"rank_durations_ms":[{"rank":0,"duration_ms":0.101},{"rank":1,"duration_ms":0.101}],"correctness_errors":0},
+    {"record_id":"train-128-4","group_id":"train-128","primitive":"p2p","stage_index":1,"tp_rank":0,"participants":[0,1],"message_bytes":128,"duration_ms":0.10200000000000001,"rank_durations_ms":[{"rank":0,"duration_ms":0.10200000000000001},{"rank":1,"duration_ms":0.10200000000000001}],"correctness_errors":0},
+    {"record_id":"train-256-0","group_id":"train-256","primitive":"p2p","stage_index":1,"tp_rank":0,"participants":[0,1],"message_bytes":256,"duration_ms":0.118,"rank_durations_ms":[{"rank":0,"duration_ms":0.118},{"rank":1,"duration_ms":0.118}],"correctness_errors":0},
+    {"record_id":"train-256-1","group_id":"train-256","primitive":"p2p","stage_index":1,"tp_rank":0,"participants":[0,1],"message_bytes":256,"duration_ms":0.119,"rank_durations_ms":[{"rank":0,"duration_ms":0.119},{"rank":1,"duration_ms":0.119}],"correctness_errors":0},
+    {"record_id":"train-256-2","group_id":"train-256","primitive":"p2p","stage_index":1,"tp_rank":0,"participants":[0,1],"message_bytes":256,"duration_ms":0.12,"rank_durations_ms":[{"rank":0,"duration_ms":0.12},{"rank":1,"duration_ms":0.12}],"correctness_errors":0},
+    {"record_id":"train-256-3","group_id":"train-256","primitive":"p2p","stage_index":1,"tp_rank":0,"participants":[0,1],"message_bytes":256,"duration_ms":0.121,"rank_durations_ms":[{"rank":0,"duration_ms":0.121},{"rank":1,"duration_ms":0.121}],"correctness_errors":0},
+    {"record_id":"train-256-4","group_id":"train-256","primitive":"p2p","stage_index":1,"tp_rank":0,"participants":[0,1],"message_bytes":256,"duration_ms":0.122,"rank_durations_ms":[{"rank":0,"duration_ms":0.122},{"rank":1,"duration_ms":0.122}],"correctness_errors":0},
+    {"record_id":"train-512-0","group_id":"train-512","primitive":"p2p","stage_index":1,"tp_rank":0,"participants":[0,1],"message_bytes":512,"duration_ms":0.018000000000000002,"rank_durations_ms":[{"rank":0,"duration_ms":0.018000000000000002},{"rank":1,"duration_ms":0.018000000000000002}],"correctness_errors":0},
+    {"record_id":"train-512-1","group_id":"train-512","primitive":"p2p","stage_index":1,"tp_rank":0,"participants":[0,1],"message_bytes":512,"duration_ms":0.019,"rank_durations_ms":[{"rank":0,"duration_ms":0.019},{"rank":1,"duration_ms":0.019}],"correctness_errors":0},
+    {"record_id":"train-512-2","group_id":"train-512","primitive":"p2p","stage_index":1,"tp_rank":0,"participants":[0,1],"message_bytes":512,"duration_ms":0.02,"rank_durations_ms":[{"rank":0,"duration_ms":0.02},{"rank":1,"duration_ms":0.02}],"correctness_errors":0},
+    {"record_id":"train-512-3","group_id":"train-512","primitive":"p2p","stage_index":1,"tp_rank":0,"participants":[0,1],"message_bytes":512,"duration_ms":0.021,"rank_durations_ms":[{"rank":0,"duration_ms":0.021},{"rank":1,"duration_ms":0.021}],"correctness_errors":0},
+    {"record_id":"train-512-4","group_id":"train-512","primitive":"p2p","stage_index":1,"tp_rank":0,"participants":[0,1],"message_bytes":512,"duration_ms":0.022,"rank_durations_ms":[{"rank":0,"duration_ms":0.022},{"rank":1,"duration_ms":0.022}],"correctness_errors":0},
+    {"record_id":"train-1024-0","group_id":"train-1024","primitive":"p2p","stage_index":1,"tp_rank":0,"participants":[0,1],"message_bytes":1024,"duration_ms":0.038,"rank_durations_ms":[{"rank":0,"duration_ms":0.038},{"rank":1,"duration_ms":0.038}],"correctness_errors":0},
+    {"record_id":"train-1024-1","group_id":"train-1024","primitive":"p2p","stage_index":1,"tp_rank":0,"participants":[0,1],"message_bytes":1024,"duration_ms":0.039,"rank_durations_ms":[{"rank":0,"duration_ms":0.039},{"rank":1,"duration_ms":0.039}],"correctness_errors":0},
+    {"record_id":"train-1024-2","group_id":"train-1024","primitive":"p2p","stage_index":1,"tp_rank":0,"participants":[0,1],"message_bytes":1024,"duration_ms":0.04,"rank_durations_ms":[{"rank":0,"duration_ms":0.04},{"rank":1,"duration_ms":0.04}],"correctness_errors":0},
+    {"record_id":"train-1024-3","group_id":"train-1024","primitive":"p2p","stage_index":1,"tp_rank":0,"participants":[0,1],"message_bytes":1024,"duration_ms":0.041,"rank_durations_ms":[{"rank":0,"duration_ms":0.041},{"rank":1,"duration_ms":0.041}],"correctness_errors":0},
+    {"record_id":"train-1024-4","group_id":"train-1024","primitive":"p2p","stage_index":1,"tp_rank":0,"participants":[0,1],"message_bytes":1024,"duration_ms":0.042,"rank_durations_ms":[{"rank":0,"duration_ms":0.042},{"rank":1,"duration_ms":0.042}],"correctness_errors":0}
+  ]
+}

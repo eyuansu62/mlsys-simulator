@@ -533,6 +533,28 @@ dataset contract, and `validate --native-pp-communication --profile ...` checks
 an existing Profile against an independent dataset. The validation command
 does not fit a new Profile or automatically split its input.
 
+Calibration accepts `--native-pp-model {affine,size-lookup}` only together with
+`--native-pp-communication`. The default remains `affine`, preserving existing
+v1 datasets and Profiles. For example:
+
+```bash
+mlsys-sim calibrate --native-pp-communication --native-pp-model size-lookup \
+  --dataset runs/native-communication/dataset.json \
+  --profile-version native-lookup-v1 --out runs/native-lookup-fit
+```
+
+Collection defaults to `native_pp_primitives_v1`. A plan can explicitly select
+`"protocol": "native_pp_primitives_v2"` to omit world `device_id` initialization
+and use lazy world/pair-group creation. V2 records the fixed
+`communicator_initialization="lazy_world_and_pair_groups_v1"` and a launch
+contract with `world_init_device_id=false`; these describe the initialization
+API, not an observed RCCL algorithm. The timer, real P2P warmup and correctness
+checks stay the same. Selected inherited flags, including BLOCKING_WAIT aliases
+and `NCCL_P2P_DISABLE`, are recorded alongside the full communication-environment
+SHA256. The collector does not select BLOCKING_WAIT automatically. Keep v1 and
+v2 captures, parent lineage and final holdout in separate matching domains;
+raw v2 imports require the matching envelope, rank protocols and launch contract.
+
 The optional `CalibrationSpec` fields are
 `native_pp_communication_profile_path`,
 `replica_native_pp_communication_profile_paths`,
@@ -556,12 +578,40 @@ from mlsys_sim.pp_communication import (
 ```
 
 Dataset/Profile loaders validate source and schema, returning dictionaries.
-`calibrate_pp_communication(dataset, profile_version=...)` fits a new immutable
-Profile; `validate_pp_communication_holdout(profile, dataset)` evaluates an
-existing one. Fixture inputs require `allow_test_fixture=True`. The collector's
+`calibrate_pp_communication(dataset, profile_version=..., method=...)` fits a new
+immutable Profile. Its default `method="nonnegative_affine_ols_v1"` retains the
+affine model; `method="piecewise_size_lookup_v1"` explicitly selects a lookup.
+The lookup requires at least two sizes with five samples per size at each
+primitive placement. Knots retain every sample and predict their arithmetic
+mean, alongside counts, quantiles and population standard deviation. Slow
+samples remain in both the Profile and error calculations.
+
+Lookup interpolates linearly in bytes only between adjacent training knots
+passing fixed guards: at most a 4× size gap, and no qualifying latency jump
+of at least 0.05 ms with a ratio over 2× (an upward ratio is adjusted for byte
+growth). Exact knots remain usable beside blocked intervals. Internal holes and
+all extrapolation fail with `OUT_OF_COMMUNICATION_CALIBRATION_DOMAIN`, even if
+`native_pp_communication_allow_extrapolation=True`; that option continues to
+apply to affine Profiles. The [communication contract](native-pp-communication.md#choose-an-explicit-size-lookup-for-discontinuous-service)
+defines the exact guard formulas. Method and acquisition protocol are separate
+explicit choices.
+
+`validate_pp_communication_holdout(profile, dataset)` evaluates the frozen
+Profile against fresh observations without refitting. Protocol/initialization,
+identity, stack/environment and record/group leakage checks remain required.
+Reports retain sample errors, `by_message_size` mean errors,
+`mean_target_metrics`, exact/unseen size summaries and small-message coverage.
+Rejected rows retain a reason and null error; they reduce coverage rather than
+becoming zero-error predictions. A size's mean error requires complete coverage
+at that size. Freeze the model and guards before the final independent holdout;
+new training coverage needs a new version and final holdout.
+
+Fixture inputs require `allow_test_fixture=True`. The collector's
 optional `runner` injection is a test interface and cannot promote CPU results
 to measured evidence. `PPCommunicationModel` loads the selected local Profile
-and exposes placement/size estimates with provenance.
+and exposes placement/size estimates with provenance. Lookup estimates also
+identify exact/interpolated results and their contributing knots. These APIs do
+not infer a hardware cause for latency transitions or establish serving accuracy.
 
 ## Workspace and memory-capacity workflows
 

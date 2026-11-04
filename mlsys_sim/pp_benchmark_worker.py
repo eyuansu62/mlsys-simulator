@@ -132,7 +132,7 @@ def run_worker(config: dict, *, torch_module: Any = None, clock_ns: Callable[[],
     source = {"kind": "test_fixture" if fixture else "measured",
               "reference": plan["source_reference"]}
     capture: dict[str, Any] = {"schema_version": 1, "kind": "native_pp_primitive_rank_capture",
-        "protocol": PROTOCOL, "session_id": session, "rank": rank, "world_size": world,
+        "protocol": plan.get("protocol", PROTOCOL), "session_id": session, "rank": rank, "world_size": world,
         "identity": profile_identity(experiment),
         "source": source, "status": "INCOMPLETE", "stack": {}, "device": {},
         "launch": worker_launch_contract(experiment, plan), "records": []}
@@ -162,8 +162,13 @@ def run_worker(config: dict, *, torch_module: Any = None, clock_ns: Callable[[],
             raise SimulationError("INVALID_COLLECTION_PLAN", "Primitive worker needs a new distributed group")
         timeout = timedelta(seconds=max(1.0, min(plan["timeout_s"], 120.0)))
         rendezvous = Path(value["rendezvous"]).resolve()
-        dist.init_process_group(backend="nccl", init_method=rendezvous.as_uri(), rank=rank,
-                                world_size=world, timeout=timeout, device_id=device)
+        world_options: dict[str, Any] = {"backend": "nccl", "init_method": rendezvous.as_uri(), "rank": rank,
+                                         "world_size": world, "timeout": timeout}
+        if plan.get("protocol", PROTOCOL) == PROTOCOL:
+            world_options["device_id"] = device
+        # v2 follows native vLLM's lazy world/group creation API. This records
+        # the initialization request, not an observed RCCL algorithm choice.
+        dist.init_process_group(**world_options)
         initialized = True
         if dist.get_world_size() != world or str(dist.get_backend()) != "nccl":
             raise SimulationError("HARDWARE_IDENTITY_MISMATCH", "Actual distributed backend/layout differs")

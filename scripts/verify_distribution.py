@@ -205,7 +205,7 @@ def verify(dist: Path) -> dict:
         assert not any(name.startswith(("tests/", "sample-runs/", "work/")) for name in names)
         assert archive.testzip() is None
     with tarfile.open(sdists[0]) as archive:
-        names = {"/".join(member.name.split("/")[1:]) for member in archive.getmembers()}
+        source_names = {"/".join(member.name.split("/")[1:]) for member in archive.getmembers()}
         for required in ("pyproject.toml", "README.md", "README.zh-CN.md",
                          "examples/memory_pressure.json", "tests/test_public_api.py",
                          "examples/v1/step_measurements.fixture.json", "calibrate.py", "validate.py",
@@ -223,9 +223,14 @@ def verify(dist: Path) -> dict:
                          "examples/v1_8/primitive-capture.fixture.json",
                          "docs/workspace-and-capacity.md", "examples/v1_9/workspace-measurements.fixture.json",
                          "examples/v1_9/capacity-measurements.fixture.json",
+                         "examples/v1_10/native-pp-collect.fixture.json",
+                         "examples/v1_10/communication-train.fixture.json",
+                         "examples/v1_10/communication-holdout.fixture.json",
+                         "examples/v1_10/communication.profile.fixture.json",
+                         "examples/v1_10/collector.plan.live-template.json",
                          "scripts/verify_distribution.py"):
-            assert required in names, f"Source distribution missing {required}"
-        assert not any(name.startswith(("sample-runs/", "work/")) for name in names)
+            assert required in source_names, f"Source distribution missing {required}"
+        assert not any(name.startswith(("sample-runs/", "work/")) for name in source_names)
 
     with tempfile.TemporaryDirectory(prefix="mlsys-installed-") as temporary:
         outside = Path(temporary)
@@ -274,6 +279,34 @@ def verify(dist: Path) -> dict:
                 assert result["swap"]["completed_transfers_by_direction"] == {"D2H": 1, "H2D": 1}
             else:
                 assert result["communication"]["p2p_source"] == "test_fixture_native_pp_communication_profile"
+        small_message_inputs = outside / "v1_10"
+        small_message_inputs.mkdir()
+        for source in (Path(__file__).resolve().parents[1] / "examples/v1_10").glob("*.json"):
+            (small_message_inputs / source.name).write_bytes(source.read_bytes())
+        run([str(console), "calibrate", "--native-pp-communication", "--native-pp-model", "size-lookup",
+             "--dataset", str(small_message_inputs / "communication-train.fixture.json"),
+             "--profile-version", "installed-small-message-v1", "--allow-test-fixture",
+             "--out", "small-message-fit"], outside, env)
+        lookup = json.loads((outside / "small-message-fit/profile.json").read_text())
+        lookup_result = json.loads((outside / "small-message-fit/result.json").read_text())
+        checked_lookup = json.loads((small_message_inputs / "communication.profile.fixture.json").read_text())
+        assert lookup_result["profile_method"] == "piecewise_size_lookup_v1"
+        assert lookup_result["hardware_validated"] is False
+        assert lookup["source"]["kind"] == "test_fixture"
+        assert lookup["benchmark"]["protocol"] == "native_pp_primitives_v2"
+        assert lookup["groups"] == checked_lookup["groups"]
+        assert all(knot["sample_count"] == 5 for group in lookup["groups"] for knot in group["knots"])
+        assert [interval["supported"] for interval in lookup["groups"][0]["intervals"]] == [True, False, True]
+        run([str(console), "validate", "--native-pp-communication", "--profile", "small-message-fit/profile.json",
+             "--dataset", str(small_message_inputs / "communication-holdout.fixture.json"),
+             "--allow-test-fixture", "--out", "small-message-holdout"], outside, env)
+        lookup_holdout = json.loads((outside / "small-message-holdout/result.json").read_text())
+        assert lookup_holdout["hardware_validated"] is False
+        assert lookup_holdout["coverage"] == {"total_records": 3, "evaluated_records": 2,
+                                              "rejected_records": 1, "fraction": 2 / 3}
+        assert lookup_holdout["metrics"]["mae_ms"] < 1e-12
+        assert [row["status"] for row in lookup_holdout["records"]] == ["EVALUATED", "OUT_OF_DOMAIN", "EVALUATED"]
+        assert all(row["training_size_relation"] == "unseen" for row in lookup_holdout["records"])
         workspace_inputs = outside / "v1_9"
         workspace_inputs.mkdir()
         communication_inputs = outside / "v1_8"
@@ -421,16 +454,16 @@ def verify(dist: Path) -> dict:
         online = json.loads(run([str(console), "simulate", "--experiment", "pp.json",
                                 "--out", "pp-online"], outside, env))
         assert online["status"] == "COMPLETED"
-        for config, output in [("swap.json", "cpu-swap"), ("pp-swap.json", "pp-swap")]:
-            run([str(console), "simulate", "--experiment", config, "--out", output], outside, env)
+        for config_name, output in [("swap.json", "cpu-swap"), ("pp-swap.json", "pp-swap")]:
+            run([str(console), "simulate", "--experiment", config_name, "--out", output], outside, env)
             swapped = json.loads((outside / output / "result.json").read_text())
             assert swapped["counts"]["completed"] == 2
             assert swapped["recomputed_tokens"] == 0
             assert swapped["swap"]["completed_transfers_by_direction"]["D2H"] > 0
             assert swapped["swap"]["host_reserved_bytes"] == 0
-        for config, output in [("prefix-chunk.json", "prefix-chunk"),
+        for config_name, output in [("prefix-chunk.json", "prefix-chunk"),
                                ("pp-prefix-chunk.json", "pp-prefix-chunk")]:
-            run([str(console), "simulate", "--experiment", config, "--out", output], outside, env)
+            run([str(console), "simulate", "--experiment", config_name, "--out", output], outside, env)
             cached = json.loads((outside / output / "result.json").read_text())
             assert cached["counts"]["completed"] == 2
             assert cached["prefill"]["completed_chunks"] == 4
@@ -473,6 +506,7 @@ def verify(dist: Path) -> dict:
             "installed_qwen_geometry_dormant_plugin_and_capture_fixture": "passed",
             "installed_native_pp_exact_profile_and_transport": "passed",
             "installed_pp_primitives_collection_calibration_holdout_and_serving": "passed",
+            "installed_native_pp_size_lookup_guarded_holdout": "passed",
             "installed_workspace_calibration_and_capacity_brackets": "passed",
             "installed_calibration_comparison_holdout": "passed"}
 

@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "dataset_id": "replace-with-independent-live-training-session",
+  "protocol": "native_pp_primitives_v2",
+  "message_bytes": [
+    128,
+    256,
+    512,
+    1024
+  ],
+  "warmup_iterations": 3,
+  "iterations": 5,
+  "repeats": 3,
+  "timeout_s": 120,
+  "max_output_bytes": 8388608,
+  "source_reference": "Live template only. Bind an actual device/runtime experiment before collection; collect a separate session with disjoint IDs at unseen sizes for holdout."
+}

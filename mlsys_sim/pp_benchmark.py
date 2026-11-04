@@ -27,6 +27,8 @@ from .schema import Experiment, SimulationError
 
 
 PROTOCOL = "native_pp_primitives_v1"
+PROTOCOL_V2 = "native_pp_primitives_v2"
+COMMUNICATOR_INITIALIZATION = "lazy_world_and_pair_groups_v1"
 TIMING_BOUNDARY = "synchronized_host_primitive_completion_v1"
 _DTYPE_BYTES = {"float16": 2, "bfloat16": 2, "float32": 4, "float64": 8}
 _MAX_BYTES = 16 * 1024 * 1024
@@ -72,9 +74,11 @@ def normalize_pp_benchmark_plan(experiment: Experiment, value: Any) -> dict:
         _fail("PP primitive collection supports exactly one local device per rank, at most 32 ranks")
     plan = object_fields(value, {"schema_version", "dataset_id", "message_bytes"},
         {"source_reference", "warmup_iterations", "iterations", "repeats", "timeout_s",
-         "max_output_bytes", "raw_path", "source"}, "PP communication plan")
+         "max_output_bytes", "raw_path", "source", "protocol"}, "PP communication plan")
     if type(plan["schema_version"]) is not int or plan["schema_version"] != 1:
         _fail("PP communication plan schema_version must be 1")
+    if plan.get("protocol", PROTOCOL) not in (PROTOCOL, PROTOCOL_V2):
+        _fail("PP communication plan protocol must select native_pp_primitives_v1 or v2")
     identifier = text(plan["dataset_id"], "dataset_id")
     if len(identifier) > 128 or any(character in identifier for character in "\x00\r\n"):
         _fail("dataset_id must be a bounded nonempty identifier")
@@ -105,6 +109,9 @@ def normalize_pp_benchmark_plan(experiment: Experiment, value: Any) -> dict:
                                  "source_reference"),
         "warmup_iterations": warmup, "iterations": iterations, "repeats": repeats,
         "timeout_s": timeout, "max_output_bytes": limit}
+    # Absent protocol preserves the original normalized plan and fixture bytes.
+    if "protocol" in plan:
+        result["protocol"] = plan["protocol"]
     if "raw_path" in plan:
         result["raw_path"] = text(plan["raw_path"], "raw_path")
         result["source"] = _source(plan.get("source"))
@@ -122,13 +129,18 @@ def _source(value: Any) -> dict:
 
 
 def worker_launch_contract(experiment: Experiment, plan: dict) -> dict:
-    return {"protocol": PROTOCOL, "world_size": len(experiment.infra.devices),
+    protocol = plan.get("protocol", PROTOCOL)
+    contract = {"protocol": protocol, "world_size": len(experiment.infra.devices),
         "activation_dtype": experiment.strategy.model.activation_dtype,
         "message_bytes": list(plan["message_bytes"]), "warmup_iterations": plan["warmup_iterations"],
         "iterations": plan["iterations"], "repeats": plan["repeats"],
         "control_backend": "gloo", "primitive_backend": "nccl",
         "group_creation": "all_world_ranks_same_order", "p2p_api": "isend_irecv",
         "allgather_api": "all_gather_into_tensor", "buffer_policy": "preallocated_out_of_place"}
+    if protocol == PROTOCOL_V2:
+        contract.update(world_init_device_id=False,
+                        communicator_initialization=COMMUNICATOR_INITIALIZATION)
+    return contract
 
 
 def sample_descriptor(plan: dict, case: dict, size: int, repeat: int, iteration: int) -> dict:
@@ -242,7 +254,8 @@ def _aggregate(experiment: Experiment, plan: dict, values: Any, source: dict,
         if rank >= world or rank in ranks or capture["world_size"] != world or type(capture["world_size"]) is not int:
             _fail("Missing, repeated or conflicting world ranks", "INVALID_PP_COMMUNICATION_CAPTURE")
         if (type(capture["schema_version"]) is not int or capture["schema_version"] != 1
-                or capture["kind"] != "native_pp_primitive_rank_capture" or capture["protocol"] != PROTOCOL
+                or capture["kind"] != "native_pp_primitive_rank_capture"
+                or capture["protocol"] != plan.get("protocol", PROTOCOL)
                 or capture["status"] != "COMPLETED"):
             _fail("Only complete versioned primitive rank captures can form measurements", "INVALID_PP_COMMUNICATION_CAPTURE")
         declared_source = _source(capture["source"])
@@ -393,7 +406,10 @@ def collect_pp_communication(experiment: Experiment, plan: dict, inventory: dict
             environment = dict(os.environ)
             environment["TORCH_NCCL_ASYNC_ERROR_HANDLING"] = "1"
             captured_env = {key: environment[key] for key in ("NCCL_ALGO", "NCCL_PROTO", "NCCL_DEBUG",
-                "HIP_VISIBLE_DEVICES", "ROCR_VISIBLE_DEVICES", "CUDA_VISIBLE_DEVICES", "TORCH_NCCL_ASYNC_ERROR_HANDLING")
+                "NCCL_P2P_DISABLE", "NCCL_P2P_LEVEL", "NCCL_SHM_DISABLE", "NCCL_NET", "NCCL_IB_DISABLE",
+                "TORCH_NCCL_BLOCKING_WAIT", "NCCL_BLOCKING_WAIT", "TORCH_NCCL_ASYNC_ERROR_HANDLING",
+                "NCCL_ASYNC_ERROR_HANDLING",
+                "HIP_VISIBLE_DEVICES", "ROCR_VISIBLE_DEVICES", "CUDA_VISIBLE_DEVICES")
                 if key in environment}
             with tempfile.TemporaryDirectory(prefix="mlsys-pp-primitives-") as temporary:
                 root = Path(temporary)
@@ -414,8 +430,12 @@ def collect_pp_communication(experiment: Experiment, plan: dict, inventory: dict
                     _fail("Primitive runner must return a capture object", "COLLECTION_FAILED")
                 captured = deepcopy(captured)
                 captured.update(argv=argv, environment=captured_env)
+                if settings.get("protocol", PROTOCOL) == PROTOCOL_V2 and "protocol" not in captured:
+                    captured["protocol"] = PROTOCOL_V2
         captured.update(schema_version=1, kind="native_pp_primitives_capture")
         raw_records.append(captured)
+        if captured.get("protocol", PROTOCOL) != settings.get("protocol", PROTOCOL):
+            failure("CALIBRATION_MISMATCH", "Capture envelope protocol differs from the requested plan")
         if type(captured.get("returncode")) is not int:
             failure("COLLECTION_FAILED", "Primitive launcher did not provide an integer exit code")
         if captured.get("timed_out"):
@@ -434,13 +454,15 @@ def collect_pp_communication(experiment: Experiment, plan: dict, inventory: dict
         if source["kind"] == "test_fixture" and not allow_test_fixture:
             failure("TEST_FIXTURE_NOT_ALLOWED", "Any injected/fixture rank keeps the complete dataset a fixture")
         validate_identity(profile_identity(effective), measured=source["kind"] == "measured")
-        benchmark = {"protocol": PROTOCOL, "timing_boundary": TIMING_BOUNDARY,
+        benchmark = {"protocol": settings.get("protocol", PROTOCOL), "timing_boundary": TIMING_BOUNDARY,
             "p2p_direction": "unidirectional", "allgather_bytes": "full_output",
             "rank_reduction": "maximum_local_duration", "barrier_in_timing": False,
             "warmup_in_records": False, "startup_in_timing": False, "allocation_in_timing": False,
             "buffer_policy": "preallocated_out_of_place", "backend": "nccl", "stack": stack,
             "launch": {"session_id": session, "rank_contract": worker_launch_contract(effective, settings),
                        "argv": captured.get("argv"), "environment": captured.get("environment", {})}}
+        if settings.get("protocol", PROTOCOL) == PROTOCOL_V2:
+            benchmark["communicator_initialization"] = COMMUNICATOR_INITIALIZATION
         dataset = {"schema_version": 1, "kind": "native_pp_communication_measurements",
             "dataset_id": settings["dataset_id"], "identity": profile_identity(effective),
             "source": source, "records": records, "benchmark": benchmark,
@@ -458,7 +480,8 @@ def collect_pp_communication(experiment: Experiment, plan: dict, inventory: dict
     return {"schema_version": 1, "status": "COMPLETED", "kind": "native_pp_communication_collection",
         "source": source, "experiment": asdict(effective), "inventory": deepcopy(inventory),
         "dataset": dataset, "raw_records": raw_records, "hardware_validated": False,
-        "provenance": {"protocol": PROTOCOL, "session_id": session, "rank_aggregation": "maximum_local_duration",
+        "provenance": {"protocol": settings.get("protocol", PROTOCOL), "session_id": session,
+            "rank_aggregation": "maximum_local_duration",
             "target_identity_scope": "declared_model_runtime_target_not_model_execution"},
         "limitations": ["A synchronized standalone primitive is not a Runtime dependency wait or round-trip estimate.",
             "Output allocation, metadata ingress and upstream/previous-send waiting are excluded.",

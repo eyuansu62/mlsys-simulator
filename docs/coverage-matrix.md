@@ -1,6 +1,6 @@
-# Version 1.9 capability matrix
+# Version 1.10 capability matrix
 
-This table describes the version 1.9 software scope. Available fixture demonstrations
+This table describes the version 1.10 software scope. Available fixture demonstrations
 and unit tests do not establish AMD hardware accuracy. User-supplied reference
 packages are external evidence with their own timing and model-coverage limits.
 
@@ -17,8 +17,8 @@ packages are external evidence with their own timing and model-coverage limits.
 | TP | Implemented | TP 1/2/4 in each stage, GQA replication and atomic all-stage/rank reservation |
 | C04 communication analysis | Implemented | Ring AllReduce, logits AllGather, legacy PP P2P or explicit native two-tensor/sliced P2P plus receiver AllGather; no shared-link contention/overlap |
 | C04 communication calibration | Implemented | Per-primitive/rank alpha-beta fit and explicit Infra patch; no automatic double addition to stage profiles |
-| Native PP primitive collection/calibration | Implemented adapter/model | Independent directed P2P and receiver AllGather; preallocated service, actual stack/placement identity, separate affine Profiles and explicit local-replica selection |
-| Native PP communication holdout | Implemented | Existing Profile versus independent dataset; leakage/identity/placement/domain rejection and primitive errors, without an automatic split |
+| Native PP primitive collection/calibration | Implemented adapter/model | Independent directed P2P and receiver AllGather; preallocated service, actual stack/placement identity, default affine or guarded size-lookup Profiles and explicit local-replica selection |
+| Native PP communication holdout | Implemented | Existing Profile versus independent dataset; leakage/identity/protocol/placement/domain rejection, per-sample and per-size mean errors, full rejected coverage, without an automatic split |
 | PP analysis | Implemented | Shape-only capacity/forward/P2P; online metrics remain null because analysis has no queue |
 | Online PP | Implemented | Stage/microbatch queues, boundary P2P, one outstanding iteration/request and sampled-Token feedback |
 | PP activation budgets | Implemented | Conservative persistent per-rank buffers and all-stage KV reservation; native transport budgets output pairs, receive/backing copies and persistent input targets to a physical-token bound |
