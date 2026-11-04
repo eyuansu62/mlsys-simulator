@@ -258,6 +258,7 @@ def run_hardware_validation(
     group_values: dict[str, dict[str, list[float]]] = {}
     group_counts: dict[str, int] = {}
     online_reports: list[dict] = []
+    native_communication_inputs: list[dict] = []
     for position, supplied in enumerate(online):
         item = _object(supplied, {"experiment", "observation", "group_id"}, set(), f"online[{position}]")
         group = _text(item["group_id"], "group_id")
@@ -301,6 +302,32 @@ def run_hardware_validation(
             profile_path=str(profiles[0]) if experiment.strategy.replicas == 1 else None,
             replica_profile_paths=tuple(str(profiles[index]) for index in range(len(fits)))
                                   if experiment.strategy.replicas > 1 else ())
+        communication_paths = (experiment.calibration.replica_native_pp_communication_profile_paths
+            or ((experiment.calibration.native_pp_communication_profile_path,)
+                if experiment.calibration.native_pp_communication_profile_path else ()))
+        if communication_paths:
+            from .pp_communication import validate_pp_communication_profile
+
+            communication_snapshots = []
+            for replica, communication_path in enumerate(communication_paths):
+                snapshot = directory / f"native-communication-r{replica}.json"
+                raw = capture(Path(communication_path), snapshot)
+                current = validate_pp_communication_profile(raw, allow_test_fixture=allow_test_fixture)
+                if current["identity"] != profile_identity(replica_experiment(experiment, replica)):
+                    raise SimulationError("CALIBRATION_MISMATCH",
+                                          f"Native communication Profile differs from replica {replica}")
+                requested = experiment.calibration.native_pp_communication_profile_version
+                if requested and requested != current["profile_version"]:
+                    raise SimulationError("CALIBRATION_MISMATCH", "Native communication Profile version differs")
+                sources.add(current["source"]["kind"])
+                native_communication_inputs.append({"online_index": position, "replica_index": replica,
+                    "profile_id": current["profile_id"], "profile_version": current["profile_version"],
+                    "source_kind": current["source"]["kind"], "sha256": input_files[-1]["sha256"],
+                    "snapshot_file": str(snapshot.relative_to(output))})
+                communication_snapshots.append(str(snapshot.resolve()))
+            calibration = (replace(calibration, native_pp_communication_profile_path=communication_snapshots[0])
+                if experiment.strategy.replicas == 1 else replace(calibration,
+                    replica_native_pp_communication_profile_paths=tuple(communication_snapshots)))
         effective = replace(experiment, calibration=calibration)
         effective_path = directory / "experiment.json"
         write_json_exclusive(effective_path, asdict(effective))
@@ -375,6 +402,8 @@ def run_hardware_validation(
         "online_contracts": sorted(set(group_contracts.values())),
         "online_metrics": sorted(limits["max_online_relative_error"]),
         "thresholds": limits, "communication_prediction_validated": False}
+    if native_communication_inputs:
+        scope["native_pp_communication_profiles"] = native_communication_inputs
     result = {"schema_version": 1, "status": "COMPLETED", "mode": "validate-hardware",
         "verdict": verdict, "criteria_passed": passed, "hardware_validated": verdict == "PASS",
         "source_kinds": sorted(sources), "thresholds": limits, "criteria": criteria,

@@ -1,0 +1,132 @@
+{
+  "workload": [
+    {
+      "request_id": "shape-only",
+      "arrival_ms": 0,
+      "input_tokens": 4,
+      "output_tokens": 2
+    }
+  ],
+  "infra": {
+    "devices": [
+      {
+        "id": "replica0-stage0-rank0",
+        "memory_bytes": 17179869184,
+        "compute_tflops": 1.0,
+        "memory_bandwidth_gbps": 10.0,
+        "name": "toy-device"
+      },
+      {
+        "id": "replica0-stage0-rank1",
+        "memory_bytes": 17179869184,
+        "compute_tflops": 1.0,
+        "memory_bandwidth_gbps": 10.0,
+        "name": "toy-device"
+      },
+      {
+        "id": "replica0-stage1-rank0",
+        "memory_bytes": 17179869184,
+        "compute_tflops": 1.0,
+        "memory_bandwidth_gbps": 10.0,
+        "name": "toy-device"
+      },
+      {
+        "id": "replica0-stage1-rank1",
+        "memory_bytes": 17179869184,
+        "compute_tflops": 1.0,
+        "memory_bandwidth_gbps": 10.0,
+        "name": "toy-device"
+      }
+    ],
+    "link_bandwidth_gbps": 20.0,
+    "link_latency_us": 5.0,
+    "topology": "single-node-uncontended"
+  },
+  "strategy": {
+    "model": "../v1_6/qwen3-4b.model.json",
+    "tensor_parallel_size": 2,
+    "pipeline_parallel_size": 2,
+    "stage_layers": [
+      18,
+      18
+    ],
+    "replicas": 1,
+    "scheduler": "continuous_batching",
+    "max_batch_size": 2,
+    "max_batch_tokens": 5,
+    "preemption": "swap",
+    "max_preemptions_per_request": 100,
+    "memory": {
+      "kv_block_tokens": 4,
+      "kv_pool_bytes": 737280,
+      "workspace_base_bytes": 1048576,
+      "workspace_bytes_per_token": 1024,
+      "graph_bytes": 0,
+      "runtime_bytes": 1048576,
+      "communication_buffer_bytes": 0,
+      "other_bytes": 0,
+      "safety_margin_bytes": 1048576,
+      "guard_blocks": 0,
+      "cpu_swap_bytes": 67108864,
+      "swap_d2h_bandwidth_gbps": 12.0,
+      "swap_h2d_bandwidth_gbps": 12.0,
+      "swap_latency_us": 10.0
+    },
+    "pipeline_microbatch_size": 2,
+    "pipeline_max_inflight_microbatches": 1,
+    "pipeline_feedback_latency_us": 0.0,
+    "pipeline_p2p": true,
+    "pipeline_transport": "vllm_native",
+    "pipeline_transport_max_tokens": 8,
+    "swap_fallback": "none",
+    "prefix_cache": true,
+    "prefix_cache_max_blocks": 8,
+    "chunked_prefill": true,
+    "prefill_chunk_tokens": 4,
+    "mixed_batching": true,
+    "replica_routing": "round_robin"
+  },
+  "calibration": {
+    "backend": "synthetic",
+    "profile_version": "uncalibrated-v1",
+    "compute_efficiency": 0.5,
+    "bandwidth_efficiency": 0.5,
+    "launch_overhead_us": 2.0,
+    "framework_overhead_us": 5.0,
+    "prefill_ms": 2.0,
+    "decode_ms": 1.0,
+    "recompute_ms": 2.0,
+    "mixed_ms": 3.0,
+    "profile_path": null,
+    "replica_profile_paths": [],
+    "allow_extrapolation": false,
+    "allow_test_fixture": true,
+    "runtime_name": "unspecified",
+    "runtime_version": "unspecified",
+    "driver_version": "unspecified",
+    "rocm_version": "unspecified",
+    "rccl_version": "unspecified",
+    "timing_boundary": "step_includes_output_and_sampling_v1",
+    "runtime_config_sha256": "",
+    "native_pp_communication_profile_path": "communication.profile.fixture.json",
+    "replica_native_pp_communication_profile_paths": [],
+    "native_pp_communication_profile_version": "native-comm-fixture-v1",
+    "native_pp_communication_allow_extrapolation": false
+  },
+  "evaluation": {
+    "ttft_sla_ms": null,
+    "tpot_sla_ms": null,
+    "measurement_window_ms": null,
+    "drain": true,
+    "max_drain_ms": null
+  },
+  "execution": {
+    "seed": 42,
+    "max_simulated_ms": 180000.0,
+    "max_events": 1000000,
+    "detailed_events": true,
+    "initial_state": "empty_cache",
+    "warmup": []
+  },
+  "schema_version": 1
+}

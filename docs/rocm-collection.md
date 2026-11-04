@@ -362,5 +362,14 @@ client-content records are not retroactively upgraded to those new boundaries.
 Native PP lazy receive and TP-sliced dual-tensor transport can provide isolated
 stage records under the explicit 1.7 contract; see [native PP capture](native-pp-capture.md).
 Its dependency-wait diagnostics are not independent P2P latency measurements,
-and boundary costs remain explicitly analytical. The historical packages do not
+and boundary costs remain analytical unless a separate native communication
+Profile is explicitly selected. The historical packages do not
 retroactively establish this multi-GPU coverage.
+
+Version 1.8 adds `collect --kind pp-communication` for independent single-node
+HIP directed P2P and receiver AllGather service. Data groups use NCCL/RCCL,
+while CPU Gloo barriers control rounds outside the measured interval. Buffers
+are preallocated out of place; actual stack/RCCL/device and correctness evidence
+are required. Fitting produces a placement-specific native communication
+Profile, not an automatic Infra patch or an end-to-end Runtime-boundary claim.
+See [native PP communication calibration](native-pp-communication.md).

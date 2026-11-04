@@ -214,3 +214,16 @@ This path does not automatically add fitted communication to a whole-stage step
 Profile, which already includes local collectives. Patching an unrelated
 topology or adding both costs would violate the timing contract. Fixture inputs
 still require explicit opt-in and retain their source kind.
+
+## Independent native PP communication Profiles
+
+Version 1.8 adds a separate native-boundary measurement/Profile workflow for
+directed P2P and receiver AllGather, with placement/dtype/actual-stack identity.
+It fits direct nonnegative affine primitive service, validates an existing
+Profile against independent holdout records and is selected explicitly per
+local replica. It is distinct from both a whole-stage Profile and the generic
+communication Infra-patch fit. Native lazy receive waiting does not become an
+independent network measurement. Missing placement or byte coverage never
+silently falls back when a communication Profile is selected. See
+[native PP communication calibration](native-pp-communication.md) for commands,
+fixture examples and interpretation limits.

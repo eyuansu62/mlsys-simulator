@@ -1,5 +1,38 @@
 # Changelog
 
+## 1.8.0 — 2026-11-04
+
+Native PP boundary communication can use independently collected, explicitly
+selected primitive Profiles alongside isolated stage Profiles.
+
+### Added
+
+- Standalone single-node HIP distributed collection for directed P2P pairs and
+  receiver TP AllGather groups, using preallocated out-of-place buffers,
+  synchronized local timing and correctness evidence.
+- Separate native communication dataset/Profile contracts with physical
+  placement, dtype, actual stack/RCCL binding, direct nonnegative affine fits,
+  immutable provenance and explicit coverage/extrapolation policy.
+- Independent held-out communication validation with source/identity and
+  training-leakage checks.
+- Explicit per-local-replica communication Profile selection, CLI snapshots
+  and native transfer integration: maximum paired-rank P2P plus one receiver
+  AllGather per sliced tensor, charged separately from stage service.
+- Collection/calibration/validation commands, fixture examples and protocol
+  documentation without a new required dependency.
+
+### Compatibility and evidence
+
+- Unselected native communication Profiles leave the existing analytical path
+  unchanged. Stage Profile identities and local model-collective timing remain
+  unchanged; selected communication Profiles do not add either cost again.
+- Directed P2P is not a ping-pong round trip or RTT divided by two. AllGather
+  message bytes denote full output bytes, with one input shard per TP rank.
+- Measured primitive service excludes allocation, startup, warmup, CPU control
+  barriers and correctness work. It does not measure vLLM metadata ingress,
+  upstream wait, Runtime output allocation, contention or the complete native
+  boundary. CPU fixtures remain fixtures and do not establish AMD accuracy.
+
 ## 1.7.0 — 2026-11-04
 
 Pinned native PP capture separates dependency waiting from reusable stage

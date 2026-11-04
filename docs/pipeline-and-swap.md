@@ -65,9 +65,11 @@ Explicit `vllm_native` transport instead retains `hidden_states` and `residual`
 physical shapes/dtypes, including padding. Each tensor uses a TP wire slice only
 when its element count is divisible by TP; reconstructed slices require receiver
 AllGather. Those costs are separate from isolated stage Profile time and are
-charged once using the same rule in `predict` and the online engine. They remain
-analytical, rather than being fitted from upstream-dependent receive waiting.
-See [native PP sampling and calibration](native-pp-capture.md).
+charged once using the same rule in `predict` and the online engine. They use
+an explicitly selected independent communication Profile or remain analytical;
+upstream-dependent receive waiting is never used as the primitive measurement.
+See [native PP sampling and calibration](native-pp-capture.md) and the separate
+[independent communication Profile](native-pp-communication.md) workflow.
 
 Before stage 0 launches an iteration, the planner conservatively reserves its
 target KV length on every stage/rank. It also budgets persistent activation

@@ -418,8 +418,9 @@ Actual PP transport must also match the isolated-stage contract. Since 1.7,
 excludes wait/receiver AllGather from stage service and preserves physical
 hidden/residual tensor descriptors through calibration. Native Profiles are
 exact-only and require matching complete TP/adjacent-stage payload evidence.
-The separate boundary cost uses those bytes/padding and remains explicitly
-analytical; raw receive waiting is not fitted as independent link latency.
+The separate boundary cost uses those bytes/padding and is analytical unless
+a native communication Profile is explicitly selected; raw receive waiting is
+not fitted as independent link latency.
 Sequence parallelism and unproven boundaries remain raw. See
 [native PP capture](native-pp-capture.md) for the full contract.
 
@@ -430,7 +431,7 @@ mlsys-sim validate-hardware --plan examples/v1_5/fixture-validation.plan.json \
 ```
 
 The optional collection paths are `probe`, `steps`, `rccl`, `runtime-trace`,
-`vllm`, `vllm-hook` and `reference`. Each keeps its own timing and source contract. Stage
+`vllm`, `vllm-hook`, `pp-communication` and `reference`. Each keeps its own timing and source contract. Stage
 collection needs real HIP availability and synchronized Runtime execution;
 fixture backends retain fixture source. RCCL imports preserve explicit timing
 units, rank counts and correctness results. Client stream delivery cannot be
@@ -522,3 +523,41 @@ Detailed logging is observational. Same-time handling orders completion/release
 before timeout, arrival and scheduling. In-flight references remain pinned at
 cutoff. Software support, Profile calibration and hardware validation are
 separate; see the [validation protocol](validation-protocol.md).
+
+## Independent native PP communication API and CLI
+
+`collect --kind pp-communication` runs or imports the independent native
+primitive protocol. `calibrate --native-pp-communication` fits its distinct
+dataset contract, and `validate --native-pp-communication --profile ...` checks
+an existing Profile against an independent dataset. The validation command
+does not fit a new Profile or automatically split its input.
+
+The optional `CalibrationSpec` fields are
+`native_pp_communication_profile_path`,
+`replica_native_pp_communication_profile_paths`,
+`native_pp_communication_profile_version` and
+`native_pp_communication_allow_extrapolation`. Fixture use still requires
+`allow_test_fixture=True`. A selected Profile requires native transport with
+`pipeline_p2p=True`; it affects only boundary service, not stage identity or
+model-local collectives. See the [communication contract](native-pp-communication.md)
+for byte conventions, placement/stack checks and fitting/holdout semantics.
+
+Library entry points live in `mlsys_sim.pp_benchmark` and
+`mlsys_sim.pp_communication`:
+
+```python
+from mlsys_sim.pp_benchmark import collect_pp_communication
+from mlsys_sim.pp_communication import (
+    load_pp_communication_dataset, load_pp_communication_profile,
+    calibrate_pp_communication, validate_pp_communication_holdout,
+    PPCommunicationModel,
+)
+```
+
+Dataset/Profile loaders validate source and schema, returning dictionaries.
+`calibrate_pp_communication(dataset, profile_version=...)` fits a new immutable
+Profile; `validate_pp_communication_holdout(profile, dataset)` evaluates an
+existing one. Fixture inputs require `allow_test_fixture=True`. The collector's
+optional `runner` injection is a test interface and cannot promote CPU results
+to measured evidence. `PPCommunicationModel` loads the selected local Profile
+and exposes placement/size estimates with provenance.

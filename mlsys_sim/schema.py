@@ -135,6 +135,10 @@ class CalibrationSpec:
     rccl_version: str = "unspecified"
     timing_boundary: str = "step_includes_output_and_sampling_v1"
     runtime_config_sha256: str = ""
+    native_pp_communication_profile_path: str | None = None
+    replica_native_pp_communication_profile_paths: tuple[str, ...] = ()
+    native_pp_communication_profile_version: str = ""
+    native_pp_communication_allow_extrapolation: bool = False
 
 
 @dataclass(frozen=True)

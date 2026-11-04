@@ -170,6 +170,23 @@ def validate_experiment(experiment: Experiment) -> None:
                                       "swap_h2d_bandwidth_gbps"))
     if calibration.backend not in ("analytical", "synthetic", "profile"):
         raise SimulationError("UNSUPPORTED_MECHANISM", "supported backends are analytical, synthetic and profile")
+    communication_selected = (calibration.native_pp_communication_profile_path is not None
+                              or bool(calibration.replica_native_pp_communication_profile_paths))
+    if communication_selected:
+        if strategy.pipeline_transport != "vllm_native" or not strategy.pipeline_p2p:
+            _invalid("calibration", "native PP communication Profiles require native transport and enabled P2P")
+        if strategy.replicas == 1:
+            if (not calibration.native_pp_communication_profile_path
+                    or not calibration.native_pp_communication_profile_path.strip()
+                    or calibration.replica_native_pp_communication_profile_paths):
+                _invalid("calibration", "one replica requires one native PP communication Profile path")
+        elif (calibration.native_pp_communication_profile_path is not None
+              or len(calibration.replica_native_pp_communication_profile_paths) != strategy.replicas
+              or any(not path.strip() for path in calibration.replica_native_pp_communication_profile_paths)):
+            _invalid("calibration", "native PP communication requires one Profile path per replica")
+    elif (calibration.native_pp_communication_profile_version
+          or calibration.native_pp_communication_allow_extrapolation):
+        _invalid("calibration", "native PP communication overrides require an explicitly selected Profile")
     if calibration.backend == "profile":
         if strategy.replicas == 1:
             if calibration.profile_path is None or not calibration.profile_path.strip():
@@ -181,7 +198,7 @@ def validate_experiment(experiment: Experiment) -> None:
               or any(not path.strip() for path in calibration.replica_profile_paths)):
             _invalid("calibration.replica_profile_paths", "multiple replicas require one path each and no profile_path")
     elif (calibration.profile_path is not None or calibration.replica_profile_paths
-          or calibration.allow_extrapolation or calibration.allow_test_fixture):
+          or calibration.allow_extrapolation or calibration.allow_test_fixture and not communication_selected):
         _invalid("calibration", "profile file and domain/source overrides require backend=profile")
     for name in ("runtime_name", "runtime_version", "driver_version", "rocm_version", "rccl_version",
                  "timing_boundary"):
@@ -323,12 +340,14 @@ def load_experiment(path: str | Path) -> Experiment:
         mapping["strategy"] = strategy
     if isinstance(mapping.get("calibration"), dict):
         calibration = dict(mapping["calibration"])
-        if isinstance(calibration.get("profile_path"), str):
-            calibration["profile_path"] = str((calibration_root / calibration["profile_path"]).resolve())
-        if isinstance(calibration.get("replica_profile_paths"), (list, tuple)):
-            calibration["replica_profile_paths"] = [
-                str((calibration_root / path).resolve()) if isinstance(path, str) else path
-                for path in calibration["replica_profile_paths"]]
+        for name in ("profile_path", "native_pp_communication_profile_path"):
+            if isinstance(calibration.get(name), str):
+                calibration[name] = str((calibration_root / calibration[name]).resolve())
+        for name in ("replica_profile_paths", "replica_native_pp_communication_profile_paths"):
+            if isinstance(calibration.get(name), (list, tuple)):
+                calibration[name] = [
+                    str((calibration_root / path).resolve()) if isinstance(path, str) else path
+                    for path in calibration[name]]
         mapping["calibration"] = calibration
     if isinstance(mapping.get("execution"), dict):
         execution = dict(mapping["execution"])

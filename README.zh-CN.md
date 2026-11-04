@@ -1,9 +1,9 @@
 # LLM 推理系统模拟器
 
 [English](README.md) · [Python API](docs/api.md) · [校准](docs/calibration.md) ·
-[验证规范](docs/validation-protocol.md) · [系统规范](docs/specification.md) · [PP 与 CPU swap](docs/pipeline-and-swap.md) · [Prefix Cache 与分块预填充](docs/prefix-cache-and-chunking.md) · [混合批处理](docs/mixed-batching.md) · [多副本路由](docs/multi-replica.md) · [ROCm 采集](docs/rocm-collection.md) · [Qwen3 与 vLLM 内部 hook](docs/qwen3-and-vllm-hooks.md) · [原生 PP 采样与 Profile](docs/native-pp-capture.md)
+[验证规范](docs/validation-protocol.md) · [系统规范](docs/specification.md) · [PP 与 CPU swap](docs/pipeline-and-swap.md) · [Prefix Cache 与分块预填充](docs/prefix-cache-and-chunking.md) · [混合批处理](docs/mixed-batching.md) · [多副本路由](docs/multi-replica.md) · [ROCm 采集](docs/rocm-collection.md) · [Qwen3 与 vLLM 内部 hook](docs/qwen3-and-vllm-hooks.md) · [原生 PP 采样与 Profile](docs/native-pp-capture.md) · [原生 PP 通信微基准与校准](docs/native-pp-communication.md)
 
-1.7 版补齐 vLLM 原生 PP 延迟接收和切片传输的阶段采样／Profile 契约，并保留 Qwen3 模型几何兼容、HF 配置导入和带版本检查的内部采集，并保留可选 AMD/ROCm Adapter、显式验收、多副本调度／负载均衡、Prefill/Decode 混合批处理、Prefix Cache、Chunked Prefill、PP、CPU KV swap、解析模型、Profile、校准、留出验证和方案比较。用户提供的 AMD/NVIDIA 真机参考包用于格式适配与审计；原始包及 prompt/output 全文不随库分发，现有覆盖不代表通用硬件预测准确率。仓库为[私有仓库](https://github.com/eyuansu62/mlsys-simulator)，许可证待选择，尚未发布 PyPI。
+1.8 版增加原生 PP 独立 P2P／AllGather 微基准与按位置校准的通信 Profile，保留 vLLM 原生 PP 延迟接收和切片传输的阶段采样／Profile 契约，并保留 Qwen3 模型几何兼容、HF 配置导入和带版本检查的内部采集，并保留可选 AMD/ROCm Adapter、显式验收、多副本调度／负载均衡、Prefill/Decode 混合批处理、Prefix Cache、Chunked Prefill、PP、CPU KV swap、解析模型、Profile、校准、留出验证和方案比较。用户提供的 AMD/NVIDIA 真机参考包用于格式适配与审计；原始包及 prompt/output 全文不随库分发，现有覆盖不代表通用硬件预测准确率。仓库为[私有仓库](https://github.com/eyuansu62/mlsys-simulator)，许可证待选择，尚未发布 PyPI。
 
 ## 安装和运行
 
@@ -115,7 +115,18 @@ mlsys-sim simulate --experiment examples/v1_7/qwen3-native-r2-tp2-pp2.json \
   --out runs/qwen3-native-combined
 ```
 
-`strategy.pipeline_transport="vllm_native"` 显式使用 Qwen3 的 `hidden_states`／`residual` 双张量、按张量判断的 TP 切片 P2P 与接收端 AllGather。固定 MRv1 版本的 hook 只观察实际自然触发的接收，不提前读取 lazy tensor 或消费输出；阶段 Profile 扣除接收等待及其 AllGather，仍计输入拷贝与计算。Profile 保留实际 padding／张量描述并只允许精确查找，传输成本单独按解析模型计费一次。接收端完整驻留 Buffer 不随 wire slice 除以 TP。示例仍是 CPU 上的 synthetic stage 模拟，实机采集、校准方法与支持边界见[原生 PP 文档](docs/native-pp-capture.md)。
+`strategy.pipeline_transport="vllm_native"` 显式使用 Qwen3 的 `hidden_states`／`residual` 双张量、按张量判断的 TP 切片 P2P 与接收端 AllGather。固定 MRv1 版本的 hook 只观察实际自然触发的接收，不提前读取 lazy tensor 或消费输出；阶段 Profile 扣除接收等待及其 AllGather，仍计输入拷贝与计算。Profile 保留实际 padding／张量描述并只允许精确查找；边界传输单独计费一次，可显式选择通信 Profile，未选择时沿用解析模型。接收端完整驻留 Buffer 不随 wire slice 除以 TP。示例仍是 CPU 上的 synthetic stage 模拟，实机采集、校准方法与支持边界见[原生 PP 文档](docs/native-pp-capture.md)。
+
+## 独立校准原生 PP 通信
+
+通信采集使用单向 src send／dst receive 和接收端 TP AllGather，预分配缓冲区，按物理位置、dtype 与实际软件栈分别校准。它需要已安装 HIP PyTorch／RCCL 的真机，不增加 CPU 核心的必需 GPU 依赖。显式选中的通信 Profile 替代原生边界解析估计，不改阶段 Profile identity，也不重复计局部模型 collective；缺少 primitive、位置或字节覆盖会明确失败。未选择通信 Profile 时保留原解析路径。采集、直接仿射拟合、独立留出验证和仅用于软件验证的 fixture 示例见[通信校准文档](docs/native-pp-communication.md)。
+
+```bash
+mlsys-sim simulate --experiment examples/v1_8/native-pp-serving.fixture.json \
+  --out runs/native-comm-fixture-serving
+```
+
+此示例使用手算通信 Profile 和 synthetic 阶段耗时，保留 fixture 来源，不代表真机测量。
 
 ## Python 库接口
 

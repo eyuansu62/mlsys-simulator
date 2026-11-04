@@ -6,7 +6,7 @@ Changes to this import surface and the versioned data contracts are recorded
 in the changelog. Calibration provenance and hardware validation are separate.
 """
 
-__version__ = "1.7.0"
+__version__ = "1.8.0"
 
 from .config import experiment_from_dict, load_experiment, validate_experiment
 from .engine import SimulationResult, simulate
@@ -49,8 +49,20 @@ from .vllm_hooks import (RunnerCapture, SchedulerCapture, VllmCaptureWorkerExten
 from .vllm_capture import load_vllm_captures, normalize_vllm_capture
 from .pp_transport import (estimate_pipeline_transfer, native_pp_descriptor,
                            validate_native_pp_descriptor)
+from .pp_benchmark import collect_pp_communication
+from .pp_communication import (PPCommunicationModel, calibrate_pp_communication,
+    load_pp_communication_dataset, load_pp_communication_profile, validate_pp_communication_dataset,
+    validate_pp_communication_profile, validate_pp_communication_holdout)
 
 __all__ = [
+    "collect_pp_communication",
+    "PPCommunicationModel",
+    "calibrate_pp_communication",
+    "load_pp_communication_dataset",
+    "load_pp_communication_profile",
+    "validate_pp_communication_dataset",
+    "validate_pp_communication_profile",
+    "validate_pp_communication_holdout",
     "estimate_pipeline_transfer",
     "native_pp_descriptor",
     "validate_native_pp_descriptor",

@@ -191,9 +191,12 @@ Analytical/synthetic shapes without observed geometry use their declared
 logical token count and label that payload source explicitly.
 
 The boundary is charged separately from stage Profile service, exactly once.
-Its source remains `analytical_uncalibrated`; no α/β is fitted from the lazy wait.
-Independent communication microbench calibration remains a separate explicit
-workflow. `pipeline_p2p=false` retains its explicit ideal zero-cost mode.
+Without an explicitly selected communication Profile its source remains
+`analytical_uncalibrated`; no α/β is fitted from the lazy wait.
+Since 1.8, independent communication microbench calibration provides separately
+selected per-placement P2P/receiver-AllGather Profiles. This leaves the lazy
+wait diagnostic unchanged: it is still not a network-service sample. See
+[native PP communication calibration](native-pp-communication.md). `pipeline_p2p=false` retains its explicit ideal zero-cost mode.
 There is no claim of shared-fabric contention or asynchronous communication/
 compute-overlap prediction.
 

@@ -1,0 +1,266 @@
+{
+  "schema_version": 1,
+  "kind": "native_pp_communication_measurements",
+  "dataset_id": "native-communication-train-fixture",
+  "identity": {
+    "model": {
+      "name": "Qwen3-4B",
+      "num_layers": 36,
+      "hidden_size": 2560,
+      "intermediate_size": 9728,
+      "num_attention_heads": 32,
+      "num_kv_heads": 8,
+      "head_dim": 128,
+      "vocab_size": 151936,
+      "weight_bytes": 2.0,
+      "kv_bytes": 2.0,
+      "activation_bytes": 2.0,
+      "revision": "1cfa9a7208912126459214e8b04321603b3df60c",
+      "weight_dtype": "bfloat16",
+      "kv_dtype": "bfloat16",
+      "activation_dtype": "bfloat16",
+      "tie_word_embeddings": true,
+      "qk_norm": true,
+      "final_norm": true,
+      "architecture_config_sha256": "f27adcaf3cf45423f86940d9c8b9f55c1568274b4272d63a991325a28f4a4baa"
+    },
+    "devices": [
+      {
+        "id": "replica0-stage0-rank0",
+        "memory_bytes": 17179869184,
+        "compute_tflops": 1.0,
+        "memory_bandwidth_gbps": 10.0,
+        "name": "toy-device"
+      },
+      {
+        "id": "replica0-stage0-rank1",
+        "memory_bytes": 17179869184,
+        "compute_tflops": 1.0,
+        "memory_bandwidth_gbps": 10.0,
+        "name": "toy-device"
+      },
+      {
+        "id": "replica0-stage1-rank0",
+        "memory_bytes": 17179869184,
+        "compute_tflops": 1.0,
+        "memory_bandwidth_gbps": 10.0,
+        "name": "toy-device"
+      },
+      {
+        "id": "replica0-stage1-rank1",
+        "memory_bytes": 17179869184,
+        "compute_tflops": 1.0,
+        "memory_bandwidth_gbps": 10.0,
+        "name": "toy-device"
+      }
+    ],
+    "parallelism": {
+      "tensor_parallel_size": 2,
+      "pipeline_parallel_size": 2,
+      "stage_layers": [
+        18,
+        18
+      ],
+      "shard_plan": "megatron_dense_no_sp",
+      "pipeline_transport": "vllm_native",
+      "pipeline_transport_max_tokens": 8
+    },
+    "topology": {
+      "name": "single-node-uncontended",
+      "link_bandwidth_gbps": 20.0,
+      "link_latency_us": 5.0
+    },
+    "runtime": {
+      "name": "unspecified",
+      "version": "unspecified",
+      "driver_version": "unspecified",
+      "rocm_version": "unspecified",
+      "rccl_version": "unspecified",
+      "timing_boundary": "step_includes_output_and_sampling_v1"
+    },
+    "execution": {
+      "kv_block_tokens": 4,
+      "graph_bytes": 0,
+      "runtime_bytes": 1048576,
+      "communication_buffer_bytes": 0
+    }
+  },
+  "source": {
+    "kind": "test_fixture",
+    "reference": "Hand-calculated independent primitive fixture; no GPU or network execution."
+  },
+  "records": [
+    {
+      "record_id": "train-p2p-0-512",
+      "group_id": "train-p2p-0",
+      "primitive": "p2p",
+      "stage_index": 1,
+      "tp_rank": 0,
+      "participants": [
+        0,
+        2
+      ],
+      "message_bytes": 512,
+      "duration_ms": 0.0040256,
+      "rank_durations_ms": [
+        {
+          "rank": 0,
+          "duration_ms": 0.00362304
+        },
+        {
+          "rank": 2,
+          "duration_ms": 0.0040256
+        }
+      ],
+      "correctness_errors": 0
+    },
+    {
+      "record_id": "train-p2p-0-32768",
+      "group_id": "train-p2p-0",
+      "primitive": "p2p",
+      "stage_index": 1,
+      "tp_rank": 0,
+      "participants": [
+        0,
+        2
+      ],
+      "message_bytes": 32768,
+      "duration_ms": 0.0056384,
+      "rank_durations_ms": [
+        {
+          "rank": 0,
+          "duration_ms": 0.0050745600000000005
+        },
+        {
+          "rank": 2,
+          "duration_ms": 0.0056384
+        }
+      ],
+      "correctness_errors": 0
+    },
+    {
+      "record_id": "train-p2p-1-512",
+      "group_id": "train-p2p-1",
+      "primitive": "p2p",
+      "stage_index": 1,
+      "tp_rank": 1,
+      "participants": [
+        1,
+        3
+      ],
+      "message_bytes": 512,
+      "duration_ms": 0.006032,
+      "rank_durations_ms": [
+        {
+          "rank": 1,
+          "duration_ms": 0.0054288
+        },
+        {
+          "rank": 3,
+          "duration_ms": 0.006032
+        }
+      ],
+      "correctness_errors": 0
+    },
+    {
+      "record_id": "train-p2p-1-32768",
+      "group_id": "train-p2p-1",
+      "primitive": "p2p",
+      "stage_index": 1,
+      "tp_rank": 1,
+      "participants": [
+        1,
+        3
+      ],
+      "message_bytes": 32768,
+      "duration_ms": 0.008048,
+      "rank_durations_ms": [
+        {
+          "rank": 1,
+          "duration_ms": 0.0072432
+        },
+        {
+          "rank": 3,
+          "duration_ms": 0.008048
+        }
+      ],
+      "correctness_errors": 0
+    },
+    {
+      "record_id": "train-allgather-group-1024",
+      "group_id": "train-allgather-group",
+      "primitive": "allgather",
+      "stage_index": 1,
+      "tp_rank": null,
+      "participants": [
+        2,
+        3
+      ],
+      "message_bytes": 1024,
+      "duration_ms": 0.003068266666666667,
+      "rank_durations_ms": [
+        {
+          "rank": 2,
+          "duration_ms": 0.00276144
+        },
+        {
+          "rank": 3,
+          "duration_ms": 0.003068266666666667
+        }
+      ],
+      "correctness_errors": 0
+    },
+    {
+      "record_id": "train-allgather-group-65536",
+      "group_id": "train-allgather-group",
+      "primitive": "allgather",
+      "stage_index": 1,
+      "tp_rank": null,
+      "participants": [
+        2,
+        3
+      ],
+      "message_bytes": 65536,
+      "duration_ms": 0.007369066666666667,
+      "rank_durations_ms": [
+        {
+          "rank": 2,
+          "duration_ms": 0.006632160000000001
+        },
+        {
+          "rank": 3,
+          "duration_ms": 0.007369066666666667
+        }
+      ],
+      "correctness_errors": 0
+    }
+  ],
+  "benchmark": {
+    "protocol": "native_pp_primitives_v1",
+    "timing_boundary": "synchronized_host_primitive_completion_v1",
+    "p2p_direction": "unidirectional",
+    "allgather_bytes": "full_output",
+    "rank_reduction": "maximum_local_duration",
+    "barrier_in_timing": false,
+    "warmup_in_records": false,
+    "startup_in_timing": false,
+    "allocation_in_timing": false,
+    "buffer_policy": "preallocated_out_of_place",
+    "backend": "nccl",
+    "stack": {
+      "kind": "hand_calculated_test_fixture",
+      "torch_version": "fixture-only",
+      "hip_version": "fixture-only",
+      "rccl_version": "fixture-only",
+      "rccl_library_sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+    },
+    "launch": {
+      "kind": "hand_calculated_test_fixture",
+      "hardware_executed": false
+    }
+  },
+  "notes": {
+    "hardware_executed": false,
+    "purpose": "Exercise placement-specific fit and independent holdout software."
+  }
+}

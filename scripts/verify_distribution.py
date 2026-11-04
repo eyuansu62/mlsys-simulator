@@ -198,7 +198,8 @@ def verify(dist: Path) -> dict:
         assert "mlsys_sim/batching.py" in names
         assert "mlsys_sim/replicas.py" in names
         for module in ("hardware", "rocm_steps", "rccl_adapter", "runtime_adapter",
-                       "hardware_validation", "release_adapter", "qwen3", "vllm_hooks", "vllm_capture", "pp_transport"):
+                       "hardware_validation", "release_adapter", "qwen3", "vllm_hooks", "vllm_capture", "pp_transport",
+                       "pp_communication", "pp_benchmark", "pp_benchmark_worker"):
             assert f"mlsys_sim/{module}.py" in names
         assert not any(name.startswith(("tests/", "sample-runs/", "work/")) for name in names)
         assert archive.testzip() is None
@@ -217,6 +218,8 @@ def verify(dist: Path) -> dict:
                          "docs/qwen3-and-vllm-hooks.md", "examples/v1_6/qwen3-4b.hf.json",
                          "examples/v1_6/qwen3-r2-tp2-pp2.json", "examples/v1_6/hook-import.fixture.plan.json",
                          "docs/native-pp-capture.md", "tests/test_native_pp_capture.py",
+                         "docs/native-pp-communication.md", "examples/v1_8/communication-train.fixture.json",
+                         "examples/v1_8/primitive-capture.fixture.json",
                          "scripts/verify_distribution.py"):
             assert required in names, f"Source distribution missing {required}"
         assert not any(name.startswith(("sample-runs/", "work/")) for name in names)
@@ -238,6 +241,36 @@ def verify(dist: Path) -> dict:
         for source in (Path(__file__).resolve().parents[1] / "examples/v1_6").glob("*.json"):
             (qwen_inputs / source.name).write_bytes(source.read_bytes())
         run([str(python), "-I", "-c", SMOKE_CODE], outside, env)
+        primitive_inputs = outside / "primitive-inputs"
+        primitive_inputs.mkdir()
+        primitive_models = outside / "v1_6"
+        primitive_models.mkdir()
+        for source in qwen_inputs.glob("*.json"):
+            (primitive_models / source.name).write_bytes(source.read_bytes())
+        for source in (Path(__file__).resolve().parents[1] / "examples/v1_8").glob("*.json"):
+            (primitive_inputs / source.name).write_bytes(source.read_bytes())
+        run([str(console), "collect", "--kind", "pp-communication", "--experiment",
+             str(primitive_inputs / "native-pp-collect.fixture.json"), "--plan",
+             str(primitive_inputs / "collector.plan.fixture.json"), "--allow-test-fixture", "--out", "primitive-capture"],
+             outside, env)
+        run([str(console), "calibrate", "--native-pp-communication", "--dataset",
+             str(primitive_inputs / "communication-train.fixture.json"), "--profile-version", "installed-comm-v1",
+             "--allow-test-fixture", "--out", "primitive-fit"], outside, env)
+        run([str(console), "validate", "--native-pp-communication", "--profile", "primitive-fit/profile.json",
+             "--dataset", str(primitive_inputs / "communication-holdout.fixture.json"),
+             "--allow-test-fixture", "--out", "primitive-holdout"], outside, env)
+        for mode, filename in (("predict", "native-pp-predict.fixture.json"),
+                               ("simulate", "native-pp-serving.fixture.json")):
+            target = f"primitive-{mode}"
+            run([str(console), mode, "--experiment", str(primitive_inputs / filename), "--out", target], outside, env)
+            result = json.loads((outside / target / "result.json").read_text())
+            manifest = json.loads((outside / target / "manifest.json").read_text())
+            assert manifest["native_pp_communication_profiles"][0]["source_kind"] == "test_fixture"
+            if mode == "simulate":
+                assert result["counts"]["completed"] == 5
+                assert result["swap"]["completed_transfers_by_direction"] == {"D2H": 1, "H2D": 1}
+            else:
+                assert result["communication"]["p2p_source"] == "test_fixture_native_pp_communication_profile"
         for mode in ("predict", "simulate"):
             target = f"native-pp-{mode}"
             run([str(console), mode, "--experiment", "native-pp.json", "--out", target], outside, env)
@@ -404,6 +437,7 @@ def verify(dist: Path) -> dict:
             "installed_rocm_collection_and_validation_fixture": "passed",
             "installed_qwen_geometry_dormant_plugin_and_capture_fixture": "passed",
             "installed_native_pp_exact_profile_and_transport": "passed",
+            "installed_pp_primitives_collection_calibration_holdout_and_serving": "passed",
             "installed_calibration_comparison_holdout": "passed"}
 
 

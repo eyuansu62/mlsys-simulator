@@ -181,6 +181,10 @@ def predict_experiment(experiment: Experiment) -> dict[str, Any]:
         return _predict_replicas(experiment)
     exp, strategy = experiment, experiment.strategy
     predictor = create_performance_model(exp)
+    communication_model = None
+    if exp.calibration.native_pp_communication_profile_path:
+        from .pp_communication import PPCommunicationModel
+        communication_model = PPCommunicationModel(exp)
     planner = MemoryPlanner(exp)
     requests = exp.workload
     queries = [r.input_tokens for r in requests] or [1]
@@ -207,7 +211,8 @@ def predict_experiment(experiment: Experiment) -> dict[str, Any]:
     decode_payload: int | float | None = len(queries) * strategy.model.hidden_size * strategy.model.activation_bytes
 
     def transfer(queries, estimates):
-        rows = [estimate_pipeline_transfer(exp, queries, estimates[stage]) for stage in range(boundaries)]
+        rows = [estimate_pipeline_transfer(exp, queries, estimates[stage], stage_index=stage,
+                communication_model=communication_model) for stage in range(boundaries)]
         if strategy.pipeline_transport == "vllm_native":
             for stage, row in enumerate(rows):
                 incoming = estimates[stage + 1].breakdown.get("pp_transport", {}).get("incoming")
@@ -244,8 +249,11 @@ def predict_experiment(experiment: Experiment) -> dict[str, Any]:
             "prefill_memory_feasible": memory.ok, "memory_error_code": memory.code,
             "memory_check_details": memory.details,
             "communication": {"pp_boundaries": boundaries,
-                              "p2p_source": ("analytical_uncalibrated" if strategy.pipeline_p2p
+                              "p2p_source": (prefill_transfers[0]["source"] if communication_model is not None
+                                             else "analytical_uncalibrated" if strategy.pipeline_p2p
                                              else "explicit_ideal_zero_cost"),
+                              **({"profile_provenance": communication_model.provenance}
+                                 if communication_model is not None else {}),
                               "prefill_p2p_bytes_per_rank_per_boundary": prefill_payload,
                               "decode_p2p_bytes_per_rank_per_boundary": decode_payload,
                               "prefill_p2p_ms": prefill_p2p,

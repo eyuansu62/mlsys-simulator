@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "dataset_id": "native-pp-live-01",
+  "message_bytes": [
+    512,
+    4096,
+    32768,
+    65536
+  ],
+  "warmup_iterations": 3,
+  "iterations": 10,
+  "repeats": 3,
+  "timeout_s": 120,
+  "max_output_bytes": 8388608,
+  "source_reference": "Standalone native PP primitive acquisition on a bound AMD host."
+}

@@ -64,6 +64,10 @@ class PipelineSimulation:
         self.exp = experiment
         self.memory = MemoryPlanner(experiment)
         self.performance = create_performance_model(experiment)
+        self.communication_model: Any = None
+        if experiment.calibration.native_pp_communication_profile_path:
+            from .pp_communication import PPCommunicationModel
+            self.communication_model = PPCommunicationModel(experiment)
         self.requests = {r.request_id: RequestState(r.request_id, r.arrival_ms, r.input_tokens, r.priority)
                          for r in experiment.workload}
         # Only the execution oracle uses targets, after a token is committed.
@@ -389,7 +393,8 @@ class PipelineSimulation:
         for estimate in estimates:
             if not math.isfinite(estimate.duration_ms) or estimate.duration_ms <= 0:
                 raise SimulationError("INVALID_PERFORMANCE_ESTIMATE", "Stage duration must be positive and finite")
-        transfers = tuple(estimate_pipeline_transfer(self.exp, queries, estimates[stage])
+        transfers = tuple(estimate_pipeline_transfer(self.exp, queries, estimates[stage],
+                          stage_index=stage, communication_model=self.communication_model)
                           for stage in range(self.pp - 1))
         if self.exp.strategy.pipeline_transport == "vllm_native":
             for stage, transfer in enumerate(transfers):
@@ -882,6 +887,8 @@ class PipelineSimulation:
                       for i, value in enumerate(self.link_busy_ms)],
             "feedback_latency_us": self.exp.strategy.pipeline_feedback_latency_us,
             "p2p_enabled": self.exp.strategy.pipeline_p2p,
+            **({"communication_profile_provenance": self.communication_model.provenance}
+               if self.communication_model is not None else {}),
             "activation_buffer_policy": (
                 "native full input copies, per-wave payload and retained slice backing upper bounds"
                 if self.exp.strategy.pipeline_transport == "vllm_native" else "persistent bound per stage/rank"),

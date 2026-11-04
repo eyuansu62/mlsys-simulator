@@ -1,4 +1,4 @@
-# Version 1.7 software specification
+# Version 1.8 software specification
 
 The CPU simulator separates system events, performance/communication models and
 calibration data. It has no required third-party runtime dependency and performs
@@ -15,7 +15,7 @@ sections, with strict unknown-field/type/range checks:
 | `workload` | Unique request IDs, nonnegative arrival ms, positive input/output lengths, priority, optional relative timeout and explicit prompt token IDs/cache namespace |
 | `infra` | Ordered devices, memory bytes, effective compute/bandwidth assumptions and named topology/link parameters |
 | `strategy` | Dense model/revision, replica count/routing, TP/PP/stage layers, microbatch/inflight/feedback/link policy, Batch/chunk limits, mixed batching, Prefix Cache and preemption/fallback |
-| `calibration` | Analytical/synthetic parameters or local/per-replica Profile paths/version, full software identity and explicit fixture/extrapolation policy |
+| `calibration` | Analytical/synthetic parameters, local/per-replica stage and independent native communication Profile paths/versions, full software identity and explicit fixture/extrapolation policy |
 | `evaluation` | Optional TTFT/TPOT SLA, half-open arrival window, drain and optional drain limit |
 | `execution` | Seed, time/event limits, detailed logging, isolated warmup requests and `empty_cache` initial state |
 
@@ -210,6 +210,16 @@ Independent communication observations can fit alpha-beta parameters per
 primitive/rank group and produce an explicit Infra patch. A selected patch must
 match the intended topology and workload model; it is never automatically
 summed with whole-stage Profile timings.
+
+Since 1.8, native PP has a separate independent-primitive dataset/Profile path
+for directed P2P and receiver AllGather. It fits direct nonnegative affine
+service by physical placement/dtype/stack rather than imposing a ring formula
+or producing a global Infra patch. Explicit local/per-replica Profile selection
+replaces the native boundary estimate; missing placement/byte coverage fails
+without analytical fallback. Each tensor incurs maximum paired-rank P2P plus
+one receiver AllGather only when sliced. Stage Profile identity and model-local
+collectives remain unchanged. Without selection the old analytical boundary
+path remains. See [native communication calibration](native-pp-communication.md).
 
 Online PP uses independent stage compute resources and a serialized activation
 link for each adjacent boundary. TP boundary links are paired and independent,

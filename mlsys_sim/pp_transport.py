@@ -93,7 +93,8 @@ def validate_native_pp_descriptor(experiment: Experiment, value: Any) -> dict:
 
 
 def estimate_pipeline_transfer(experiment: Experiment, query_tokens,
-                               stage_estimate: StepEstimate | None = None) -> dict:
+                               stage_estimate: StepEstimate | None = None, *, stage_index: int = 0,
+                               communication_model: Any = None) -> dict:
     """Estimate one boundary, preserving the original full-hidden default cost."""
     queries = tuple(query_tokens)
     if not queries:
@@ -101,6 +102,8 @@ def estimate_pipeline_transfer(experiment: Experiment, query_tokens,
     for query in queries:
         _positive_integer(query, "query_tokens[]")
     strategy, model, infra = experiment.strategy, experiment.strategy.model, experiment.infra
+    if type(stage_index) is not int or not 0 <= stage_index < strategy.pipeline_parallel_size - 1:
+        _fail("PP transfer stage_index must identify a source boundary")
     descriptor = None
     if strategy.pipeline_transport == "vllm_native":
         transport = stage_estimate.breakdown.get("pp_transport") if stage_estimate is not None else None
@@ -127,6 +130,11 @@ def estimate_pipeline_transfer(experiment: Experiment, query_tokens,
                 "source": "explicit_ideal_zero_cost", "descriptor": descriptor,
                 "breakdown": {"duration_ms": 0.0, "payload_source": payload_source,
                               "p2p_enabled": False}}
+    if communication_model is None and experiment.calibration.native_pp_communication_profile_path:
+        from .pp_communication import PPCommunicationModel
+        communication_model = PPCommunicationModel(experiment)
+    if communication_model is not None and descriptor is None:
+        _fail("Communication Profiles are confined to native PP boundaries")
     bandwidth = infra.link_bandwidth_gbps * 1e6
     if not math.isfinite(bandwidth) or bandwidth <= 0:
         _fail("Effective PP link bandwidth must be positive and finite", "INVALID_CONFIG")
@@ -141,18 +149,34 @@ def estimate_pipeline_transfer(experiment: Experiment, query_tokens,
     else:
         tp = strategy.tensor_parallel_size
         for tensor in descriptor["tensors"]:
-            p2p = latency + tensor["wire_bytes_per_rank"] / bandwidth
-            gather = ((tp - 1) * latency + (tp - 1) / tp * tensor["full_bytes"] / bandwidth
-                      if tensor["receiver_allgather"] else 0.0)
-            parts.append({"name": tensor["name"], "p2p_ms": p2p, "receiver_allgather_ms": gather,
-                          "duration_ms": p2p + gather})
+            component: dict[str, Any] = {"name": tensor["name"]}
+            if communication_model is not None:
+                estimates = [communication_model.estimate("p2p", tensor["wire_bytes_per_rank"],
+                             stage_index + 1, tp_rank=rank) for rank in range(tp)]
+                p2p = max(estimate["duration_ms"] for estimate in estimates)
+                gather_estimate = (communication_model.estimate("allgather", tensor["full_bytes"],
+                                    stage_index + 1) if tensor["receiver_allgather"] else None)
+                gather = gather_estimate["duration_ms"] if gather_estimate is not None else 0.0
+                component.update(p2p_rank_estimates=estimates, receiver_allgather_estimate=gather_estimate)
+            else:
+                p2p = latency + tensor["wire_bytes_per_rank"] / bandwidth
+                gather = ((tp - 1) * latency + (tp - 1) / tp * tensor["full_bytes"] / bandwidth
+                          if tensor["receiver_allgather"] else 0.0)
+            component.update(p2p_ms=p2p, receiver_allgather_ms=gather, duration_ms=p2p + gather)
+            parts.append(component)
         duration = sum(part["duration_ms"] for part in parts)
         breakdown = {"duration_ms": duration, "p2p_ms": sum(part["p2p_ms"] for part in parts),
             "receiver_allgather_ms": sum(part["receiver_allgather_ms"] for part in parts),
             "tensors": parts, "payload_source": payload_source, "p2p_enabled": True,
-            "communication_calibrated": False, "receiver_wait_used_as_network_service": False,
+            "communication_calibrated": communication_model is not None, "receiver_wait_used_as_network_service": False,
             "serialization_policy": "two_p2p_messages_and_required_receiver_allgathers"}
+        if communication_model is not None:
+            breakdown["communication_profile_provenance"] = {
+                key: deepcopy(value) for key, value in communication_model.provenance.items()
+                if key not in ("benchmark", "application")}
     if not math.isfinite(duration) or duration <= 0:
         _fail("PP transfer duration must be positive and finite", "INVALID_CONFIG")
     return {"duration_ms": duration, "bytes_per_rank": payload,
-            "source": "analytical_uncalibrated", "breakdown": breakdown, "descriptor": descriptor}
+            "source": ("analytical_uncalibrated" if communication_model is None else
+                       parts[0]["p2p_rank_estimates"][0]["source"]),
+            "breakdown": breakdown, "descriptor": descriptor}

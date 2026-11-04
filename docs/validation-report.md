@@ -1,14 +1,14 @@
-# V1.7 软件验证记录
+# V1.8 软件验证记录
 
 日期：2026-11-04  
 环境：Python 3.14.3，macOS，CPU 执行  
-版本：1.7.0
+版本：1.8.0
 
 ## 自动检查
 
-- `python3 -m unittest discover -s tests -v`：709 项 CPU 测试通过，新增原生 PP 自然接收、准备流与外部输入边界、持久池容量绑定、双张量/切片计量及 exact Profile 闭环；覆盖 Qwen3 几何/权重、vLLM 内部 Hook/聚合、ROCm/RCCL/Runtime 采集适配、显式硬件验收、参考包导入、多副本路由、混合 Prefill/Decode、Prefix Cache、Chunked Prefill、PP、CPU swap、资源引用、Profile、校准、Compare、留出与 CLI 闭环；含固定 seed 的有界生成负载。
+- `python3 -m unittest discover -s tests -v`：764 项 CPU 测试通过，新增独立 P2P/AllGather 微基准、同次运行校验、按位置校准/留出、双 Profile 与验收来源绑定；保留原生 PP 自然接收、准备流、持久池容量、双张量/切片及 exact Profile 闭环；覆盖 Qwen3 几何/权重、vLLM 内部 Hook/聚合、ROCm/RCCL/Runtime 采集适配、显式硬件验收、参考包导入、多副本路由、混合 Prefill/Decode、Prefix Cache、Chunked Prefill、PP、CPU swap、资源引用、Profile、校准、Compare、留出与 CLI 闭环；含固定 seed 的有界生成负载。
 - Ruff 0.17.3：检查通过。
-- mypy 2.4.1：`mypy mlsys_sim`，29 个源文件检查通过。
+- mypy 2.4.1：`mypy mlsys_sim`，32 个源文件检查通过。
 - `python3 -m compileall -q mlsys_sim tests scripts`：通过。
 
 Ruff/mypy 为临时开发检查工具，没有加入项目运行依赖。测试覆盖配置拒绝、
@@ -23,6 +23,10 @@ Prefix Cache 检查 namespace、完整 token ancestry 的 SHA256 链、保留最
 多副本检查共享事件时序、轮询／最少未完成请求／受负载约束的缓存亲和路由、到达时可见状态、固定归属、独立Host/DMA与纯读缓存探测。两条本地引擎仅抽取可逐事件驱动和幂等finalization接口，驱动结果与原run路径的请求、事件和资源报告逐项相等。全局预算/窗口、PP反馈和swap截止保留引用；局部停止不阻断健康副本，全部副本不可用时未来请求保持未路由。全局分位数从合并请求重算，三请求手算全局TTFT中位数为2ms，而局部中位数平均为2.5ms。Profile与CLI检查每副本身份、原始字节快照、有序hash、版本/来源、完整集群Compare，以及warmup缓存和路由游标重置。
 
 ## CLI 示例证据
+
+原生 PP 独立微基准使用单向 P2P 与 out-of-place AllGather；以完整参与 rank 的本地同步主机时长取最大值。AllGather 拟合字节数是完整输出，P2P 则是实际 wire payload。CPU 测试锁定预热、分配、CPU Gloo 控制 barrier 和正确性检查均在计时外，`Work.wait()` 后还需设备同步；同一 cohort 的完整 rank 输出才可归并，超时和进程组失败保留原始证据。没有运行真实 HIP 通信。
+
+新通信 Profile 按 primitive、接收 stage、配对 TP rank 与有序参与设备分别拟合非负直接 affine，不将有效参数冒充每跳 Ring 系数。默认拒绝缺组和域外查询，显式外推保留标记；独立留出拒绝 record/group 泄漏并报告覆盖和误差。运行只加载一次已选 Profile，CLI 保存原始字节快照及 SHA；同一张量先取各配对 P2P 最大值，再加一次 receiver AllGather，阶段 Profile 的本地通信不再叠加。原生 padding 与 R2/TP2/PP2/cache/chunk/swap/mixed 两种 Profile 的组合回归通过。硬件验收将实际通信 Profile 来源与输入 SHA 纳入范围，fixture 参数不能得到硬件 PASS。详见[独立通信微基准与校准](native-pp-communication.md)。
 
 Qwen3 新增手算验证保留真实 residual/query 两种宽度，计入 Q/K Norm、最终 Norm、同 rank tied 词表去重及 PP 端点物理复制。数学参数量为 1.7B 模型1,720,574,976、4B 模型4,022,468,096；4B residual=2560、query=4096，KV=147456bytes/token。Runtime 词表 padding 和 allocator 额外占用仍需实测。旧默认 Profile 身份/数值保持兼容，新架构与实际执行配置各自按 SHA256 区分。
 
@@ -68,6 +72,8 @@ Qwen3 新增手算验证保留真实 residual/query 两种宽度，计入 Q/K No
 | 内部 Hook fixture | 完整同步rank样本可生成stage dataset并校准；无Scheduler生命周期时online不可比较，hardware_validated=false |
 | 原生 PP Hook → Profile | source-shaped Hook 导出经过TP/相邻stage归并、校准后完成精确Profile预测/在线模拟及CLI导入；接收等待保留raw且不充当网络时延 |
 | 原生 Qwen3 R2×TP2×PP2 组合 | synthetic与fixture Profile路径均完成10请求，4混批、24缓存Token，D2H/H2D各2次，最终资源引用归零；网络成本仍为分析估计 |
+| PP primitive fixture 闭环 | collect→独立 affine 校准→留出→predict/simulate；5请求完成、D2H/H2D各1次，来源仍为fixture |
+| 双 Profile 组合 | 每副本同时选择阶段与通信 Profile，10请求完成、24缓存Token、D2H/H2D各2次，结束引用归零 |
 
 内存压力示例使用 synthetic 固定阶段时间；仓库中分发的校准样例全部标记 test_fixture。本次另读取用户提供的真实外部采样包，仅作边界、覆盖与导入审计，没有重新运行 GPU 采集。完整性检查限定在导入器读取的已知文件，未重放嵌套原始归档。原始 prompt/response、归档代码与数据包不纳入仓库或分发。详见[参考包审计](reference-data-audit.md)。这些检查不构成真实 GPU 时延准确率证明。
 

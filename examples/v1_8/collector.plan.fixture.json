@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "dataset_id": "native-pp-collector-fixture",
+  "message_bytes": [
+    512,
+    65536
+  ],
+  "warmup_iterations": 2,
+  "iterations": 1,
+  "repeats": 1,
+  "timeout_s": 30,
+  "max_output_bytes": 1048576,
+  "source_reference": "Source-shaped CPU fixture; no distributed process or GPU execution.",
+  "raw_path": "primitive-capture.fixture.json",
+  "source": {
+    "kind": "test_fixture",
+    "reference": "Source-shaped CPU fixture; no distributed process or GPU execution."
+  }
+}

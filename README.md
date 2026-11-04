@@ -11,10 +11,13 @@ collection adapters instrument an installed Runtime separately from simulation.
 [Prefix Cache and Chunked Prefill](docs/prefix-cache-and-chunking.md) ·
 [Mixed batching](docs/mixed-batching.md) · [Multi-replica routing](docs/multi-replica.md) ·
 [ROCm collection](docs/rocm-collection.md) · [Qwen3 and vLLM hooks](docs/qwen3-and-vllm-hooks.md) ·
-[Native PP capture and Profiles](docs/native-pp-capture.md) · [Contributing](CONTRIBUTING.md)
+[Native PP capture and Profiles](docs/native-pp-capture.md) ·
+[Native PP communication calibration](docs/native-pp-communication.md) · [Contributing](CONTRIBUTING.md)
 
-**Version 1.7 software scope:** native vLLM PP lazy-receive capture and
-exact stage Profiles, Qwen3 geometry/import and version-checked internal capture, with optional AMD/ROCm collection adapters, explicit hardware
+**Version 1.8 software scope:** independent native PP P2P/AllGather
+microbenchmarks and placement-specific communication Profiles, native vLLM PP
+lazy-receive capture and exact stage Profiles, Qwen3 geometry/import and
+version-checked internal capture, with optional AMD/ROCm collection adapters, explicit hardware
 evidence acceptance, multi-replica routing and load balancing with
 mixed Prefill/Decode batches, Prefix Cache, Chunked Prefill, online TP/PP and
 optional CPU KV swap, analytical models, versioned lookup
@@ -198,11 +201,30 @@ mlsys-sim simulate --experiment examples/v1_7/qwen3-native-r2-tp2-pp2.json \
 tensors, conditional TP wire slicing and receiver AllGather. The pinned MRv1
 hook observes the real lazy receive without consuming it early and removes its
 wait/AllGather interval from stage service. Native stage Profiles retain exact
-physical payload descriptors; boundary communication is separately labeled
-analytical and charged once. Full receiver buffers remain resident on each rank.
+physical payload descriptors; boundary communication is charged once using
+explicitly selected communication Profiles or labeled analytical assumptions. Full receiver buffers remain resident on each rank.
 The example is a CPU simulation with synthetic stage durations, not a live GPU
 measurement. See [native PP capture](docs/native-pp-capture.md) for import,
 calibration, padding bounds and unsupported Runtime modes.
+
+## Calibrate native PP communication independently
+
+Native communication calibration uses standalone unidirectional P2P and
+receiver AllGather measurements, with preallocated buffers and explicit
+per-placement/dtype/software identity. The collector requires an existing HIP
+PyTorch/RCCL installation; CPU simulation keeps no required GPU dependency.
+A selected communication Profile replaces the native boundary estimate without
+changing stage Profile identity or adding local model collectives again.
+Missing primitive placement or byte coverage fails explicitly. With no selected
+communication Profile, the existing analytical boundary path remains available.
+```bash
+mlsys-sim simulate --experiment examples/v1_8/native-pp-serving.fixture.json \
+  --out runs/native-comm-fixture-serving
+```
+
+The example selects a hand-calculated communication Profile and synthetic stage
+times. See [native communication calibration](docs/native-pp-communication.md)
+for collection, fitting, independent holdout and fixture provenance.
 
 ## Use the Python API
 
