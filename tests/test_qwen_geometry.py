@@ -2,6 +2,7 @@
 
 from copy import deepcopy
 from dataclasses import asdict, replace
+import math
 from pathlib import Path
 import tempfile
 import unittest
@@ -189,10 +190,16 @@ class QwenGeometryTests(unittest.TestCase):
 
     def test_default_macro_timings_remain_numerically_unchanged(self):
         model = AnalyticalModel(Experiment())
-        self.assertEqual(model.estimate_step("prefill", [8, 16], [0, 0]).duration_ms, 0.49692000000000003)
-        self.assertEqual(model.estimate_step("decode", [1, 1], [8, 16]).duration_ms, 0.43292)
-        self.assertEqual(model.estimate_step("mixed", [1, 8], [16, 4],
-            request_phases=["decode", "prefill"]).duration_ms, 0.453656)
+        cases = (
+            ("prefill", [8, 16], [0, 0], None, 0.49692000000000003),
+            ("decode", [1, 1], [8, 16], None, 0.43292),
+            ("mixed", [1, 8], [16, 4], ["decode", "prefill"], 0.453656),
+        )
+        for phase, query, context, roles, expected in cases:
+            with self.subTest(phase=phase):
+                actual = model.estimate_step(phase, query, context, request_phases=roles).duration_ms
+                # Permit only rounding-level variation across supported Python versions.
+                self.assertAlmostEqual(actual, expected, delta=4 * math.ulp(expected))
 
     def test_weight_accounting_uses_exact_integer_matrix_sizes(self):
         hidden = 1000000001
