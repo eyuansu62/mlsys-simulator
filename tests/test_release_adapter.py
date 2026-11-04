@@ -54,6 +54,8 @@ def release_fixture(root):
     write_json(root, "00_environment/models.json", {"model": {"served_name": "FixtureModel",
         "hf_revision": "fixture-revision", "num_hidden_layers": 2}})
     write_json(root, "00_environment/model_configs/FixtureModel/config.json", {"hidden_size": 8,
+        "model_type": "qwen3", "architectures": ["Qwen3ForCausalLM"],
+        "hidden_act": "silu", "attention_bias": False,
         "num_attention_heads": 2, "head_dim": 4, "num_key_value_heads": 1, "num_hidden_layers": 2,
         "intermediate_size": 16, "vocab_size": 32, "torch_dtype": "bfloat16", "tie_word_embeddings": True,
         "use_sliding_window": False, "sliding_window": None})
@@ -145,13 +147,15 @@ class ReferenceImportTests(unittest.TestCase):
         model = self.load()["audit"]["models"][0]
         self.assertFalse(model["quantization"])
         self.assertFalse(model["use_sliding_window"])
-        self.assertEqual(model["compatibility_reasons"], ["TIED_EMBEDDINGS_NOT_REPRESENTED_BY_CURRENT_MODEL_SPEC"])
+        self.assertEqual(model["compatibility_reasons"], [])
+        self.assertTrue(model["simulator_model_compatible"])
         self.assertEqual(self.load()["audit"]["software"]["vllm_actual"], ["0.5.actual"])
         config = json.loads((self.root / "00_environment/model_configs/FixtureModel/config.json").read_text())
         config.update(hidden_size=7, tie_word_embeddings=False, sliding_window=4096)
         write_json(self.root, "00_environment/model_configs/FixtureModel/config.json", config)
         model = self.load()["audit"]["models"][0]
-        self.assertIn("ATTENTION_PROJECTION_WIDTH_DIFFERS_FROM_HIDDEN_SIZE", model["compatibility_reasons"])
+        self.assertEqual(model["compatibility_reasons"], [])
+        self.assertTrue(model["simulator_model_compatible"])
         self.assertNotIn("SLIDING_WINDOW_NOT_SUPPORTED", model["compatibility_reasons"])
 
     def test_checksum_mismatch_is_reported_without_modifying_input(self):

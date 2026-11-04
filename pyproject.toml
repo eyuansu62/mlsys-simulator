@@ -29,6 +29,9 @@ classifiers = [
 [project.scripts]
 mlsys-sim = "mlsys_sim.cli:main"
 
+[project.entry-points."vllm.general_plugins"]
+mlsys_internal_capture = "mlsys_sim.vllm_hooks:register_vllm_hooks"
+
 [project.urls]
 "Design plan" = "https://gist.github.com/eyuansu62/f91df8b7597801ca4fd91bb3bb8c98cc"
 "Source" = "https://github.com/eyuansu62/mlsys-simulator"

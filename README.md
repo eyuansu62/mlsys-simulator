@@ -1,19 +1,21 @@
 # MLSys Simulator
 
-A deterministic, CPU-only library for LLM serving experiments. It models request
+A deterministic CPU simulator for LLM serving experiments. It models request
 arrivals, batching, KV memory pressure, preemption and recomputation, with
-request timelines, per-rank memory accounting and service metrics.
+request timelines, per-rank memory accounting and service metrics. Optional
+collection adapters instrument an installed Runtime separately from simulation.
 
 [中文说明](README.zh-CN.md) · [Python API](docs/api.md) ·
 [Calibration](docs/calibration.md) · [Validation protocol](docs/validation-protocol.md) ·
 [Specification](docs/specification.md) · [PP and CPU swap](docs/pipeline-and-swap.md) ·
 [Prefix Cache and Chunked Prefill](docs/prefix-cache-and-chunking.md) ·
 [Mixed batching](docs/mixed-batching.md) · [Multi-replica routing](docs/multi-replica.md) ·
-[ROCm collection](docs/rocm-collection.md) ·
+[ROCm collection](docs/rocm-collection.md) · [Qwen3 and vLLM hooks](docs/qwen3-and-vllm-hooks.md) ·
 [Contributing](CONTRIBUTING.md)
 
-**Version 1.5 software scope:** optional AMD/ROCm collection adapters and an
-explicit hardware-evidence acceptance workflow, alongside multi-replica routing and load balancing with
+**Version 1.6 software scope:** Qwen3 geometry/import and version-checked vLLM
+internal capture, with optional AMD/ROCm collection adapters, explicit hardware
+evidence acceptance, multi-replica routing and load balancing with
 mixed Prefill/Decode batches, Prefix Cache, Chunked Prefill, online TP/PP and
 optional CPU KV swap, analytical models, versioned lookup
 profiles, calibration, grouped holdout evaluation and run/candidate comparison.
@@ -166,6 +168,24 @@ keep server Token-ready traces distinct from client SSE delivery. See
 [ROCm collection](docs/rocm-collection.md) for the supported plans, reference-data
 limits and explicit `PASS`/`FAIL`/`INSUFFICIENT_EVIDENCE`/`TEST_FIXTURE_ONLY`
 verdicts. A completed command is not itself a hardware acceptance result.
+
+## Import and simulate Qwen3 geometry
+
+```bash
+mlsys-sim import-model --kind qwen3 --config examples/v1_6/qwen3-4b.hf.json \
+  --name Qwen3-4B --revision 1cfa9a7208912126459214e8b04321603b3df60c --out runs/qwen3-model
+mlsys-sim predict --experiment examples/v1_6/qwen3-4b-predict.json --out runs/qwen3-predict
+mlsys-sim simulate --experiment examples/v1_6/qwen3-r2-tp2-pp2.json --out runs/qwen3-combined
+```
+
+Residual hidden width and query projection width are independent. Qwen3-4B uses
+2560 residual features and 32×128=4096 query features. Model accounting includes
+Q/K Norm, final RMSNorm and tied vocabulary storage. Tied weights share storage
+on one physical rank; separate PP endpoint devices retain their own copies.
+The combined synthetic example exercises Qwen3 geometry with R2×TP2×PP2,
+Prefix Cache, mixed batches and CPU swap. It does not load model weights or
+measure GPU performance. See [Qwen3 and internal hooks](docs/qwen3-and-vllm-hooks.md)
+for architecture fingerprints and capture evidence boundaries.
 
 ## Use the Python API
 

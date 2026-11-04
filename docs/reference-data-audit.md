@@ -45,10 +45,12 @@ The package is useful request-service and coverage evidence, with limits:
 - Device VRAM peaks and derived memory remainders do not attribute Workspace,
   graph memory or temporary tensor lifetimes.
 - Qwen3 models declare tied embeddings. Qwen3-4B additionally has hidden width
-  2560 and query-head width 4096. The current model contract cannot be made
-  equivalent by changing those real dimensions; canonical model compatibility
-  is reported as incomplete. The files declare BF16 without quantization and
-  with sliding-window attention disabled.
+  2560 and query-head width 4096. Version 1.6 represents those real widths,
+  vocabulary tying and Norm structure through the strict Qwen3 importer; model
+  geometry support no longer requires changing the source dimensions. The
+  files declare BF16 without quantization and with sliding-window attention
+  disabled. Representable geometry does not add the missing stage/Workspace or
+  semantic server-token timing evidence.
 - The traces contain no observed preemptions or overload, and no RCCL, TP/PP,
   multi-replica or CPU-swap measurement evidence. Fifty measured requests per
   run provide only limited p99 evidence.

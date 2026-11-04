@@ -100,8 +100,9 @@ def validate_experiment(experiment: Experiment) -> None:
             _invalid(f"strategy.model.{kind}_dtype", "must be auto or an explicit float dtype matching its byte width")
     if not model.name.strip() or not model.revision.strip():
         _invalid("strategy.model", "name and revision must not be empty")
-    if model.hidden_size != model.num_attention_heads * model.head_dim:
-        _invalid("strategy.model", "hidden_size must equal query heads × head_dim")
+    if model.architecture_config_sha256 and (len(model.architecture_config_sha256) != 64 or any(
+            character not in "0123456789abcdef" for character in model.architecture_config_sha256)):
+        _invalid("strategy.model.architecture_config_sha256", "must be empty or a lowercase SHA256 hex digest")
     if model.num_attention_heads % model.num_kv_heads:
         _invalid("strategy.model", "query heads must be divisible by KV heads")
     for name in ("tensor_parallel_size", "pipeline_parallel_size", "replicas",
@@ -176,6 +177,9 @@ def validate_experiment(experiment: Experiment) -> None:
                  "timing_boundary"):
         if not getattr(calibration, name).strip():
             _invalid(f"calibration.{name}", "must not be empty")
+    if calibration.runtime_config_sha256 and (len(calibration.runtime_config_sha256) != 64 or any(
+            character not in "0123456789abcdef" for character in calibration.runtime_config_sha256)):
+        _invalid("calibration.runtime_config_sha256", "must be empty or a lowercase SHA256 hex digest")
     if calibration.timing_boundary != "step_includes_output_and_sampling_v1":
         raise SimulationError("UNSUPPORTED_MECHANISM", "unsupported step timing boundary")
     if not calibration.profile_version:

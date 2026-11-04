@@ -26,6 +26,15 @@ class ModelSpec:
     weight_dtype: str = "auto"
     kv_dtype: str = "auto"
     activation_dtype: str = "auto"
+    tie_word_embeddings: bool = False
+    qk_norm: bool = False
+    final_norm: bool = False
+    architecture_config_sha256: str = ""
+
+    @property
+    def query_projection_size(self) -> int:
+        """Query/output attention width, independent of the residual width."""
+        return self.num_attention_heads * self.head_dim
 
 
 @dataclass(frozen=True)
@@ -123,6 +132,7 @@ class CalibrationSpec:
     rocm_version: str = "unspecified"
     rccl_version: str = "unspecified"
     timing_boundary: str = "step_includes_output_and_sampling_v1"
+    runtime_config_sha256: str = ""
 
 
 @dataclass(frozen=True)

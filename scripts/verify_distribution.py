@@ -13,7 +13,7 @@ import zipfile
 
 SMOKE_CODE = '''
 from dataclasses import asdict, replace
-from importlib.metadata import metadata, version
+from importlib.metadata import entry_points, metadata, version
 import json
 from pathlib import Path
 import sys
@@ -26,6 +26,17 @@ assert Path(mlsys_sim.__file__).resolve().is_relative_to(Path(sys.prefix).resolv
 assert version("mlsys-simulator") == mlsys_sim.__version__
 assert not metadata("mlsys-simulator").get_all("Requires-Dist")
 assert "torch" not in sys.modules, "Optional GPU dependency was imported eagerly"
+assert "vllm" not in sys.modules, "Optional serving dependency was imported eagerly"
+plugins = [item for item in entry_points(group="vllm.general_plugins") if item.name == "mlsys_internal_capture"]
+assert len(plugins) == 1
+plugins[0].load()()
+assert "torch" not in sys.modules and "vllm" not in sys.modules, "Dormant plugin activated without opt-in"
+qwen_import = mlsys_sim.load_qwen3_model("qwen-inputs/qwen3-4b.hf.json", name="Qwen3-4B",
+                                        revision="installed-qwen-fixture")
+qwen = mlsys_sim.ModelSpec(**qwen_import["model"])
+assert qwen.hidden_size == 2560 and qwen.query_projection_size == 4096
+assert qwen.tie_word_embeddings and qwen.qk_norm and qwen.final_norm
+assert qwen.architecture_config_sha256 == qwen_import["provenance"]["architecture_config_sha256"]
 def fixture_transport(url, body, headers, timeout_s):
     if body is None:
         return [json.dumps({"version": "installed-fixture-vllm"}).encode()]
@@ -166,7 +177,7 @@ def verify(dist: Path) -> dict:
         assert "mlsys_sim/batching.py" in names
         assert "mlsys_sim/replicas.py" in names
         for module in ("hardware", "rocm_steps", "rccl_adapter", "runtime_adapter",
-                       "hardware_validation", "release_adapter"):
+                       "hardware_validation", "release_adapter", "qwen3", "vllm_hooks", "vllm_capture"):
             assert f"mlsys_sim/{module}.py" in names
         assert not any(name.startswith(("tests/", "sample-runs/", "work/")) for name in names)
         assert archive.testzip() is None
@@ -182,6 +193,8 @@ def verify(dist: Path) -> dict:
                          "examples/v1_4/replicas_pp_mixed_cache_swap.json",
                          "docs/rocm-collection.md", "docs/reference-data-audit.md",
                          "examples/v1_5/fixture-validation.plan.json", "examples/v1_5/runtime-trace.fixture.json",
+                         "docs/qwen3-and-vllm-hooks.md", "examples/v1_6/qwen3-4b.hf.json",
+                         "examples/v1_6/qwen3-r2-tp2-pp2.json", "examples/v1_6/hook-import.fixture.plan.json",
                          "scripts/verify_distribution.py"):
             assert required in names, f"Source distribution missing {required}"
         assert not any(name.startswith(("sample-runs/", "work/")) for name in names)
@@ -195,9 +208,42 @@ def verify(dist: Path) -> dict:
         console = binaries / ("mlsys-sim.exe" if os.name == "nt" else "mlsys-sim")
         env = dict(os.environ)
         env.pop("PYTHONPATH", None)
+        env.pop("MLSYS_VLLM_CAPTURE_CONFIG", None)
         env.update(PIP_NO_INDEX="1", PIP_DISABLE_PIP_VERSION_CHECK="1")
         run([str(python), "-I", "-m", "pip", "install", "--no-deps", str(wheel)], outside, env)
+        qwen_inputs = outside / "qwen-inputs"
+        qwen_inputs.mkdir()
+        for source in (Path(__file__).resolve().parents[1] / "examples/v1_6").glob("*.json"):
+            (qwen_inputs / source.name).write_bytes(source.read_bytes())
         run([str(python), "-I", "-c", SMOKE_CODE], outside, env)
+        run([str(console), "import-model", "--kind", "qwen3", "--config", str(qwen_inputs / "qwen3-4b.hf.json"),
+             "--name", "Qwen3-4B", "--revision", "installed-qwen-fixture", "--out", "qwen-import"], outside, env)
+        imported = json.loads((outside / "qwen-import/result.json").read_text())
+        assert imported["dimensions"] == {"hidden_size": 2560, "query_projection_size": 4096,
+                                            "kv_projection_size": 1024}
+        run([str(console), "predict", "--experiment", str(qwen_inputs / "qwen3-4b-predict.json"),
+             "--out", "qwen-predict"], outside, env)
+        shape = json.loads((outside / "qwen-predict/result.json").read_text())
+        assert shape["memory"][0]["weights_bytes"] == 8044936192
+        run([str(console), "simulate", "--experiment", str(qwen_inputs / "qwen3-r2-tp2-pp2.json"),
+             "--out", "qwen-replicas"], outside, env)
+        served = json.loads((outside / "qwen-replicas/result.json").read_text())
+        assert served["counts"]["completed"] == 10
+        assert served["batching"]["mixed_batches_completed"] == 4
+        assert served["prefix_cache"]["hit_tokens"] == 24
+        assert served["swap"]["completed_transfers_by_direction"] == {"D2H": 2, "H2D": 2}
+        assert served["swap"]["host_reserved_bytes"] == 0
+        run([str(console), "collect", "--kind", "vllm-hook",
+             "--experiment", str(qwen_inputs / "hook-experiment.fixture.json"),
+             "--plan", str(qwen_inputs / "hook-import.fixture.plan.json"),
+             "--out", "hook-fixture", "--allow-test-fixture"], outside, env)
+        captured = json.loads((outside / "hook-fixture/result.json").read_text())
+        assert captured["canonical_stage_ready"] is True
+        assert captured["canonical_comparable"] is False
+        assert captured["hardware_validated"] is False
+        run([str(console), "calibrate", "--dataset", "hook-fixture/datasets/replica-0.json",
+             "--profile-version", "installed-hook-v1", "--out", "hook-fit",
+             "--allow-test-fixture"], outside, env)
         run([str(console), "collect", "--kind", "probe", "--out", "rocm-probe"], outside, env)
         probe = json.loads((outside / "rocm-probe/result.json").read_text())
         assert probe["hardware_available"] is False
@@ -326,6 +372,7 @@ def verify(dist: Path) -> dict:
             "installed_mixed_batches_pipeline_cache_and_swap": "passed",
             "installed_replica_routing_resources_and_profiles": "passed",
             "installed_rocm_collection_and_validation_fixture": "passed",
+            "installed_qwen_geometry_dormant_plugin_and_capture_fixture": "passed",
             "installed_calibration_comparison_holdout": "passed"}
 
 

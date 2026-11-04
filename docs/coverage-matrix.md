@@ -1,12 +1,13 @@
-# Version 1.5 capability matrix
+# Version 1.6 capability matrix
 
-This table describes the version 1.5 software scope. Available fixture demonstrations
+This table describes the version 1.6 software scope. Available fixture demonstrations
 and unit tests do not establish AMD hardware accuracy. User-supplied reference
 packages are external evidence with their own timing and model-coverage limits.
 
 | Capability | Software status | Supported scope and evidence boundary |
 | --- | --- | --- |
 | Six inputs and strict configuration | Implemented | JSON/TOML, JSONL workload, relative references; optional installed PyYAML |
+| Qwen3 geometry and HF import | Implemented | Independent residual/query widths, tied vocabulary storage, Q/K and final Norm, strict unquantized full-attention config and architecture fingerprints |
 | C01 macro performance model | Implemented | Shape-aware Dense MHA/GQA costs; analytical parameters are uncalibrated |
 | C02 memory planning | Implemented | Per-rank physical budget, fixed KV pool, logical blocks and labeled Workspace source |
 | C03 serving DES | Implemented | FIFO, default prefill-first batching or opt-in decode-first chunked/mixed scheduling, Token events, timeout and bounded execution |
@@ -27,6 +28,9 @@ packages are external evidence with their own timing and model-coverage limits.
 | Online run/candidate comparison | Implemented | Matching contracts, per-metric/request errors, SLA agreement, ties and candidate ordering |
 | Measured Workspace consumption | Implemented | Supported observed values; missing/extrapolated values use labeled analytical assumptions |
 | ROCm inventory and stage collection | Implemented adapter | Optional live HIP Runtime timing with explicit device/software identity; CPU fixture injection is not a GPU measurement |
+| Pinned vLLM internal runner hooks | Implemented adapter | Explicit MRv1 ABI/version installation, member-aware shapes and complete sampling boundaries; async, sequence-parallel and unisolated TP/PP transport intervals remain raw diagnostics |
+| Pinned vLLM Scheduler lifecycle | Implemented adapter | Actual enqueue, published output and terminal events; conditional replay is explicit, with prompt identity required for Prefix Cache |
+| Internal capture aggregation | Implemented | Complete compatible TP rank groups use maximum local elapsed time, strict model/Runtime configuration identity, per-replica datasets and explicit quarantine |
 | RCCL AllReduce collection/import | Implemented adapter | Explicit benchmark units/ranks/mode, maximum-rank timing and correctness checks; sendrecv is not accepted as unidirectional PP P2P |
 | Runtime trace and vLLM client collection | Implemented adapters | Semantic server Token events and token-ID client streaming retain different boundaries; SSE chunk counts do not become token counts |
 | Reference-package audit | Implemented | Source hashes, structure, timing/shape coverage and compatibility diagnostics; archived programs and instructions are not executed |

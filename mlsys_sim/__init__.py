@@ -6,7 +6,7 @@ Changes to this import surface and the versioned data contracts are recorded
 in the changelog. Calibration provenance and hardware validation are separate.
 """
 
-__version__ = "1.5.0"
+__version__ = "1.6.0"
 
 from .config import experiment_from_dict, load_experiment, validate_experiment
 from .engine import SimulationResult, simulate
@@ -41,6 +41,12 @@ from .rccl_adapter import collect_rccl, parse_rccl_output
 from .runtime_adapter import RuntimeTraceRecorder, collect_vllm, normalize_runtime_trace
 from .hardware_validation import run_hardware_validation
 from .release_adapter import import_reference_data
+from .qwen3 import (load_qwen3_model, model_from_qwen3_config,
+                    normalized_qwen3_architecture, qwen3_architecture_fingerprint)
+from .vllm_hooks import (RunnerCapture, SchedulerCapture, VllmCaptureWorkerExtension,
+                         install_runner_hook, install_scheduler_hook, register_vllm_hooks,
+                         uninstall_vllm_hooks_plugin)
+from .vllm_capture import load_vllm_captures, normalize_vllm_capture
 
 __all__ = [
     "__version__",
@@ -96,4 +102,17 @@ __all__ = [
     "normalize_runtime_trace",
     "run_hardware_validation",
     "import_reference_data",
+    "model_from_qwen3_config",
+    "load_qwen3_model",
+    "normalized_qwen3_architecture",
+    "qwen3_architecture_fingerprint",
+    "RunnerCapture",
+    "SchedulerCapture",
+    "VllmCaptureWorkerExtension",
+    "install_runner_hook",
+    "install_scheduler_hook",
+    "register_vllm_hooks",
+    "uninstall_vllm_hooks_plugin",
+    "load_vllm_captures",
+    "normalize_vllm_capture",
 ]

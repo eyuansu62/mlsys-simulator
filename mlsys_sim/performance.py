@@ -99,19 +99,35 @@ class AnalyticalModel:
 
         # One joint batch reuses weights across both serving phases when mixed.
         linear_flops = 2 * layers * local_params["linear"] * tokens
+        # Keep the inherited residual/FFN traffic approximation, while the two
+        # projected Q/O activation terms grow with the local attention width.
+        projected_io_delta = 2 * (model.query_projection_size - model.hidden_size) // tp
         linear_bytes = (layers * local_params["linear"] * model.weight_bytes
-                        + 4 * layers * tokens * model.hidden_size * model.activation_bytes)
+                        + layers * tokens * (4 * model.hidden_size + projected_io_delta) * model.activation_bytes)
         linear = macro(linear_flops, linear_bytes, layers)
         # Causal attention includes the prefix and lower triangle of new queries.
         pairs = sum(q * c + q * (q + 1) / 2 for q, c in zip(queries, contexts))
         attn_flops = 4 * layers * (model.num_attention_heads / tp) * model.head_dim * pairs
         kv_bytes = (2 * layers * local_kv_heads(model, tp) * model.head_dim
                     * model.kv_bytes * sum(c + q for c, q in zip(contexts, queries)))
-        query_io = 2 * layers * tokens * model.hidden_size / tp * model.activation_bytes
+        query_io = 2 * layers * tokens * model.query_projection_size / tp * model.activation_bytes
         attention = macro(attn_flops, kv_bytes + query_io, layers)
-        misc = macro(12 * layers * tokens * model.hidden_size,
-                     8 * layers * tokens * model.hidden_size * model.activation_bytes,
-                     layers)
+        misc_flops = 12 * layers * tokens * model.hidden_size
+        misc_bytes = 8 * layers * tokens * model.hidden_size * model.activation_bytes
+        misc_launches = layers
+        if model.qk_norm:
+            normalized_elements = tokens * model.head_dim * (
+                model.num_attention_heads // tp + local_kv_heads(model, tp))
+            misc_flops += 6 * layers * normalized_elements
+            misc_bytes += (2 * layers * normalized_elements * model.activation_bytes
+                           + 2 * layers * model.head_dim * model.weight_bytes)
+            misc_launches += 2 * layers
+        if model.final_norm and stage_index == len(counts) - 1:
+            misc_flops += 6 * tokens * model.hidden_size
+            misc_bytes += (2 * tokens * model.hidden_size * model.activation_bytes
+                           + model.hidden_size * model.weight_bytes)
+            misc_launches += 1
+        misc = macro(misc_flops, misc_bytes, misc_launches)
 
         output_flops = 0.0
         output_bytes = 0.0
@@ -148,8 +164,9 @@ class AnalyticalModel:
         return StepEstimate(duration, breakdown, "analytical_uncalibrated", (
             "Uncalibrated effective compute/bandwidth and serialized macro operations.",
             "Ideal weight and GQA KV reuse; attention IO is an optimistic lower-bound approximation.",
-            "Three macro launch terms per block; no overlap or link contention.",
-            "Untied, vocabulary-sharded embedding/output; final logits use AllGather.",
+            "Three baseline macro launch terms per block plus enabled Q/K and final norms; no overlap or link contention.",
+            ("Tied vocabulary storage aliases only within a rank; embedding/output work and logits AllGather remain."
+             if model.tie_word_embeddings else "Untied, vocabulary-sharded embedding/output; final logits use AllGather."),
         ))
 
 

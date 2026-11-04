@@ -93,7 +93,8 @@ def _contract(value: Any, name: str, *, measured: bool = False) -> dict:
                       "link_latency_us": topology["link_latency_us"]},
             "calibration": {"runtime_name": runtime["name"], "runtime_version": runtime["version"],
                             "driver_version": runtime["driver_version"], "rocm_version": runtime["rocm_version"],
-                            "rccl_version": runtime["rccl_version"], "timing_boundary": runtime["timing_boundary"]},
+                            "rccl_version": runtime["rccl_version"], "timing_boundary": runtime["timing_boundary"],
+                            "runtime_config_sha256": runtime.get("runtime_config_sha256", "")},
         })
         if profile_identity(reconstructed) != identity:
             _error("comparison_contract strategy and hardware identity disagree")

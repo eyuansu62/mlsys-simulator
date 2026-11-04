@@ -1,6 +1,6 @@
 # AMD/ROCm collection and hardware-evidence acceptance
 
-Version 1.5 adds collection adapters around real Runtime calls and explicit
+Version 1.5 introduced collection adapters around real Runtime calls and explicit
 acceptance of supplied evidence. `simulate` remains a CPU model. Collection
 does not install a driver, ROCm, PyTorch, RCCL tests or a serving Runtime.
 
@@ -344,11 +344,17 @@ host also lists a 7900 XTX. The recorded vLLM build is
 wheel string `2.13.0+rocm10.1.0` and HIP build `7.16.26385` are preserved as
 different facts; neither is rewritten to make a desired version match.
 
-Both packages use pinned Qwen3 revisions and BF16. The current simulator's
-untied-embedding ModelSpec does not express the recorded tied embeddings, and
-the recorded Qwen3-4B hidden size differs from its query-head count multiplied
-by head dimension. The importer reports these model gaps; it does not change
-the real dimensions to make a configuration validate. A prefix-group label also
-cannot replace prompt token ancestry. No supplied run establishes RCCL/TP/PP,
+Both packages use pinned Qwen3 revisions and BF16. Version 1.6 describes their
+tied vocabulary weights, Q/K and final Norm, and independent residual/query
+widths through the strict Qwen3 importer. The 4B model retains hidden width
+2560 and query width 4096; no source dimension is changed to make it validate.
+Architecture support is recorded independently from missing measurement
+boundaries. A prefix-group label cannot replace prompt token ancestry.
+No supplied run establishes RCCL/TP/PP,
 preemption or swap prediction accuracy, and neither package supplies the
 whole-stage shape and attributed Workspace records needed to fill those gaps.
+
+For version-pinned internal vLLM collection, see
+[Qwen3 and internal hooks](qwen3-and-vllm-hooks.md). It obtains runner shapes
+and supported complete service boundaries directly; the supplied historical
+client-content records are not retroactively upgraded to those new boundaries.

@@ -1,14 +1,14 @@
-# V1.5 软件验证记录
+# V1.6 软件验证记录
 
 日期：2026-11-04  
 环境：Python 3.14.3，macOS，CPU 执行  
-版本：1.5.0
+版本：1.6.0
 
 ## 自动检查
 
-- `python3 -m unittest discover -s tests -v`：561 项测试通过，覆盖 ROCm/RCCL/Runtime 采集适配、显式硬件验收、参考包导入、多副本路由、混合 Prefill/Decode、Prefix Cache、Chunked Prefill、PP、CPU swap、资源引用、Profile、校准、Compare、留出与 CLI 闭环；含固定 seed 的有界生成负载。
+- `python3 -m unittest discover -s tests -v`：660 项 CPU 测试通过，覆盖 Qwen3 几何/权重、新 vLLM 内部 Hook/聚合、ROCm/RCCL/Runtime 采集适配、显式硬件验收、参考包导入、多副本路由、混合 Prefill/Decode、Prefix Cache、Chunked Prefill、PP、CPU swap、资源引用、Profile、校准、Compare、留出与 CLI 闭环；含固定 seed 的有界生成负载。
 - Ruff 0.17.3：检查通过。
-- mypy 2.4.1：`mypy mlsys_sim`，25 个源文件检查通过。
+- mypy 2.4.1：`mypy mlsys_sim`，28 个源文件检查通过。
 - `python3 -m compileall -q mlsys_sim tests scripts`：通过。
 
 Ruff/mypy 为临时开发检查工具，没有加入项目运行依赖。测试覆盖配置拒绝、
@@ -23,6 +23,10 @@ Prefix Cache 检查 namespace、完整 token ancestry 的 SHA256 链、保留最
 多副本检查共享事件时序、轮询／最少未完成请求／受负载约束的缓存亲和路由、到达时可见状态、固定归属、独立Host/DMA与纯读缓存探测。两条本地引擎仅抽取可逐事件驱动和幂等finalization接口，驱动结果与原run路径的请求、事件和资源报告逐项相等。全局预算/窗口、PP反馈和swap截止保留引用；局部停止不阻断健康副本，全部副本不可用时未来请求保持未路由。全局分位数从合并请求重算，三请求手算全局TTFT中位数为2ms，而局部中位数平均为2.5ms。Profile与CLI检查每副本身份、原始字节快照、有序hash、版本/来源、完整集群Compare，以及warmup缓存和路由游标重置。
 
 ## CLI 示例证据
+
+Qwen3 新增手算验证保留真实 residual/query 两种宽度，计入 Q/K Norm、最终 Norm、同 rank tied 词表去重及 PP 端点物理复制。数学参数量为 1.7B 模型1,720,574,976、4B 模型4,022,468,096；4B residual=2560、query=4096，KV=147456bytes/token。Runtime 词表 padding 和 allocator 额外占用仍需实测。旧默认 Profile 身份/数值保持兼容，新架构与实际执行配置各自按 SHA256 区分。
+
+内部 Hook 按固定 vLLM `98dff2a81` 源码接口使用 CPU source-shaped Runner/Scheduler 夹具测试，未安装或运行真实 vLLM/GPU。实际 Hook 导出直接进入聚合器，覆盖完整采样/已发布 Token 生命周期、cache salt 与 prompt SHA、参数/配置/PP层范围、rank 完整性、原调用返回/异常、record 上限、Future 释放和 close 竞态。异步消费、SP、恢复历史、lazy incoming、额外 residual 及 TP-sliced/receiver-AllGather 与模型传输不一致的区间保留 raw，不能作为纯 stage Profile。收集插件默认 dormant，只有显式配置才安装；支持域见[Qwen3 与 Hook 说明](qwen3-and-vllm-hooks.md)。
 
 采集适配测试使用 CPU fake backend、合成 RCCL 日志及本机 HTTP/SSE 服务，未运行 AMD GPU kernel。检查 HIP 与 CUDA 区分、编译版本与实际 RCCL 库版本分离、真实 TP 的 Runtime 库版本/hash绑定、同步主机计时、allocator allocated/reserved 原始值与 Workspace 归因分离、精度/单位/rank/正确性、超时与部分失败证据。流式采集检查 delta token IDs/最终 usage、heartbeat 绝对期限、全局排队期限、重定向不转发凭据，以及客户端合并 chunk 不伪造服务端 Token 时刻。规范化 server trace 核对到达/输出数/逐 Token 索引及 execution/window/drain/request timeout 边界。验收测试覆盖组/形状泄漏、完整请求配对、重复内容去重、显式阈值与缺失证据；fixture 永不成为硬件 PASS，`--require-pass` 对非实测 PASS 返回3。
 
@@ -55,6 +59,9 @@ Prefix Cache 检查 namespace、完整 token ancestry 的 SHA256 链、保留最
 | Runtime trace fixture | server-token-ready 事件转换为观察，TTFT6.1ms、TPOT1.1ms、E2E8.3ms；来源仍为fixture |
 | RX9070XT 参考包 | 195 runs/65 cells，9750正式＋1950预热请求；已读取已知数据文件校验匹配，规范化验收仍INSUFFICIENT_EVIDENCE |
 | 旧 NVIDIA 参考包 | 48 runs/2400正式请求，README哈希不一致被保留；不重标AMD或stage Profile |
+| Qwen3-4B 导入/预测 | hidden2560与query4096保持独立；BF16数学权重8,044,936,192 bytes；原始/规范化架构哈希保留 |
+| Qwen3 R2×TP2×PP2 组合 | 10请求完成、4混批、24缓存Token，D2H/H2D各2次，零重算，总模拟52.413216ms，请求/Host引用归零 |
+| 内部 Hook fixture | 完整同步rank样本可生成stage dataset并校准；无Scheduler生命周期时online不可比较，hardware_validated=false |
 
 内存压力示例使用 synthetic 固定阶段时间；仓库中分发的校准样例全部标记 test_fixture。本次另读取用户提供的真实外部采样包，仅作边界、覆盖与导入审计，没有重新运行 GPU 采集。完整性检查限定在导入器读取的已知文件，未重放嵌套原始归档。原始 prompt/response、归档代码与数据包不纳入仓库或分发。详见[参考包审计](reference-data-audit.md)。这些检查不构成真实 GPU 时延准确率证明。
 
@@ -67,7 +74,7 @@ Profile、PP 在线流水线、CPU swap、Prefix Cache、Chunked Prefill、混�
 
 - Setuptools 84.2.1 通过标准 PEP 517 隔离构建生成 sdist，再从该 sdist 构建 wheel。
 - Twine 7.0.0 对两种分发文件的元数据检查通过。
-- `scripts/verify_distribution.py` 在源码目录以外创建新虚拟环境，离线安装 wheel；公共 API、PP 在线、单组／PP swap、单组／PP Prefix Cache＋Chunked Prefill、混合批处理和PP/缓存/swap组合、多副本三种路由/组合与逐副本Profile模拟和预测、ROCm probe/服务端trace/客户端token-ID fixture/显式验收命令、PP 解析、校准→Profile→Compare→留出及通信校准 CLI 均通过。
+- `scripts/verify_distribution.py` 在源码目录以外创建新虚拟环境，离线安装 wheel；公共 API、PP 在线、单组／PP swap、单组／PP Prefix Cache＋Chunked Prefill、混合批处理和PP/缓存/swap组合、多副本三种路由/组合与逐副本Profile模拟和预测、ROCm probe/服务端trace/客户端token-ID fixture/显式验收命令、Qwen模型导入/预测/组合与dormant vLLM插件和Hook数据集校准、PP 解析、校准→Profile→Compare→留出及通信校准 CLI 均通过。
 - Wheel 内含 `py.typed`，安装元数据无必需第三方运行依赖；sdist 包含测试、示例和公共文档。
 - CI 覆盖 Python 3.11 至 3.14 的回归测试、lint、类型和分发检查，使用固定 Actions SHA。
 

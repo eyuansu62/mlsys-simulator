@@ -24,6 +24,9 @@ from .schema import Experiment, SimulationError, StepEstimate
 if TYPE_CHECKING:
     from .performance import AnalyticalModel
 
+_ADDITIVE_MODEL_FLAGS = {"tie_word_embeddings", "qk_norm", "final_norm"}
+_ADDITIVE_MODEL_FIELDS = _ADDITIVE_MODEL_FLAGS | {"architecture_config_sha256"}
+
 
 def _invalid(message: str, code: str = "INVALID_PROFILE") -> None:
     raise SimulationError(code, message)
@@ -82,8 +85,16 @@ def profile_identity(experiment: Experiment) -> dict:
     """Describe the exact model, software, physical layout and timing contract."""
     strategy, infra, calibration = experiment.strategy, experiment.infra, experiment.calibration
     memory = strategy.memory
+    model_identity = asdict(strategy.model)
+    # Preserve the original identity bytes for the legacy model domain. A
+    # nondefault storage/operator mechanism is still part of exact identity.
+    for flag in _ADDITIVE_MODEL_FLAGS:
+        if model_identity[flag] is False:
+            model_identity.pop(flag)
+    if model_identity["architecture_config_sha256"] == "":
+        model_identity.pop("architecture_config_sha256")
     identity: dict[str, Any] = {
-        "model": asdict(strategy.model),
+        "model": model_identity,
         "devices": [asdict(device) for device in infra.devices],
         "parallelism": {
             "tensor_parallel_size": strategy.tensor_parallel_size,
@@ -102,6 +113,8 @@ def profile_identity(experiment: Experiment) -> dict:
     }
     if strategy.replicas != 1:
         identity["parallelism"]["replicas"] = strategy.replicas
+    if calibration.runtime_config_sha256 != "":
+        identity["runtime"]["runtime_config_sha256"] = calibration.runtime_config_sha256
     return identity
 
 
@@ -120,17 +133,21 @@ def _identity(value: Any) -> dict:
                        set(), "identity.topology")
     runtime = _object(identity["runtime"],
                       {"name", "version", "driver_version", "rocm_version", "rccl_version", "timing_boundary"},
-                      set(), "identity.runtime")
+                      {"runtime_config_sha256"}, "identity.runtime")
     for key, item in runtime.items():
+        if key == "runtime_config_sha256" and item == "":
+            continue
         _text(item, f"identity.runtime.{key}")
     _text(topology["name"], "identity.topology.name")
     execution = _object(identity["execution"],
                         {"kv_block_tokens", "graph_bytes", "runtime_bytes", "communication_buffer_bytes"},
                         set(), "identity.execution")
-    # Explicitly require full dataclass identity, not a default-filled partial one.
+    # Original model fields remain mandatory. Additive mechanism defaults may
+    # be absent so old complete identities retain their canonical structure.
     from .schema import DeviceSpec, ModelSpec
     from dataclasses import fields
-    _object(identity["model"], {field.name for field in fields(ModelSpec)}, set(), "identity.model")
+    _object(identity["model"], {field.name for field in fields(ModelSpec)} - _ADDITIVE_MODEL_FIELDS,
+            _ADDITIVE_MODEL_FIELDS, "identity.model")
     if not isinstance(identity["devices"], list) or not identity["devices"]:
         _invalid("identity.devices must be a nonempty array")
     for device in identity["devices"]:
@@ -149,7 +166,8 @@ def _identity(value: Any) -> dict:
                       "link_latency_us": topology["link_latency_us"]},
             "calibration": {"runtime_name": runtime["name"], "runtime_version": runtime["version"],
                             "driver_version": runtime["driver_version"], "rocm_version": runtime["rocm_version"],
-                            "rccl_version": runtime["rccl_version"], "timing_boundary": runtime["timing_boundary"]},
+                            "rccl_version": runtime["rccl_version"], "timing_boundary": runtime["timing_boundary"],
+                            "runtime_config_sha256": runtime.get("runtime_config_sha256", "")},
         })
     except SimulationError as exc:
         raise SimulationError("INVALID_PROFILE", f"Invalid identity: {exc}") from exc

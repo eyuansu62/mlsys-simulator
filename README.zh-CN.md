@@ -1,9 +1,9 @@
 # LLM 推理系统模拟器
 
 [English](README.md) · [Python API](docs/api.md) · [校准](docs/calibration.md) ·
-[验证规范](docs/validation-protocol.md) · [系统规范](docs/specification.md) · [PP 与 CPU swap](docs/pipeline-and-swap.md) · [Prefix Cache 与分块预填充](docs/prefix-cache-and-chunking.md) · [混合批处理](docs/mixed-batching.md) · [多副本路由](docs/multi-replica.md) · [ROCm 采集](docs/rocm-collection.md)
+[验证规范](docs/validation-protocol.md) · [系统规范](docs/specification.md) · [PP 与 CPU swap](docs/pipeline-and-swap.md) · [Prefix Cache 与分块预填充](docs/prefix-cache-and-chunking.md) · [混合批处理](docs/mixed-batching.md) · [多副本路由](docs/multi-replica.md) · [ROCm 采集](docs/rocm-collection.md) · [Qwen3 与 vLLM 内部 hook](docs/qwen3-and-vllm-hooks.md)
 
-1.5 版增加可选 AMD/ROCm 采集 Adapter 与显式证据验收流程，并保留多副本调度／负载均衡、Prefill/Decode 混合批处理、Prefix Cache、Chunked Prefill、PP、CPU KV swap、解析模型、Profile、校准、留出验证和方案比较。用户提供的 AMD/NVIDIA 真机参考包用于格式适配与审计；原始包及 prompt/output 全文不随库分发，现有覆盖不代表通用硬件预测准确率。仓库为[私有仓库](https://github.com/eyuansu62/mlsys-simulator)，许可证待选择，尚未发布 PyPI。
+1.6 版增加 Qwen3 模型几何兼容、HF 配置导入和带版本检查的 vLLM 内部采集，并保留可选 AMD/ROCm Adapter、显式验收、多副本调度／负载均衡、Prefill/Decode 混合批处理、Prefix Cache、Chunked Prefill、PP、CPU KV swap、解析模型、Profile、校准、留出验证和方案比较。用户提供的 AMD/NVIDIA 真机参考包用于格式适配与审计；原始包及 prompt/output 全文不随库分发，现有覆盖不代表通用硬件预测准确率。仓库为[私有仓库](https://github.com/eyuansu62/mlsys-simulator)，许可证待选择，尚未发布 PyPI。
 
 ## 安装和运行
 
@@ -96,6 +96,17 @@ mlsys-sim validate-hardware --plan examples/v1_5/fixture-validation.plan.json \
 ```
 
 Probe 会报告硬件可用性及版本证据。上面的验收示例全部为手算 fixture，必须保留 `hardware_validated=false`。实际 stage 采集计量同步后的 Runtime 调用；RCCL AllReduce 检查计时与正确性；在线采集保留服务端 Token-ready 与客户端 SSE 到达两种边界。验收报告分别给出 `PASS`、`FAIL`、`INSUFFICIENT_EVIDENCE` 或 `TEST_FIXTURE_ONLY`，命令执行完成本身不等于真机验收通过。完整计划、来源约束和参考数据缺口见[ROCm 采集说明](docs/rocm-collection.md)。
+
+## Qwen3 模型导入与组合示例
+
+```bash
+mlsys-sim import-model --kind qwen3 --config examples/v1_6/qwen3-4b.hf.json \
+  --name Qwen3-4B --revision 1cfa9a7208912126459214e8b04321603b3df60c --out runs/qwen3-model
+mlsys-sim predict --experiment examples/v1_6/qwen3-4b-predict.json --out runs/qwen3-predict
+mlsys-sim simulate --experiment examples/v1_6/qwen3-r2-tp2-pp2.json --out runs/qwen3-combined
+```
+
+Qwen3-4B 的 residual hidden width=2560，query projection width=32×128=4096，保持真实维度。权重和性能模型补充 tied embeddings、Q/K Norm 与最终 RMSNorm；同一物理 rank 的词表权重去重，PP 两端位于不同设备时各有副本。组合示例使用 synthetic 时间，实际触发 R2×TP2×PP2、缓存、混合批处理和 CPU swap，不加载模型权重或证明真机吞吐。配置指纹与内部采集边界见[专门说明](docs/qwen3-and-vllm-hooks.md)。
 
 ## Python 库接口
 

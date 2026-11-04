@@ -1,5 +1,38 @@
 # Changelog
 
+## 1.6.0 — 2026-11-04
+
+Qwen3 geometry keeps residual and query projection widths distinct while
+preserving the existing serving and evidence contracts.
+
+### Added
+
+- Optional tied vocabulary storage, per-layer Q/K Norm and final RMSNorm,
+  including physical TP/PP ownership and independent query-width costs.
+- Strict dependency-free dense Qwen3 HF config import with model revision,
+  explicit dtype and canonical architecture fingerprints.
+- Qwen3 model/config examples, isolated shape prediction and a synthetic
+  R2×TP2×PP2/cache/swap/mixed serving demonstration.
+- Version-pinned MRv1 runner and Scheduler capture with reversible instance hooks, explicit
+  worker RPC integration and a dormant, opt-in general-plugin entry point.
+- Per-rank capture validation and complete synchronous TP-group aggregation,
+  retaining quarantine reasons, Runtime execution fingerprints and raw evidence.
+- Published Scheduler lifecycle normalization with explicit conditional workload
+  binding; runner sampling candidates remain separate from served output.
+
+### Compatibility and evidence
+
+- Default model flags and empty fingerprints preserve legacy Profile identity;
+  nondefault architecture choices cannot silently share a different Profile.
+- Tied storage reduces one-rank allocation; separate PP endpoint copies and
+  LM-head execution remain accounted for.
+- Imported model geometry does not turn client SSE chunks, C1 request latency
+  or allocator peaks into missing canonical hardware measurements.
+- CPU fixture verification does not establish live vLLM or GPU accuracy.
+- Async result consumption remains observable raw diagnostics; it does not
+  establish an exclusive whole-stage service sample or a Scheduler lifecycle.
+
+
 ## 1.5.0 — 2026-11-04
 
 Optional hardware adapters connect collected Runtime evidence to calibration

@@ -1,4 +1,4 @@
-# Version 1.4 software specification
+# Version 1.6 software specification
 
 The CPU simulator separates system events, performance/communication models and
 calibration data. It has no required third-party runtime dependency and performs
@@ -23,6 +23,28 @@ Times use ms, byte quantities use bytes, bandwidth uses decimal GB/s and compute
 uses TFLOP/s. Float storage widths of 2/4/8 bytes are supported; packed/8-bit
 formats are rejected rather than omitting their metadata. Model/device defaults
 are toy assumptions. Measured data needs explicit non-placeholder identities.
+
+## Model geometry and weight ownership
+
+The residual feature width is `hidden_size`. Query and attention-output width
+is `num_attention_heads × head_dim`, independently of that residual width.
+Q/O matrix parameters per TP rank therefore use
+`2 × hidden_size × query_projection_size / TP`; K/V matrices and KV storage
+continue using local KV heads × head dimension, including GQA replication.
+PP transports residual activations, so its payload width remains `hidden_size`.
+
+Optional `qk_norm` adds two shared head-dimension Norm vectors per layer/rank;
+`final_norm` adds a residual-width Norm vector on the last stage/rank. With
+`tie_word_embeddings=true` and PP=1, embedding and LM-head roles share one
+vocabulary-sharded allocation. PP>1 stores a copy at each physical endpoint.
+Analytical LM-head work remains present even when its weights alias embeddings.
+The old flags default false and preserve the previous model domain and costs.
+
+Dense Qwen3 HF configuration import retains actual dimensions, revision, dtype,
+tying and Norm choices. It rejects unsupported architecture/attention/storage
+options. A normalized `architecture_config_sha256` binds execution-relevant
+configuration to Profile identity while raw input hashes remain provenance.
+See [Qwen3 and internal hooks](qwen3-and-vllm-hooks.md).
 
 ## Event and scheduling semantics
 
@@ -152,6 +174,23 @@ select one file per replica through `replica_profile_paths`; each must match
 that local layout. Online comparison instead retains the full cluster identity
 and routing strategy. CLI artifacts snapshot every local Profile, preserving
 its raw bytes, hash, version and source for both timing and Workspace.
+
+Pinned internal vLLM collection validates the supported MRv1 ABI and records
+actual batch members at Runner boundaries. Complete synchronous TP groups use
+maximum local elapsed duration; execute-only final stages, async consumption,
+missing/failed channels and unsupported recovery are not silently converted to
+whole-stage observations. Scheduler enqueue and published output/terminal
+events form a separate lifecycle channel. Runtime execution fingerprints are
+independent of architecture fingerprints, and both participate in identity when
+present. Collection perturbation and hardware validation remain explicit. See
+[Qwen3 and internal hooks](qwen3-and-vllm-hooks.md).
+
+This pinned Runtime's combined TP/PP transport can slice outgoing tensors and
+perform receiver-side TP AllGather, with lazy incoming work inside a Runner
+interval. Such intervals remain raw-only when they do not isolate stage service
+from transport. Sequence-parallel execution is outside this capture boundary.
+The simulator's TP/PP model and its synthetic demonstrations retain their
+separate declared communication semantics.
 
 Independent communication observations can fit alpha-beta parameters per
 primitive/rank group and produce an explicit Infra patch. A selected patch must

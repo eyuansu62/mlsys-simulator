@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "workload": [
+    {
+      "request_id": "shape",
+      "arrival_ms": 0,
+      "input_tokens": 16,
+      "output_tokens": 2
+    }
+  ],
+  "infra": {
+    "devices": [
+      {
+        "id": "gpu0",
+        "memory_bytes": 17179869184
+      }
+    ]
+  },
+  "strategy": {
+    "model": "qwen3-4b.model.json"
+  }
+}

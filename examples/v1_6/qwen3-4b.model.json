@@ -1,0 +1,21 @@
+{
+  "name": "Qwen3-4B",
+  "num_layers": 36,
+  "hidden_size": 2560,
+  "intermediate_size": 9728,
+  "num_attention_heads": 32,
+  "num_kv_heads": 8,
+  "head_dim": 128,
+  "vocab_size": 151936,
+  "weight_bytes": 2.0,
+  "kv_bytes": 2.0,
+  "activation_bytes": 2.0,
+  "revision": "1cfa9a7208912126459214e8b04321603b3df60c",
+  "weight_dtype": "bfloat16",
+  "kv_dtype": "bfloat16",
+  "activation_dtype": "bfloat16",
+  "tie_word_embeddings": true,
+  "qk_norm": true,
+  "final_norm": true,
+  "architecture_config_sha256": "f27adcaf3cf45423f86940d9c8b9f55c1568274b4272d63a991325a28f4a4baa"
+}

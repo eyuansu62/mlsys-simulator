@@ -343,7 +343,7 @@ def _save_collection(bundle: dict, output: Path, manifest: dict) -> dict:
                   "observation": "observed.json", "audit": "audit.json", "raw_records": "raw_records.json",
                   "client_metrics": "client_metrics.json"}
     line_files = {"request_service_records": "request_service.jsonl", "client_requests": "client_requests.jsonl"}
-    artifacts = {}
+    artifacts: dict[str, Any] = {}
     for key, filename in json_files.items():
         if bundle.get(key) is not None:
             destination = output / filename
@@ -358,10 +358,26 @@ def _save_collection(bundle: dict, output: Path, manifest: dict) -> dict:
                 for row in bundle[key]:
                     stream.write(_json(row) + "\n")
             artifacts[key] = {"file": filename, "sha256": hashlib.sha256(destination.read_bytes()).hexdigest()}
+    if bundle.get("datasets") is not None:
+        directory = output / "datasets"
+        directory.mkdir()
+        datasets = []
+        for item in bundle["datasets"]:
+            replica = item["replica_index"]
+            if type(replica) is not int or replica < 0:
+                raise SimulationError("INVALID_VLLM_CAPTURE", "Dataset replica index must be nonnegative")
+            destination = directory / f"replica-{replica}.json"
+            if destination.exists():
+                raise SimulationError("OUTPUT_EXISTS", "A replica dataset artifact already exists")
+            _write_json(destination, item["dataset"])
+            datasets.append({"replica_index": replica, "file": str(destination.relative_to(output)),
+                             "sha256": hashlib.sha256(destination.read_bytes()).hexdigest()})
+        artifacts["datasets"] = datasets
     manifest["collection_artifacts"] = artifacts
     if "source" in bundle:
         manifest["source"] = bundle["source"]
-    result = {key: value for key, value in bundle.items() if key not in json_files and key not in line_files}
+    result = {key: value for key, value in bundle.items()
+              if key not in json_files and key not in line_files and key != "datasets"}
     result["artifacts"] = artifacts
     result["hardware_validated"] = False
     return result
@@ -376,6 +392,7 @@ def _collection(args: argparse.Namespace, manifest: dict) -> dict:
         "rccl": {"experiment", "plan", "inventory", "rccl_library", "rocm_root"},
         "runtime-trace": {"experiment", "raw"},
         "vllm": {"experiment", "plan", "inventory", "rccl_library", "rocm_root"},
+        "vllm-hook": {"experiment", "plan", "raw"},
         "reference": {"reference_dir"},
     }[args.kind]
     for field in ("experiment", "plan", "adapter", "raw", "reference_dir", "inventory", "rccl_library", "rocm_root"):
@@ -404,6 +421,43 @@ def _collection(args: argparse.Namespace, manifest: dict) -> dict:
         from .runtime_adapter import normalize_runtime_trace
         _record_input(manifest, args.raw)
         bundle = normalize_runtime_trace(experiment, read_json(args.raw), allow_test_fixture=args.allow_test_fixture)
+        return _save_collection(bundle, args.out, manifest)
+    if args.kind == "vllm-hook":
+        from .hardware import object_fields
+        from .vllm_capture import load_vllm_captures, normalize_vllm_capture
+
+        if (args.raw is None) == (args.plan is None):
+            raise SimulationError("INVALID_ARGUMENT", "Hook import needs exactly one of --raw or --plan")
+        runtime_trace = None
+        bind_runtime_workload = False
+        if args.plan is not None:
+            _record_input(manifest, args.plan)
+            plan = object_fields(read_json(args.plan), {"schema_version", "captures"},
+                                 {"runtime_trace", "bind_runtime_workload"}, "vLLM hook import plan")
+            if type(plan["schema_version"]) is not int or plan["schema_version"] != 1:
+                raise SimulationError("INVALID_COLLECTION_PLAN", "Hook plan schema_version must be 1")
+            if (not isinstance(plan["captures"], list) or not plan["captures"]
+                    or any(not isinstance(value, str) or not value.strip() for value in plan["captures"])):
+                raise SimulationError("INVALID_COLLECTION_PLAN", "captures must contain capture-file paths")
+            paths = [args.plan.parent / value for value in plan["captures"]]
+            bind_runtime_workload = plan.get("bind_runtime_workload", False)
+            if type(bind_runtime_workload) is not bool:
+                raise SimulationError("INVALID_COLLECTION_PLAN", "bind_runtime_workload must be boolean")
+            if "runtime_trace" in plan:
+                if not isinstance(plan["runtime_trace"], str) or not plan["runtime_trace"].strip():
+                    raise SimulationError("INVALID_COLLECTION_PLAN", "runtime_trace must be a path")
+                path = args.plan.parent / plan["runtime_trace"]
+                _record_input(manifest, path)
+                runtime_trace = read_json(path)
+        else:
+            paths = [args.raw]
+        captures = load_vllm_captures(paths)
+        for capture in captures:
+            provenance = capture.get("_capture_input", {})
+            if "path" in provenance and "sha256" in provenance:
+                manifest["input_files"].append({"path": provenance["path"], "sha256": provenance["sha256"]})
+        bundle = normalize_vllm_capture(experiment, captures, allow_test_fixture=args.allow_test_fixture,
+                                        runtime_trace=runtime_trace, bind_runtime_workload=bind_runtime_workload)
         return _save_collection(bundle, args.out, manifest)
     if args.plan is None:
         raise SimulationError("INVALID_ARGUMENT", f"{args.kind} requires --plan")
@@ -478,6 +532,24 @@ def _hardware_validation(args: argparse.Namespace, manifest: dict) -> dict:
     return result
 
 
+def _model_import(args: argparse.Namespace, manifest: dict) -> dict:
+    from .qwen3 import load_qwen3_model
+
+    bundle = load_qwen3_model(args.config, name=args.name, revision=args.revision, kv_dtype=args.kv_dtype)
+    provenance = bundle["provenance"]
+    manifest["input_files"].append({"path": provenance["source_path"], "sha256": provenance["source_sha256"]})
+    manifest["model_provenance"] = provenance
+    _write_json(args.out / "model.json", bundle["model"])
+    _write_json(args.out / "normalized-architecture.json", provenance["normalized_architecture"])
+    model = bundle["model"]
+    return {"status": "COMPLETED", "kind": bundle["kind"], "model_file": "model.json",
+            "architecture_file": "normalized-architecture.json", "provenance": provenance,
+            "dimensions": {"hidden_size": model["hidden_size"],
+                           "query_projection_size": model["num_attention_heads"] * model["head_dim"],
+                           "kv_projection_size": model["num_kv_heads"] * model["head_dim"]},
+            "hardware_validated": False}
+
+
 def _execute(args: argparse.Namespace) -> dict:
     _fresh_output(args.out)
     manifest = {"schema_version": 1, "simulator_version": __version__,
@@ -495,6 +567,8 @@ def _execute(args: argparse.Namespace) -> dict:
             result = _collection(args, manifest)
         elif args.mode == "validate-hardware":
             result = _hardware_validation(args, manifest)
+        elif args.mode == "import-model":
+            result = _model_import(args, manifest)
         else:
             result = _compare(args, manifest)
         result.setdefault("status", "COMPLETED")
@@ -537,9 +611,16 @@ def _arguments(parser: argparse.ArgumentParser, mode: str) -> None:
     if mode in ("simulate", "predict"):
         parser.add_argument("--experiment", type=Path, required=True)
         return
+    if mode == "import-model":
+        parser.add_argument("--kind", choices=("qwen3",), required=True)
+        parser.add_argument("--config", type=Path, required=True)
+        parser.add_argument("--name", required=True)
+        parser.add_argument("--revision", required=True)
+        parser.add_argument("--kv-dtype", choices=("float16", "bfloat16", "float32", "float64"))
+        return
     parser.add_argument("--allow-test-fixture", action="store_true")
     if mode == "collect":
-        parser.add_argument("--kind", choices=("probe", "steps", "rccl", "runtime-trace", "vllm", "reference"),
+        parser.add_argument("--kind", choices=("probe", "steps", "rccl", "runtime-trace", "vllm", "vllm-hook", "reference"),
                             required=True)
         for name in ("experiment", "plan", "raw", "reference-dir", "inventory", "rccl-library"):
             parser.add_argument(f"--{name}", type=Path)
@@ -592,7 +673,7 @@ def main(argv: list[str] | None = None, *, mode: str | None = None) -> int:
     parsed = False
     try:
         parser = _Parser(description="CPU LLM simulation, calibration and validation tools")
-        modes = ("simulate", "predict", "calibrate", "compare", "validate", "collect", "validate-hardware")
+        modes = ("simulate", "predict", "calibrate", "compare", "validate", "collect", "validate-hardware", "import-model")
         if mode is None:
             commands = parser.add_subparsers(dest="mode", required=True, parser_class=_Parser)
             for name in modes:

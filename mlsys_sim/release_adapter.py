@@ -17,6 +17,7 @@ from pathlib import Path, PurePosixPath
 import re
 from typing import Any, NoReturn
 
+from .qwen3 import model_from_qwen3_config, normalized_qwen3_architecture
 from .schema import SimulationError
 
 
@@ -268,27 +269,40 @@ def _model_summary(name: str, metadata: dict, config: dict | None) -> dict:
             "num_attention_heads", "num_key_value_heads", "head_dim", "vocab_size", "torch_dtype",
             "tie_word_embeddings", "use_sliding_window", "sliding_window")))
         result["quantization"] = config.get("quantization_config") is not None
-        fields = ("hidden_size", "num_attention_heads", "head_dim")
-        if all(key in result for key in fields):
-            values = [_number(result[key], key, integer=True, minimum=1) for key in fields]
-            if values[0] != values[1] * values[2]:
-                reasons.append("ATTENTION_PROJECTION_WIDTH_DIFFERS_FROM_HIDDEN_SIZE")
+        revision = metadata.get("hf_revision", metadata.get("revision"))
+        served = metadata.get("served_name", name)
+        try:
+            if not isinstance(revision, str):
+                raise SimulationError("INVALID_QWEN3_CONFIG", "A declared model revision is required")
+            model = model_from_qwen3_config(config, name=served, revision=revision)
+        except SimulationError as exc:
+            result["model_import_error_code"] = exc.code
+            if config.get("model_type") != "qwen3" or config.get("architectures") != ["Qwen3ForCausalLM"]:
+                reasons.append("DENSE_QWEN3_FAMILY_NOT_DECLARED")
+            if "tie_word_embeddings" not in config:
+                reasons.append("TIED_EMBEDDING_STATE_NOT_PROVIDED")
+            if not revision:
+                reasons.append("MODEL_REVISION_NOT_PROVIDED")
+            if (config.get("use_sliding_window") is True or
+                    config.get("use_sliding_window") is not False and config.get("sliding_window") is not None):
+                reasons.append("SLIDING_WINDOW_NOT_SUPPORTED")
+            if result["quantization"]:
+                reasons.append("QUANTIZED_FORMAT_NOT_SUPPORTED")
+            if config.get("dtype", config.get("torch_dtype")) not in {"float16", "bfloat16", "float32", "float64"}:
+                reasons.append("STORAGE_DTYPE_NOT_SUPPORTED_OR_DECLARED")
+            if not reasons:
+                reasons.append("QWEN3_MODEL_CONFIG_INVALID_OR_UNSUPPORTED")
         else:
-            reasons.append("MODEL_GEOMETRY_NOT_PROVIDED")
-        if config.get("tie_word_embeddings") is True:
-            reasons.append("TIED_EMBEDDINGS_NOT_REPRESENTED_BY_CURRENT_MODEL_SPEC")
-        elif "tie_word_embeddings" not in config:
-            reasons.append("TIED_EMBEDDING_STATE_NOT_PROVIDED")
-        if (config.get("use_sliding_window") is True or
-                config.get("use_sliding_window") is not False and config.get("sliding_window") is not None):
-            reasons.append("SLIDING_WINDOW_NOT_SUPPORTED")
-        if result["quantization"]:
-            reasons.append("QUANTIZED_FORMAT_NOT_SUPPORTED")
-        if config.get("torch_dtype") not in {"float16", "bfloat16", "float32", "float64"}:
-            reasons.append("STORAGE_DTYPE_NOT_SUPPORTED_OR_DECLARED")
+            from dataclasses import asdict
+
+            result["model_spec"] = asdict(model)
+            result["query_projection_size"] = model.query_projection_size
+            result["normalized_architecture"] = normalized_qwen3_architecture(config)
+            result["architecture_config_sha256"] = model.architecture_config_sha256
     else:
         reasons.extend(("MODEL_GEOMETRY_NOT_PROVIDED", "TIED_EMBEDDING_STATE_NOT_PROVIDED"))
     result["simulator_model_compatible"] = not reasons
+    result["geometry_supported"] = not reasons
     result["compatibility_scope"] = "declared_geometry_and_storage_only"
     result["compatibility_reasons"] = reasons
     return result
@@ -611,15 +625,20 @@ def import_reference_data(path: str | Path, *, allow_test_fixture: bool = False)
             sort_keys=True, separators=(",", ":")).encode()).hexdigest()
         audit["source_assurance"] = "declared_external_measurement_source_not_independent_hardware_authentication"
         audit["archive"] = {"input_kind": "extracted_directory", "nested_archives_opened": False}
+        geometry_supported = bool(audit["models"]) and all(
+            model.get("simulator_model_compatible", False) for model in audit["models"])
+        reasons = ["NO_PER_STEP_BATCH_COMPOSITION_AND_TIMING", "NO_SERVER_TOKEN_ID_EVENTS",
+            "CLIENT_CONTENT_TIMING_BOUNDARY_DIFFERS_FROM_STAGE_BOUNDARY",
+            "REQUEST_REPLAY_POLICY_AND_WINDOW_NEED_EXPLICIT_ADAPTER"]
+        if not geometry_supported:
+            reasons.append("MODEL_IDENTITY_INCOMPLETE_OR_UNSUPPORTED")
         audit["compatibility"] = {
             "request_service_reference": True, "canonical_stage_profile": False, "canonical_token_trace": False,
             "canonical_online_comparison": False, "prompt_token_ids_available": False,
-            "workspace_attribution_available": False, "model_adapter_required": True,
+            "workspace_attribution_available": False, "model_adapter_required": not geometry_supported,
+            "model_geometry_supported": geometry_supported,
             "amd_hardware_evidence": audit["hardware"]["vendor"] == "AMD",
-            "reasons": ["NO_PER_STEP_BATCH_COMPOSITION_AND_TIMING", "NO_SERVER_TOKEN_ID_EVENTS",
-                "CLIENT_CONTENT_TIMING_BOUNDARY_DIFFERS_FROM_STAGE_BOUNDARY",
-                "REQUEST_REPLAY_POLICY_AND_WINDOW_NEED_EXPLICIT_ADAPTER",
-                "MODEL_IDENTITY_NEEDS_GEOMETRY_AND_TIED_WEIGHT_SUPPORT"],
+            "reasons": reasons,
         }
         audit["validation_readiness"] = {"ready": False, "hardware_validated": False,
             "usable_for": ["client_request_service_reference", "declared_runtime_coverage_audit"],

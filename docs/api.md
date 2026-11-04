@@ -1,6 +1,6 @@
 # Python API
 
-Install distribution `mlsys-simulator` and import `mlsys_sim`. Version 1.5 exposes the
+Install distribution `mlsys-simulator` and import `mlsys_sim`. Version 1.6 exposes the
 simulation, profile, calibration and comparison functions through this package,
 with optional hardware collection and evidence-acceptance commands;
 `mlsys_sim.__version__` is the software version. JSON schema and Profile version
@@ -54,6 +54,50 @@ status.
 mixed batching. Its
 shape remains the complete input batch even when those online policies are
 enabled; compare online policies through `simulate`.
+
+## Describe and import Qwen3 models
+
+`ModelSpec` accepts `tie_word_embeddings`, `qk_norm` and `final_norm`, all
+`False` by default. Its read-only `query_projection_size` is
+`num_attention_heads × head_dim`; this width need not equal `hidden_size`.
+Q/K Norm contributes two shared head-dimension weight vectors per layer and
+rank. Final RMSNorm contributes one residual-width vector on the last stage.
+A tied embedding/LM-head allocation is counted once when both roles reside on
+the same physical rank. PP endpoints on different devices retain distinct
+physical copies. Tying storage does not remove LM-head computation.
+
+```python
+from mlsys_sim.qwen3 import load_qwen3_model, model_from_qwen3_config
+
+bundle = load_qwen3_model(
+    "examples/v1_6/qwen3-4b.hf.json", name="Qwen3-4B",
+    revision="1cfa9a7208912126459214e8b04321603b3df60c",
+)
+model_data = bundle["model"]
+```
+
+`model_from_qwen3_config(config, *, name, revision, kv_dtype=None)` returns a
+`ModelSpec`. `load_qwen3_model(path, ...)` returns JSON-ready model data and
+provenance, including source bytes and canonical architecture hashes. Neither
+loads weights, downloads code or infers a model revision. Only dense, full
+attention, unquantized Qwen3ForCausalLM with supported inference options is
+accepted. Explicit storage dtype selects its byte width; a Runtime-specific KV
+dtype can be supplied separately.
+
+`normalized_qwen3_architecture(config)` and
+`qwen3_architecture_fingerprint(config)` expose the canonical supported
+architecture mapping and its SHA256. The mapping retains execution-relevant
+geometry, Norm/RoPE/context configuration and excludes HF path/version metadata.
+`ModelSpec.architecture_config_sha256` defaults to an empty string; nonempty
+values must be 64 lowercase hex characters and participate in Profile identity.
+Default-false model flags and an empty fingerprint are omitted from canonical
+legacy identities, preserving older Profile contracts.
+
+`CalibrationSpec.runtime_config_sha256` independently fingerprints the actual
+Runtime execution snapshot. Its empty default preserves old identities. A
+nonempty lowercase SHA256 participates in Profile identity, so changing a
+backend, graph or other captured execution setting cannot silently reuse a
+different measured configuration.
 
 ## Configure multiple replicas
 
@@ -338,6 +382,41 @@ Use `higher_is_better=False` for latency metrics. Fixture comparisons additional
 require `allow_test_fixture=True`.
 
 ## Collect and accept hardware evidence
+
+The version-pinned internal path adds `collect --kind vllm-hook`. It imports
+complete Runner/Scheduler JSON exports, validates complete rank groups and
+retains raw/quarantine diagnostics. The plan uses `schema_version=1` and a
+`captures` array, with optional independent `runtime_trace` path or explicit
+`bind_runtime_workload=true` conditional replay. See the
+[internal hook contract](qwen3-and-vllm-hooks.md) before enabling it in a Runtime.
+
+```python
+from mlsys_sim.vllm_hooks import install_runner_hook, install_scheduler_hook
+from mlsys_sim.vllm_capture import load_vllm_captures, normalize_vllm_capture
+
+captures = load_vllm_captures(["rank0.json", "scheduler.json"])
+bundle = normalize_vllm_capture(experiment, captures)
+```
+
+`install_runner_hook(runner, experiment, *, session_id, ...)` returns a
+`RunnerCapture`; `install_scheduler_hook(scheduler, experiment, *, session_id,
+...)` returns a `SchedulerCapture`. Both expose `export_capture()`, `close()`
+and `flush()`. Worker RPC methods and the opt-in general plugin provide
+installation paths without replacing the existing inference scheduler.
+`register_vllm_hooks()` is dormant without `MLSYS_VLLM_CAPTURE_CONFIG`;
+`uninstall_vllm_hooks_plugin()` restores patches in the current process.
+
+`normalize_vllm_capture(experiment, captures, *, allow_test_fixture=False,
+runtime_trace=None, bind_runtime_workload=False)` produces per-replica datasets
+only from complete compatible synchronous groups, using maximum per-rank
+elapsed service. It emits an online observation only from a complete matching
+published lifecycle. Async/raw candidates, missing ranks and unattributed
+Workspace remain explicit gaps; one canonical-ready channel does not establish
+hardware accuracy or a complete online trace.
+Actual PP transport must also match the isolated-stage contract. Pinned
+TP>1+PP>1 sliced transfers/receiver AllGather, lazy incoming postprocessing and
+sequence-parallel execution remain raw diagnostics rather than automatically
+calibrating the simulator's independent stage/full-rank P2P model.
 
 ```bash
 mlsys-sim collect --kind probe --out runs/rocm-probe
