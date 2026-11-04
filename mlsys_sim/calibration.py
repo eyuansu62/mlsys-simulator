@@ -10,6 +10,7 @@ import json
 import math
 from pathlib import Path
 import random
+import re
 import statistics
 from typing import Any
 
@@ -35,6 +36,24 @@ def _shape(record: dict[str, Any]) -> str:
     return shape_key(record["phase"], record["query_tokens"],
                      record["context_lengths"], record["stage_index"],
                      request_phases=record.get("request_phases"))
+
+
+def _acquisition(value: Any) -> dict[str, Any]:
+    """Validate explicit capture facts without interpreting opaque record IDs."""
+    code = "INVALID_ACQUISITION_PROVENANCE"
+    fields = {"session_id", "clock_domain", "capture_input_sha256"}
+    if not isinstance(value, dict) or set(value) != fields:
+        raise SimulationError(code, "Acquisition requires session_id, clock_domain and capture_input_sha256")
+    for name in ("session_id", "clock_domain"):
+        item = value[name]
+        if not isinstance(item, str) or not item.strip() or len(item) > 4096 or "\x00" in item:
+            raise SimulationError(code, f"Acquisition {name} must be a bounded nonempty string")
+    hashes = value["capture_input_sha256"]
+    if (not isinstance(hashes, list) or not 1 <= len(hashes) <= 4096
+            or any(not isinstance(item, str) or re.fullmatch(r"[0-9a-f]{64}", item) is None for item in hashes)
+            or hashes != sorted(set(hashes))):
+        raise SimulationError(code, "Acquisition capture hashes must be sorted unique lowercase SHA256 values")
+    return _clone(value)
 
 
 def calibrate_dataset(
@@ -121,6 +140,8 @@ def calibrate_dataset(
                   "repeat_statistics": repeat_statistics,
                   "parent_samples_reused": False},
     }
+    if "acquisition" in data.get("notes", {}):
+        profile["notes"]["acquisition"] = _acquisition(data["notes"]["acquisition"])
     return validate_profile(profile, allow_test_fixture=allow_test_fixture)
 
 
@@ -303,6 +324,90 @@ def validate_holdout(
         "candidate_ranking": None,
         "candidate_ranking_reason": "STEP_DATASET_HAS_NO_COMPARABLE_ONLINE_CANDIDATES",
     }
+
+
+def validate_profile_repeats(
+    profile: dict[str, Any],
+    training_dataset: dict[str, Any],
+    repeat_dataset: dict[str, Any],
+    *,
+    allow_test_fixture: bool = False,
+) -> dict[str, Any]:
+    """Evaluate independent capture sessions only at frozen exact stage shapes.
+
+    This is within-domain repetition, not unseen-shape holdout or hardware
+    acceptance. Capture facts do not independently prove a fresh Runtime.
+    """
+    from .profiles import validate_dataset, validate_profile
+
+    fit = validate_profile(profile, allow_test_fixture=allow_test_fixture)
+    training = validate_dataset(training_dataset, allow_test_fixture=allow_test_fixture)
+    repeated = validate_dataset(repeat_dataset, allow_test_fixture=allow_test_fixture)
+    digest = hashlib.sha256(_json_text(training_dataset).encode("utf-8")).hexdigest()
+    if digest != fit["training"]["dataset_sha256"]:
+        raise SimulationError("CALIBRATION_MISMATCH", "Training dataset canonical SHA256 differs from the frozen Profile")
+    expected = calibrate_dataset(training_dataset, profile_version=fit["profile_version"],
+                                 allow_test_fixture=allow_test_fixture)
+    for name in ("profile_id", "identity", "source", "method", "timing_includes_communication", "samples"):
+        if fit[name] != expected[name]:
+            raise SimulationError("CALIBRATION_MISMATCH", f"Frozen Profile {name} differs from its training dataset")
+    for name in ("dataset_sha256", "record_ids", "group_ids", "shape_keys"):
+        if fit["training"][name] != expected["training"][name]:
+            raise SimulationError("CALIBRATION_MISMATCH", f"Frozen training provenance {name} differs")
+    if any(fit.get("notes", {}).get(name) != value for name, value in expected["notes"].items()):
+        raise SimulationError("CALIBRATION_MISMATCH", "Frozen Profile notes differ from its fitting provenance")
+    train_acquisition = _acquisition(training.get("notes", {}).get("acquisition"))
+    repeat_acquisition = _acquisition(repeated.get("notes", {}).get("acquisition"))
+    if fit.get("notes", {}).get("acquisition") != train_acquisition:
+        raise SimulationError("CALIBRATION_MISMATCH", "Frozen Profile lacks its exact training acquisition facts")
+    if repeated["identity"] != fit["identity"]:
+        raise SimulationError("CALIBRATION_MISMATCH", "Repeat identity differs from the frozen Profile")
+    overlaps = {
+        "record_ids": set(fit["training"]["record_ids"]) & {row["record_id"] for row in repeated["records"]},
+        "group_ids": set(fit["training"]["group_ids"]) & {row["group_id"] for row in repeated["records"]},
+        "capture_input_sha256": set(train_acquisition["capture_input_sha256"])
+                                & set(repeat_acquisition["capture_input_sha256"]),
+    }
+    if train_acquisition["session_id"] == repeat_acquisition["session_id"] or any(overlaps.values()):
+        raise SimulationError("VALIDATION_DATA_LEAKAGE", "Repeat reuses a training session, capture, record or group")
+    indexed = {_shape(sample): sample for sample in fit["samples"]}
+    rows = []
+    for record in sorted(repeated["records"], key=lambda item: item["record_id"]):
+        key = _shape(record)
+        row = {"record_id": record["record_id"], "group_id": record["group_id"],
+               "shape_key": key, "observed_ms": record["duration_ms"], "extrapolated": False}
+        sample = indexed.get(key)
+        if sample is None:
+            row.update(status="OUT_OF_DOMAIN", predicted_ms=None, error_code="OUT_OF_CALIBRATION_DOMAIN",
+                       reason="Acquisition repeats require a retained exact shape; interpolation is disabled")
+        else:
+            if sample.get("pp_transport") != record.get("pp_transport"):
+                raise SimulationError("CALIBRATION_MISMATCH", "Repeat native PP payload differs from the exact training shape")
+            signed = sample["duration_ms"] - record["duration_ms"]
+            relative = abs(signed) / record["duration_ms"]
+            row.update(status="PREDICTED", predicted_ms=sample["duration_ms"], signed_error_ms=signed,
+                       absolute_error_ms=abs(signed), absolute_relative_error=relative if math.isfinite(relative) else None,
+                       relative_error_reason=None if math.isfinite(relative) else "NUMERIC_OVERFLOW",
+                       method="exact", error_code=None)
+        rows.append(row)
+    groups: dict[str, list[dict[str, Any]]] = {}
+    for row in rows:
+        groups.setdefault(row["group_id"], []).append(row)
+    fixture = any(item["source"]["kind"] == "test_fixture" for item in (fit, training, repeated))
+    return {"schema_version": 1, "status": "COMPLETED", "validation_type": "independent_exact_stage_repeats",
+            "profile_id": fit["profile_id"], "profile_version": fit["profile_version"],
+            "dataset_id": repeated["dataset_id"], "identity": _clone(fit["identity"]),
+            "calibration_source": _clone(fit["source"]), "validation_source": _clone(repeated["source"]),
+            "test_fixture_only": fixture, "hardware_validated": False,
+            "hardware_validation": {"status": "not_asserted",
+                "reason": "Independent acquisition facts do not alone prove a fresh Runtime or hardware acceptance."},
+            "validation_scope": "within_retained_exact_shapes_only", "unseen_shape_generalization": False,
+            "allow_extrapolation": False, "summary": _error_summary(rows),
+            "groups": {name: _error_summary(values) for name, values in sorted(groups.items())},
+            "records": rows, "training_dataset_sha256": digest,
+            "repeat_dataset_sha256": hashlib.sha256(_json_text(repeat_dataset).encode("utf-8")).hexdigest(),
+            "acquisition": {"training": train_acquisition, "repeat": repeat_acquisition},
+            "online_sla": None, "online_sla_reason": "STEP_DATASET_HAS_NO_ONLINE_TIMELINE"}
 
 
 def write_json_exclusive(path: str | Path, payload: Any) -> None:

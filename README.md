@@ -15,7 +15,7 @@ collection adapters instrument an installed Runtime separately from simulation.
 [Native PP communication calibration](docs/native-pp-communication.md) ·
 [Workspace and capacity validation](docs/workspace-and-capacity.md) · [Contributing](CONTRIBUTING.md)
 
-**Version 1.9 software scope:** independent exact per-rank Workspace Profiles,
+**Version 1.12 software scope:** independent exact per-rank Workspace Profiles,
 Runtime-owned scratch attribution and fresh-Runtime capacity/OOM-bracket
 validation; independent native PP P2P/AllGather microbenchmarks and
 placement-specific communication Profiles, native vLLM PP
@@ -30,6 +30,18 @@ contracts; raw packages and prompt/output text are not distributed with this
 library. Their coverage does not establish general hardware accuracy. The
 repository is [private](https://github.com/eyuansu62/mlsys-simulator), the license
 is pending selection, and no package has been published to PyPI.
+
+The latest limited live validation adds complete requested-storage Workspace
+attribution at two single-card prefill shapes, fresh-process physical KV-pool
+success/OOM endpoints on both AMD cards, TP2 unseen-shape stage validation and
+native PP2 independent exact-shape repeats. See the [Workspace](docs/workspace-live-validation.md),
+[capacity](docs/capacity-live-validation.md) and [multi-GPU stage](docs/multigpu-stage-validation.md)
+records for their separate scopes. Actual cache/chunk/mixed paths and two
+independent physical replicas also passed limited
+[correctness probes](docs/online-policy-live-validation.md). Prefix Cache and
+chunking additionally met narrow p50 targets in three independent conditional
+repeats each; mixed accuracy retains an explicit coverage gap. These results do not establish general
+memory accuracy, online SLA, CPU swap or four-card TP2×PP2 accuracy.
 
 ## Install from a checkout
 

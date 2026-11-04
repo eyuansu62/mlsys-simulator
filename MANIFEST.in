@@ -4,7 +4,7 @@ include mlsys_sim/py.typed
 recursive-include docs *.md
 recursive-include examples *.json
 recursive-include tests *.py
-recursive-include scripts *.py
+recursive-include scripts *.py *.cpp *.hip *.md
 prune sample-runs
 prune runs
 prune build

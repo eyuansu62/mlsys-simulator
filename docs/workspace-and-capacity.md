@@ -335,3 +335,41 @@ are necessary: [vLLM WorkspaceManager](https://github.com/vllm-project/vllm/blob
 and [allocator history visibility](https://github.com/pytorch/pytorch/blob/cf30153c4c131c8164ee7798e5022d810682e2cb/docs/source/torch_cuda_memory.md).
 This library does not turn those partial mechanisms into automatic complete
 Runtime attribution or claim AMD measurements from CPU fixtures.
+
+## Pinned live Qwen3 KV-pool adapter
+
+Version 1.12 provides the optional entry point
+`mlsys_sim.vllm_capacity_adapter:kv_pool_factory`. It imports neither Torch nor
+vLLM on ordinary library import. The existing local model must be selected
+explicitly with `MLSYS_VLLM_CAPACITY_MODEL_PATH`; it does not download weights.
+
+The initial supported scope is the fixed `98dff2a81` synchronous MRv1 ABI,
+unquantized full-attention Qwen3 FP16/BF16, one visible HIP device, TP1/PP1,
+block16, one immediate token-ID request, FIFO/eager, no graphs, sleep mode,
+CPU offload, prefix/chunk/mixed/swap or separate internal-capture activation.
+The adapter validates the local config identity and actual loaded architecture;
+its metadata does not claim a full weight-file content revision proof.
+
+For the `kv_pool_bytes` axis it verifies actual native KV descriptors, block/page
+alignment and unique Tensor storage. Arbitrary GiB values may round down inside
+the Runtime and are rejected if they do not equal the applied pool. The tested
+Qwen3-1.7B BF16 configuration has a 1,835,008-byte block quantum; derive and verify
+that quantum for the selected model rather than applying it universally.
+
+Only the original pinned allocator's final `torch.zeros` call, with the exact
+failed target/device/configuration and typed allocator-counter increase, can
+supply this adapter's KV OOM proof. The validator retains existing `torch.empty`
+support as well. Weight load, startup profiling, subsequent warmup, manager
+assertions, admission refusal and unknown failures do not acquire invented KV
+allocation evidence. Each OOM-mutated Runtime remains owned by its worker until
+process exit and is not reused.
+
+The experiment's declared analytical category reserves and efficiencies remain
+prediction inputs; they are not claimed as actual Runtime allocations. This
+adapter rejects an externally supplied execution-config digest it cannot prove
+it applied. Capacity observations, Workspace attribution and general prediction
+acceptance remain separate workflows.
+
+The [limited Workspace validation record](workspace-live-validation.md) documents
+the first complete live requested-storage domain. Its completeness applies only
+to the stated exact shapes/configuration; capacity still needs real OOM evidence.

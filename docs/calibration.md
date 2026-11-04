@@ -246,3 +246,30 @@ partial evidence and cannot be relabeled canonical Workspace. Profile snapshots
 retain attribution scope, source, version and SHA per local replica. Capacity
 validation is a separate full-experiment workflow and does not fit Workspace
 from an observed OOM point.
+
+## Independent exact-shape repeats
+
+Some native PP Profiles intentionally support exact physical payloads only.
+`validate --exact-repeats` evaluates a **new acquisition session at retained
+shapes**, separately from unseen-shape holdout:
+
+```bash
+mlsys-sim validate --exact-repeats \
+  --profile training-fit/profile.json \
+  --training-dataset training-fit/dataset.json \
+  --dataset independent-repeat.json --out runs/exact-repeat
+```
+
+The training snapshot must have the canonical SHA recorded in the frozen
+Profile. The evaluator verifies its fitted samples and provenance against that
+training data, then requires explicit distinct sessions and non-overlapping
+capture-file SHA, record and group IDs. The vLLM normalizer records these facts
+in `notes.acquisition`; calibration carries them into Profile notes when present.
+Opaque IDs are not interpreted to invent session evidence. Missing facts fail.
+
+Only retained exact shapes are evaluated. Native PP payload descriptors must
+also match; missing shapes count as rejected coverage and never interpolate or
+extrapolate. This reports within-domain repeated observations, not unseen-shape
+generalization, proof of a fresh Runtime, online SLA or hardware PASS. Preserve
+external process/start/freeze receipts alongside the raw inputs for a real run.
+The original grouped holdout and hardware-acceptance leakage gates are unchanged.

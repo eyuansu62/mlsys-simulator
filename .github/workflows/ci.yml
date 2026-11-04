@@ -45,7 +45,7 @@ jobs:
       - name: Lint
         run: ruff check .
       - name: Type check
-        run: mypy mlsys_sim
+        run: mypy mlsys_sim scripts/verify_distribution.py scripts/rocm_workspace_audit
       - name: Build wheel and source distribution
         run: python -m build
       - name: Check distribution metadata

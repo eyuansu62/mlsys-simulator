@@ -1,5 +1,42 @@
 # Changelog
 
+## 1.12.0 — 2026-11-05
+
+Real Runtime verification now distinguishes exact-domain repeated stage
+measurements, complete requested-storage attribution and physical KV-pool OOM.
+
+### Added
+
+- Optional source-pinned single-GPU Qwen3 physical KV capacity adapter with
+  actual storage/configuration binding and exact native allocation-failure proof.
+  The capacity validator retains `torch.empty` and accepts real `torch.zeros`.
+- Explicit `validate --exact-repeats --training-dataset ... --profile ...` for
+  independent acquisition sessions at retained exact shapes, with frozen training
+  SHA/recomputed-fit checks and strict session/capture/record/group separation.
+  Unseen-shape holdout and hardware-acceptance leakage rules are unchanged.
+- vLLM acquisition provenance in normalized datasets and fitted Profile notes.
+- Optional ROCm Workspace audit sources, native Torch allocator/thread tracking,
+  nine-domain HIP/HSA/RCCL/private-scratch evidence, explicit fixed-owner budgets
+  and fail-closed per-generation replay. No mandatory simulator dependency or
+  precompiled GPU binary is added.
+- A narrowly scoped live Workspace Profile with a frozen independent repeat:
+  Qwen3-1.7B BF16 RX9070XT TP1/PP1 single Prefill16/32, requested-storage capacity.
+- Public Workspace acquisition/assembly gates bind observed software, device and
+  Runner settings; missing legacy observations cannot produce complete output.
+- Scoped live reports for confirmed physical KV/OOM endpoints, TP2 unseen-shape
+  stage validation, PP2 independent exact repeats, conditional Prefix/Chunk
+  online repeats, actual mixed execution and two independent physical replicas.
+
+### Evidence boundaries
+
+- Exact repeats evaluate retained shapes; they do not assert unseen-shape
+  generalization, fresh Runtime isolation by themselves or hardware PASS.
+- Individual allocation probes remain partial/candidates. Only the complete
+  source/owner/native/lifetime/budget/return/process merger can emit a complete
+  Workspace dataset. Allocator rounding/cache/driver headroom remains separate.
+- Capacity adapters run fresh actual Runtimes and retain typed allocator evidence;
+  startup, admission, warmup, lock and unknown failures are not fabricated KV OOM.
+
 ## 1.11.0 — 2026-11-04
 
 Native PP collection can explicitly disable the P2P LL/LL128 threshold path,

@@ -1,6 +1,6 @@
 # Python API
 
-Install distribution `mlsys-simulator` and import `mlsys_sim`. Version 1.6 exposes the
+Install distribution `mlsys-simulator` and import `mlsys_sim`. Version 1.12 exposes the
 simulation, profile, calibration and comparison functions through this package,
 with optional hardware collection and evidence-acceptance commands;
 `mlsys_sim.__version__` is the software version. JSON schema and Profile version
@@ -348,6 +348,25 @@ with profile training records, groups or shapes, then reports coverage,
 MAE/MAPE/bias, group summaries and out-of-domain reasons. It cannot infer online
 SLA or candidate rankings from step records.
 
+`validate_profile_repeats(profile, training_dataset, repeat_dataset, *,
+allow_test_fixture=False)` evaluates a frozen Profile at retained **exact**
+shapes from an independent acquisition. It checks the canonical training SHA,
+recomputes the fit to verify its samples and provenance, and rejects reused
+sessions, raw capture hashes, record IDs or group IDs. Each dataset needs
+`notes.acquisition` with explicit `session_id`, `clock_domain` and
+`capture_input_sha256`; the vLLM normalizer derives these from its actual capture
+inputs. Identity and native PP payload descriptors must match. Missing exact
+shapes count as rejected coverage; interpolation and extrapolation are disabled.
+The report labels within-domain repeats and retains `hardware_validated=false`;
+acquisition metadata alone does not prove a fresh Runtime. Ordinary
+`validate_holdout` and hardware-acceptance shape-leakage checks are unchanged.
+
+```bash
+mlsys-sim validate --exact-repeats --profile runs/fit/profile.json \
+  --training-dataset runs/fit/dataset.json --dataset independent-repeat.json \
+  --out runs/repeat-validation
+```
+
 `load_dataset` and `load_profile` validate declared source provenance.
 `write_json_exclusive(path, payload)` saves a new JSON artifact without replacing
 an existing one. No fitting or writing API changes a test fixture into measured
@@ -637,6 +656,26 @@ Profile argument. Request count denotes a cohort, not actual batch size;
 non-OOM failures and prediction-domain gaps remain separate. See
 [Workspace and capacity](workspace-and-capacity.md) for adapter, ledger, fixture
 and interpretation contracts.
+
+The optional pinned live adapter
+`mlsys_sim.vllm_capacity_adapter:kv_pool_factory` verifies a real single-GPU
+Qwen3 MRv1 KV-pool allocation and executes the declared request. Set
+`MLSYS_VLLM_CAPACITY_MODEL_PATH` to an existing local checkpoint; it downloads
+nothing and imports Torch/vLLM only when called. Its narrow eager TP1×PP1
+configuration excludes cache, chunking, mixed batches, offload and swap. The
+requested byte axis must match unique actual KV storage. A failed final native
+`torch.zeros` allocation is eligible only with the exact applied-axis and typed
+allocator OOM evidence; other failures remain censored or distinct. The existing
+`torch.empty` evidence path remains supported. See the
+[live capacity limits](capacity-live-validation.md).
+
+Optional source tools in `scripts/rocm_workspace_audit` join installed Torch
+allocator, native SDK backing and Runtime-owner evidence for a narrowly pinned
+single-card Workspace acquisition. They are outside the normal package import
+path and require existing matching native tools. Individual component success
+does not imply complete Workspace; only the final merger may emit canonical
+records after every attribution gate passes. See the
+[live Workspace domain](workspace-live-validation.md) and tool README.
 
 `mlsys_sim.workspace_capture` provides `WorkspaceRecorder`, `collect_workspace`
 and `PinnedVllmWorkspaceObserver`. The recorder receives explicit storage

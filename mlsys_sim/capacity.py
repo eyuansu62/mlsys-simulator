@@ -435,7 +435,7 @@ def _normalize_observation(value: Any, experiment: Experiment, trial: dict, sess
                         size = _integer(attempt["element_size"], "KV attempted element size", 1)
                         for dimension in shape:
                             size *= _integer(dimension, "KV allocation dimension", 1)
-                        if (index not in oom_devices or attempt["operation"] != "torch.empty"
+                        if (index not in oom_devices or attempt["operation"] not in {"torch.empty", "torch.zeros"}
                                 or type(attempt["target_pool_bytes"]) is not int
                                 or attempt["target_pool_bytes"] != trial["axis_value"] or size != trial["axis_value"]):
                             _fail("KV allocation request differs from the failed device and full pool target")

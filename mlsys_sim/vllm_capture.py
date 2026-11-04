@@ -880,6 +880,19 @@ def normalize_vllm_capture(experiment: Experiment, captures: list[dict], *,
         if native:
             row["pp_transport"] = deepcopy(native_payloads[replica, stage, iteration, sorted(ranked)[0]])
         accepted.setdefault(replica, []).append(row)
+    def capture_sha256(capture: dict) -> str:
+        fact = capture.get("_capture_input")
+        if fact is None:
+            return hashlib.sha256(_json(capture).encode()).hexdigest()
+        fact = _object(fact, {"path", "sha256", "bytes"}, set(), "capture input")
+        digest = fact["sha256"]
+        if (not isinstance(digest, str) or len(digest) != 64
+                or any(character not in "0123456789abcdef" for character in digest)):
+            _fail("Capture input requires a lowercase SHA256 digest")
+        _text(fact["path"], "capture input path")
+        _integer(fact["bytes"], "capture input bytes", 1)
+        return digest
+
     datasets: list[dict[str, Any]] = []
     for replica, records in sorted(accepted.items()):
         dataset = validate_dataset({"schema_version": 1,
@@ -887,6 +900,9 @@ def normalize_vllm_capture(experiment: Experiment, captures: list[dict], *,
             "identity": profile_identity(replica_experiment(effective, replica)), "source": source,
             "records": records, "notes": {"collector": "vllm_internal_runner",
                 "runtime_version": next(iter(versions)), "api_revision": _REVISION,
+                "acquisition": {"session_id": next(iter(sessions)), "clock_domain": next(iter(clocks)),
+                    "capture_input_sha256": sorted({capture_sha256(capture) for capture, _ in all_channels
+                                                    if capture["replica_index"] == replica})},
                 "rank_reduction": "maximum_synchronized_per_rank_host_duration",
                 "absolute_cross_rank_time_subtraction": False, "workspace_policy": "unknown_without_runtime_attribution",
                 **({"pp_transport_policy": {"contract": "vllm_native_pp_v1",

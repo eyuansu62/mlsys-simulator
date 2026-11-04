@@ -298,6 +298,22 @@ class CapacityTests(unittest.TestCase):
         self.assertEqual(result["trials"][0]["prediction"]["category"], "PHYSICAL_INFEASIBLE")
         self.assertEqual(result["physical_confusion"]["physical_infeasible_but_completed"], 1)
 
+    def test_native_zeros_pool_oom_preserves_exact_request_and_counter_guards(self):
+        original = fixture_dataset((4096, 8192), axis="kv_pool_bytes", repeats=1,
+            outcomes=[["COMPLETED"], [{"outcome": "OOM", "phase": "prepare"}]])
+        for operation in ("torch.empty", "torch.zeros", "torch.ones"):
+            data = deepcopy(original)
+            data["trials"][1]["observation"]["capacity_oom_evidence"]["attempts"][0]["operation"] = operation
+            report = validate_memory_capacity(data, allow_test_fixture=True)
+            self.assertEqual(report["threshold_status"], "CENSORED" if operation == "torch.ones" else "BRACKETED")
+        for change in (lambda row: row["capacity_oom_evidence"]["attempts"][0].update(shape=[4096]),
+                       lambda row: row["oom_allocator_evidence"]["per_device"][0].update(after=0)):
+            data = deepcopy(original)
+            row = data["trials"][1]["observation"]
+            row["capacity_oom_evidence"]["attempts"][0]["operation"] = "torch.zeros"
+            change(row)
+            self.assertEqual(validate_memory_capacity(data, allow_test_fixture=True)["threshold_status"], "CENSORED")
+
     def test_fresh_collector_trials_recover_after_oom_and_enforce_complete_budget(self):
         identifiers, closed = [], []
         def runner(argv, **kwargs):

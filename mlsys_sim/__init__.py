@@ -6,7 +6,7 @@ Changes to this import surface and the versioned data contracts are recorded
 in the changelog. Calibration provenance and hardware validation are separate.
 """
 
-__version__ = "1.11.0"
+__version__ = "1.12.0"
 
 from .config import experiment_from_dict, load_experiment, validate_experiment
 from .engine import SimulationResult, simulate
@@ -29,7 +29,7 @@ from .schema import (
 )
 from .profiles import (ProfileModel, create_performance_model, estimate_profile,
                        load_dataset, load_profile, profile_identity)
-from .calibration import (calibrate_dataset, split_dataset, validate_holdout,
+from .calibration import (calibrate_dataset, split_dataset, validate_holdout, validate_profile_repeats,
                           write_json_exclusive)
 from .comparison import (compare_candidates, compare_runs, comparison_contract,
                          extract_metrics)
@@ -117,6 +117,7 @@ __all__ = [
     "calibrate_dataset",
     "split_dataset",
     "validate_holdout",
+    "validate_profile_repeats",
     "write_json_exclusive",
     "compare_candidates",
     "compare_runs",

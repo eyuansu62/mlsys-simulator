@@ -1,10 +1,56 @@
-# V1.11.0 软件与限定真机验证记录
+# V1.12.0 软件与限定真机验证记录
 
-日期：2026-11-04  
+日期：2026-11-05  
 环境：Python 3.14.3，macOS，CPU 执行  
-版本：1.11.0
+版本：1.12.0
 
-## 自动检查
+## 1.12 新增证据与验收范围
+
+本轮沿用获授权的 RX9070XT 与 RX7900XTX，按 Workspace、物理容量、
+独立多卡 Stage、在线策略行为的顺序采集。真实执行使用现有 ROCm/Torch/vLLM
+镜像，版本与实际二进制/源码证据分别绑定；没有把镜像标签当作实际版本。
+本轮本地检查：987项CPU回归通过（沙箱跳过的两项loopback HTTP检查另行补跑通过），
+Ruff检查通过；mypy对核心、分发smoke脚本和公开审计工具共46个文件检查通过。
+远程CI结果以推送后该提交对应的Actions记录为准。
+
+| 项目 | 本轮结果 | 有效范围与保留问题 |
+| --- | --- | --- |
+| 完整 Workspace 归因 | 单卡 prefill16/32 的动态峰值分别为982,284和1,703,940 bytes；冻结后独立Runtime各3次重复，覆盖100%，无低估 | owned requested-storage口径；固定Runtime组件210,783,373 bytes计入独立1GiB预算；不覆盖decode、多卡或其他策略 |
+| RX9070XT 物理KV容量 | 12,977,176,576 bytes成功、13,153,337,344 bytes原生KV allocator OOM，各独立确认2次，分辨率168MiB | `BRACKETED`仅表示观察端点；默认分析预算仍将成功点判为不可行，未授予容量预测PASS |
+| RX7900XTX 物理KV容量 | 21,491,613,696 bytes成功、21,843,935,232 bytes原生KV allocator OOM，各独立确认2次，分辨率336MiB | 中间21,726,494,720 bytes两次worker异常退出，保留ERROR/CENSORED；不推断区间单调或精确阈值 |
+| TP2独立未见shape验证 | 24条正式观测，覆盖100%，MAPE2.9520%，MAE0.723308ms | 新输入长度12/24；原形状泄漏门禁保留，无外推，单active sequence、eager限定域 |
+| PP2独立exact重复 | 72条正式观测，覆盖100%，MAPE6.1565%，MAE0.865454ms | 冻结Profile后新Runtime采样，保留原生payload；只证明训练保留shape内重复，不称为未见shape验证 |
+| Prefix Cache / Chunked Prefill / 混批行为 | 64-token请求实际复用48-token前缀；分块出现3个不采样partial prefill；3次执行同时含prefill/decode，输出完整 | 正确性smoke，与后续条件延迟验证分开 |
+| Prefix Cache / Chunked Prefill条件延迟 | 两个策略各3次fresh Runtime，冻结Profile后45条正式Stage exact覆盖100%，请求9/9配对；每次TTFT/TPOT/E2E p50误差均≤15% | 短固定cohort、真实条件arrival，保留所有seed；不证明open-loop吞吐、尾延迟、SLA或策略排序 |
+| 混批精度覆盖缺口 | 真机训练首批为`[8,8]`，模拟器按真实微秒arrival立即启动solo`[8]`，exact Profile缺该solo形状而报告域外 | 保留真实arrival和缺域，不把功能smoke称为精度通过，不用验证数据补拟合 |
+| 两个物理副本 | 两张卡各一个独立TP1×PP1 Runtime；4请求按0/1/0/1轮询，输出全部完成，原生ID归属与逐实例公开规范化检查通过 | 固定路由/输出smoke；不验证least-loaded、prefix-aware、路由开销、争用或性能收益 |
+
+完整Workspace依赖已绑定的Runtime对象、原生Torch allocator事件、九个SDK域、
+成功原生分配返回、scratch整池预算与CPU返回值证明共同闭合。单个组件的
+`CLOSED_CANDIDATE` 或 `NATIVE_BACKING_CHECKS_PASSED` 不会单独成为完整归因。
+公开可选工具的CPU fixtures检验审计逻辑，不升级为硬件观测。
+最终公开driver/merger另读取实际软件、GPU、Runner并行与执行配置，拒绝只靠输入JSON
+贴身份；收紧门禁后重新训练、冻结并在新Runtime重复，六点均完整归因且误差为零。
+
+新增 `validate_profile_repeats` 和 `validate --exact-repeats` 核对冻结训练数据的
+canonical SHA、重算的拟合来源、不同session/capture/record/group。该路径只接受
+保留exact shape；普通留出与硬件验收的形状泄漏检查没有放宽。typed容量OOM仍需
+设备allocator的`num_ooms`增长及真实最终KV分配调用；其他worker失败不重标OOM。
+
+详见[Workspace实测](workspace-live-validation.md)、[容量实测](capacity-live-validation.md)、
+[多卡Stage独立验证](multigpu-stage-validation.md)和
+[策略/副本行为实测](online-policy-live-validation.md)。原始观测、失败尝试、冻结/进程回执
+及源码/输入哈希保存在独立证据目录；密钥、地址、模型权重与原始机器日志不进入仓库。
+报告保留 `hardware_validated=false`，不表示整体硬件验收通过。
+
+上述条件延迟Profile于2026-11-04 17:10:15 UTC冻结，6个独立Runtime在
+17:10:48至17:13:14 UTC执行，没有重试、重拟合或改动Profile bytes。预设条件为
+覆盖≥95%且每项p50相对误差≤15%。Prefix Cache三次TTFT p50误差分别为
+1.1345%/8.9372%/0.8793%，Chunked Prefill为4.2252%/2.6750%/3.1030%；
+完整TPOT/E2E与冻结SHA见[条件在线验证记录](online-policy-live-validation.md#independent-conditional-prefix-cache-and-chunking-repeats)。
+Prefix Cache后一个arrival受实际seed完成影响，属于条件重放，不能解释为开放环负载预测。
+
+## 1.11 自动检查基线
 
 - `python3 -m unittest discover -s tests -v`：912 项 CPU 回归通过（沙箱跳过的两项 loopback HTTP 检查另行补跑通过），新增 29 项 v3策略、实际阈值／Runtime指纹、分布和组合专项；保留 36 项 lookup/v2/TP/PP/三 Profile 专项；保留真实 checkpoint tying、默认 RoPE 别名、跨 session 留出及加载后证明回归；保留完整 Workspace ledger/独立逐rank校准、三 Profile 联用、fresh Runtime 容量/OOM 区间与来源验证；保留独立 P2P/AllGather 微基准、同次运行校验、按位置校准/留出及验收来源绑定；保留原生 PP 自然接收、准备流、持久池容量、双张量/切片及 exact Profile 闭环；覆盖 Qwen3 几何/权重、vLLM 内部 Hook/聚合、ROCm/RCCL/Runtime 采集适配、显式硬件验收、参考包导入、多副本路由、混合 Prefill/Decode、Prefix Cache、Chunked Prefill、PP、CPU swap、资源引用、Profile、校准、Compare、留出与 CLI 闭环；含固定 seed 的有界生成负载。
 - Ruff 0.17.3：检查通过。
@@ -109,7 +155,7 @@ CPU 采集适配回归使用 fake backend、合成 RCCL 日志及本机 HTTP/SSE
 ## 当前限制
 
 本地执行环境为 Python 3.14.3；Python 3.11 至 3.14 的远程结果以该提交对应的 Actions 记录为准。
-Profile、PP 在线流水线、CPU swap、Prefix Cache、Chunked Prefill、混合 Prefill/Decode 与多副本调度均已实现。旧 RX9070XT 请求级参考包仍缺匹配的整stage/服务端逐Token/Workspace归因；本轮新增的小域Stage与条件重放实测按上节限定。完整Workspace、真实OOM拐点、广域误差、在线SLA与策略排序的预测有效性仍未建立。模型采用全 stage 预留、持久激活缓冲上界、排空 wave 后回收，以及 DMA 不与 GPU 计算重叠的保守策略；没有真实 CUDA/HIP DMA、NVMe 或分配器细粒度模拟。混合解析模型假设共享权重和宏观通信，混合 Profile 只接受精确成员形状，不推断真实 Kernel 效率；每chunk保守计入输出／sampling服务边界，缓存CPU开销未测量，swap恢复为完整私有KV。缓存占用在请求结束后保留是预期行为。组合手算示例显式使用单inflight微批和零P2P，另有R2×TP2×PP2启用P2P与正反馈延迟的组合检查。副本资源和DMA独立；未模拟共享fabric争用、跨副本请求迁移或实测路由开销。
+Profile、PP 在线流水线、CPU swap、Prefix Cache、Chunked Prefill、混合 Prefill/Decode 与多副本调度均已实现。旧 RX9070XT 请求级参考包仍缺匹配的整stage/服务端逐Token/Workspace归因；新增的小域Stage、条件重放与Workspace实测分别按上述范围成立。广域Workspace、精确OOM阈值、通用容量预测、在线SLA与策略排序的有效性仍未建立。只有两张物理GPU，不能覆盖四卡TP2×PP2及其接收端AllGather；当前真机vLLM版本缺少原生CPU KV swap路径，尚无端到端evict/restore硬件对照。模型采用全 stage 预留、持久激活缓冲上界、排空 wave 后回收，以及 DMA 不与 GPU 计算重叠的保守策略；没有真实 CUDA/HIP DMA、NVMe 或分配器细粒度模拟。混合解析模型假设共享权重和宏观通信，混合 Profile 只接受精确成员形状，不推断真实 Kernel 效率；每chunk保守计入输出／sampling服务边界，缓存CPU开销未测量，swap恢复为完整私有KV。缓存占用在请求结束后保留是预期行为。组合手算示例显式使用单inflight微批和零P2P，另有R2×TP2×PP2启用P2P与正反馈延迟的组合检查。副本资源和DMA独立；未模拟共享fabric争用、跨副本请求迁移或实测路由开销。
 
 ## 库化与分发验证
 

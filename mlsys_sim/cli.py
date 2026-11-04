@@ -430,6 +430,32 @@ def _validate(args: argparse.Namespace, manifest: dict) -> dict:
     from .calibration import calibrate_dataset, split_dataset, validate_holdout
     from .profiles import load_dataset, load_profile
 
+    exact_repeats = getattr(args, "exact_repeats", False)
+    training_path = getattr(args, "training_dataset", None)
+    if training_path is not None and not exact_repeats:
+        raise SimulationError("INVALID_ARGUMENT", "--training-dataset requires --exact-repeats")
+    if exact_repeats:
+        from .calibration import validate_profile_repeats
+        if (args.profile is None or training_path is None or args.allow_extrapolation
+                or getattr(args, "native_pp_communication", False) or getattr(args, "memory_capacity", False)
+                or any(value is not None for value in (args.holdout_group, args.holdout_fraction, args.seed))):
+            raise SimulationError("INVALID_ARGUMENT", "Exact repeats require --profile and --training-dataset; "
+                                  "split, communication, capacity and extrapolation options do not apply")
+        for path in (args.dataset, args.profile, training_path):
+            _record_input(manifest, path)
+        profile = load_profile(args.profile, allow_test_fixture=args.allow_test_fixture)
+        training, _ = _read_json(training_path)
+        repeated, _ = _read_json(args.dataset)
+        report = validate_profile_repeats(profile, training, repeated, allow_test_fixture=args.allow_test_fixture)
+        _write_json(args.out / "training.json", training)
+        _write_json(args.out / "repeat.json", repeated)
+        _write_json(args.out / "profile.json", profile)
+        manifest.update(profile_version=profile["profile_version"], source=profile["source"],
+                        dataset_sha256=report["training_dataset_sha256"],
+                        repeat_dataset_sha256=report["repeat_dataset_sha256"],
+                        profile_sha256=hashlib.sha256((args.out / "profile.json").read_bytes()).hexdigest())
+        return report
+
     if getattr(args, "memory_capacity", False):
         from .capacity import load_capacity_dataset, validate_memory_capacity
         if (args.profile is not None or args.profile_version is not None or args.allow_extrapolation
@@ -892,6 +918,9 @@ def _arguments(parser: argparse.ArgumentParser, mode: str) -> None:
             validation_kind = parser.add_mutually_exclusive_group()
             validation_kind.add_argument("--native-pp-communication", action="store_true")
             validation_kind.add_argument("--memory-capacity", action="store_true")
+            validation_kind.add_argument("--exact-repeats", action="store_true")
+            parser.add_argument("--training-dataset", type=Path,
+                                help="Exact canonical training snapshot for --exact-repeats")
         return
     source = parser.add_mutually_exclusive_group(required=True)
     source.add_argument("--predicted", type=Path)

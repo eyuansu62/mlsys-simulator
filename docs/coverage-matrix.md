@@ -1,6 +1,6 @@
-# Version 1.11 capability matrix
+# Version 1.12 capability matrix
 
-This table describes the version 1.11 software scope. Available fixture demonstrations
+This table describes the version 1.12 software scope. Available fixture demonstrations
 and unit tests do not establish AMD hardware accuracy. User-supplied reference
 packages are external evidence with their own timing and model-coverage limits.
 
@@ -27,11 +27,12 @@ packages are external evidence with their own timing and model-coverage limits.
 | Versioned step Profiles | Implemented | Strict identity/source; native PP preserves physical payloads and is exact-only; legacy exact ragged/mixed lookup and complete homogeneous interpolation cells |
 | Calibration and lineage | Implemented | Repeated-shape mean time/max Workspace, new versions, input and training provenance |
 | Grouped holdout evaluation | Implemented | Shape/group connected components, leakage rejection, coverage and latency errors |
+| Independent exact-stage repeats | Implemented | Frozen training SHA/fit/provenance, distinct acquisition session/capture/record/group evidence and retained exact shapes only; separate from unseen-shape holdout and hardware acceptance |
 | Online run/candidate comparison | Implemented | Matching contracts, per-metric/request errors, SLA agreement, ties and candidate ordering |
 | Independent Workspace Profiles | Implemented | Complete Runtime ownership, exact per-rank repeated maxima including observed zero; selected missing shapes fail without fallback |
 | Partial managed-scratch observation | Implemented observer | Existing pinned vLLM WorkspaceManager capacity stays raw/partial; it does not prove complete dynamic Workspace |
 | Legacy stage Workspace consumption | Implemented | Without an explicit Workspace Profile, supported stage observations or labeled analytical assumptions |
-| Capacity/OOM collection and validation | Implemented adapter/workflow | Fresh Runtime/process per point/repeat, typed OOM and applied-axis/configuration evidence; unstable/nonmonotonic/censored outcomes and observed brackets |
+| Capacity/OOM collection and validation | Implemented adapter/workflow | Fresh Runtime/process per point/repeat, typed OOM and applied-axis/configuration evidence; pinned native vLLM single-GPU KV factory; unstable/nonmonotonic/censored outcomes and observed brackets |
 | ROCm inventory and stage collection | Implemented adapter | Optional live HIP Runtime timing with explicit device/software identity; CPU fixture injection is not a GPU measurement |
 | Pinned vLLM internal runner hooks | Implemented adapter | Explicit MRv1 ABI/version, member-aware shapes and sampling boundaries; native lazy receive/receiver AG excluded from stage service; async, SP and unproven intervals remain raw |
 | Pinned vLLM Scheduler lifecycle | Implemented adapter | Actual enqueue, published output and terminal events; conditional replay is explicit, with prompt identity required for Prefix Cache |
@@ -53,9 +54,11 @@ calibrated inputs, not an automatic hardware-validation verdict. Actual test and
 CI results belong in the validation report and workflow run records.
 
 
-PP and CPU swap have no supplied hardware validation. Their virtual links/DMA
-use declared rates and explicit conservative policies; successful synthetic
-examples do not establish actual multi-GPU throughput or PCIe copy accuracy.
+TP2 and PP2 have limited independent real stage observations, and native P2P
+has its own independent primitive validation. CPU KV swap has no end-to-end
+hardware validation. Virtual links/DMA use declared rates and explicit
+conservative policies; successful synthetic examples do not establish actual
+multi-GPU throughput or PCIe copy accuracy.
 See [pipeline and swap](pipeline-and-swap.md) for configuration and lifetimes, and
 [native PP capture](native-pp-capture.md) for source-pinned sampling. Natural
 receive waiting is dependency evidence, not a calibrated independent network
@@ -92,3 +95,27 @@ request-count sweeps preserve the scheduler and do not imply actual GPU batch
 size. Logical KV refusal, timeout, peer death and lock errors are distinct from
 typed allocator OOM. Observed brackets retain resolution and evidence gaps; see
 [Workspace and capacity validation](workspace-and-capacity.md).
+
+## Limited live evidence added in 1.12
+
+These claims are separate, scoped results; none grants general hardware
+acceptance or lets one Profile silently cover another Runtime/layout domain.
+
+| Evidence | Observed scope | Remaining boundary |
+| --- | --- | --- |
+| Complete Workspace | RX9070XT, Qwen3-1.7B BF16, TP1×PP1 eager single prefill16/32; independent three repeats per shape, 100% exact coverage and no underprediction | Owned requested-storage capacity only; no decode, other shapes, multi-rank or concurrent policies |
+| Physical KV pool endpoints | Each device has independently repeated successful and typed native allocation-OOM endpoints | Finite resolution, `exact_threshold=null`; retained RX7900XTX interior worker failures are censored; default analytical budgets falsely reject some successes |
+| TP2 stage latency | 24 unseen-shape observations, 100% coverage, MAPE2.9520% | Short shapes, one active sequence, pinned eager Runtime; no online SLA |
+| PP2 stage latency | 72 new exact-shape repeat observations, 100% coverage, MAPE6.1565% | Retained exact domain; no unseen-shape generalization or four-GPU TP2×PP2 |
+| Prefix/chunk/mixed behavior | Actual prefix reuse, partial prompt chunks and simultaneous prefill/decode observed with complete outputs | Correctness probes are distinct from the conditional latency results below |
+| Prefix Cache / chunking conditional latency | Frozen policy Profiles; three fresh Runtime repeats each, 45 exact-covered stage rows, 9/9 paired requests; all TTFT/TPOT/E2E p50 relative errors≤15% | Short fixed cohorts with actual conditional arrivals, including cache seeds; no open-loop throughput, tails, SLA or ranking claim |
+| Mixed-policy accuracy | Real initial `[8,8]` batch differs from the simulator's immediate solo `[8]` under actual arrivals | Exact Profile lacks solo `[8]`; retained out-of-domain coverage gap, not an accuracy pass |
+| Two physical replicas | Two independent TP1×PP1 instances; fixed round-robin0/1/0/1, four completed requests, native request-ID ownership and separate public normalization checked | Routing/output smoke only; no least-loaded/prefix-aware comparison, routing-cost, contention, performance or SLA claim |
+
+See the [Workspace](workspace-live-validation.md),
+[capacity](capacity-live-validation.md) and
+[multi-GPU stage](multigpu-stage-validation.md) and
+[policy/replica](online-policy-live-validation.md) reports. The tested vLLM revision
+has no native CPU KV-swap path for an end-to-end eviction/restore comparison.
+Only two physical GPUs are available; full TP2×PP2 and its receiving AllGather
+path require a different hardware cohort.

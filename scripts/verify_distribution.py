@@ -27,6 +27,9 @@ assert version("mlsys-simulator") == mlsys_sim.__version__
 assert not metadata("mlsys-simulator").get_all("Requires-Dist")
 assert "torch" not in sys.modules, "Optional GPU dependency was imported eagerly"
 assert "vllm" not in sys.modules, "Optional serving dependency was imported eagerly"
+from mlsys_sim.vllm_capacity_adapter import kv_pool_factory
+assert callable(kv_pool_factory) and callable(mlsys_sim.validate_profile_repeats)
+assert "torch" not in sys.modules and "vllm" not in sys.modules
 plugins = [item for item in entry_points(group="vllm.general_plugins") if item.name == "mlsys_internal_capture"]
 assert len(plugins) == 1
 plugins[0].load()()
@@ -110,7 +113,17 @@ data = {"schema_version": 1, "dataset_id": "installed-wheel-fixture",
         "identity": profile_identity(profile_base),
         "source": {"kind": "test_fixture", "reference": "Hand calculations, not hardware."},
         "records": records}
+data["notes"] = {"acquisition": {"session_id": "installed-training-fixture",
+    "clock_domain": "cpu-fixture-monotonic", "capture_input_sha256": ["a" * 64]}}
 Path("measurements.json").write_text(json.dumps(data))
+repeated = json.loads(json.dumps(data))
+repeated["dataset_id"] = "installed-independent-repeat-fixture"
+repeated["notes"]["acquisition"].update(session_id="installed-repeat-fixture",
+    capture_input_sha256=["b" * 64])
+for row in repeated["records"]:
+    row["record_id"] = "repeat-" + row["record_id"]
+    row["group_id"] = "repeat-" + row["group_id"]
+Path("repeats.json").write_text(json.dumps(repeated))
 profile_config = asdict(profile_base)
 profile_config["calibration"].update(backend="profile", profile_path="fit/profile.json",
                                        profile_version="smoke-v1", allow_test_fixture=True)
@@ -200,7 +213,7 @@ def verify(dist: Path) -> dict:
         for module in ("hardware", "rocm_steps", "rccl_adapter", "runtime_adapter",
                        "hardware_validation", "release_adapter", "qwen3", "vllm_hooks", "vllm_capture", "pp_transport",
                        "pp_communication", "pp_benchmark", "pp_benchmark_worker", "workspace", "workspace_capture",
-                       "capacity", "capacity_worker"):
+                       "capacity", "capacity_worker", "vllm_capacity_adapter"):
             assert f"mlsys_sim/{module}.py" in names
         assert not any(name.startswith(("tests/", "sample-runs/", "work/")) for name in names)
         assert archive.testzip() is None
@@ -233,6 +246,16 @@ def verify(dist: Path) -> dict:
                          "examples/v1_11/communication-holdout.fixture.json",
                          "examples/v1_11/communication.profile.fixture.json",
                          "examples/v1_11/collector.plan.live-template.json",
+                         "tests/test_stage_repeats.py", "tests/test_vllm_capacity_adapter.py",
+                         "tests/test_rocm_workspace_domain.py",
+                         "scripts/rocm_workspace_audit/README.md",
+                         "scripts/rocm_workspace_audit/workspace_domain.py",
+                         "scripts/rocm_workspace_audit/native_probe.cpp",
+                         "scripts/rocm_workspace_audit/torch_allocator_probe.cpp",
+                         "scripts/rocm_workspace_audit/device_heap_controls.hip",
+                         "docs/workspace-live-validation.md", "docs/capacity-live-validation.md",
+                         "docs/multigpu-stage-validation.md",
+                         "docs/online-policy-live-validation.md",
                          "scripts/verify_distribution.py"):
             assert required in source_names, f"Source distribution missing {required}"
         assert not any(name.startswith(("sample-runs/", "work/")) for name in source_names)
@@ -507,6 +530,14 @@ def verify(dist: Path) -> dict:
         assert failed["error_code"] == "UNSUPPORTED_MECHANISM"
         run([str(console), "calibrate", "--dataset", "measurements.json", "--profile-version",
              "smoke-v1", "--out", "fit", "--allow-test-fixture"], outside, env)
+        run([str(console), "validate", "--exact-repeats", "--training-dataset", "fit/dataset.json",
+             "--profile", "fit/profile.json", "--dataset", "repeats.json", "--out", "exact-repeats",
+             "--allow-test-fixture"], outside, env)
+        repeated_report = json.loads((outside / "exact-repeats/result.json").read_text())
+        assert repeated_report["summary"]["coverage"] == 1
+        assert repeated_report["summary"]["mae_ms"] == 0
+        assert repeated_report["unseen_shape_generalization"] is False
+        assert repeated_report["hardware_validated"] is False
         run([str(console), "simulate", "--experiment", "profile-experiment.json",
              "--out", "profile-run"], outside, env)
         comparison = json.loads(run([str(console), "compare", "--predicted", "profile-run",
@@ -540,6 +571,7 @@ def verify(dist: Path) -> dict:
             "installed_native_pp_size_lookup_guarded_holdout": "passed",
             "installed_native_pp_simple_policy_lookup_holdout": "passed",
             "installed_workspace_calibration_and_capacity_brackets": "passed",
+            "installed_exact_stage_repeats_and_lazy_capacity_adapter": "passed",
             "installed_calibration_comparison_holdout": "passed"}
 
 
