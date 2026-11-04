@@ -1,0 +1,152 @@
+{
+  "schema_version": 1,
+  "kind": "measured_run",
+  "comparison_contract": {
+    "evaluation": {
+      "drain": true,
+      "max_drain_ms": null,
+      "measurement_window_ms": null,
+      "tpot_sla_ms": 2.0,
+      "ttft_sla_ms": 20.0
+    },
+    "execution": {
+      "initial_state": "empty_cache",
+      "max_simulated_ms": 180000.0,
+      "seed": 42,
+      "warmup": []
+    },
+    "identity": {
+      "devices": [
+        {
+          "compute_tflops": 1.0,
+          "id": "gpu0",
+          "memory_bandwidth_gbps": 10.0,
+          "memory_bytes": 67108864,
+          "name": "toy-device"
+        }
+      ],
+      "execution": {
+        "communication_buffer_bytes": 0,
+        "graph_bytes": 0,
+        "kv_block_tokens": 16,
+        "runtime_bytes": 1048576
+      },
+      "model": {
+        "activation_bytes": 2.0,
+        "activation_dtype": "auto",
+        "head_dim": 16,
+        "hidden_size": 128,
+        "intermediate_size": 512,
+        "kv_bytes": 2.0,
+        "kv_dtype": "auto",
+        "name": "toy-dense-gqa",
+        "num_attention_heads": 8,
+        "num_kv_heads": 2,
+        "num_layers": 4,
+        "revision": "unspecified",
+        "vocab_size": 256,
+        "weight_bytes": 2.0,
+        "weight_dtype": "auto"
+      },
+      "parallelism": {
+        "pipeline_parallel_size": 1,
+        "shard_plan": "megatron_dense_no_sp",
+        "stage_layers": [
+          4
+        ],
+        "tensor_parallel_size": 1
+      },
+      "runtime": {
+        "driver_version": "not-applicable",
+        "name": "fixture-runtime",
+        "rccl_version": "not-applicable",
+        "rocm_version": "not-applicable",
+        "timing_boundary": "step_includes_output_and_sampling_v1",
+        "version": "fixture-1"
+      },
+      "topology": {
+        "link_bandwidth_gbps": 20.0,
+        "link_latency_us": 5.0,
+        "name": "single-node-uncontended"
+      }
+    },
+    "schema_version": 1,
+    "strategy": {
+      "max_batch_size": 8,
+      "max_batch_tokens": 4096,
+      "max_preemptions_per_request": 100,
+      "memory": {
+        "communication_buffer_bytes": 0,
+        "graph_bytes": 0,
+        "guard_blocks": 0,
+        "kv_block_tokens": 16,
+        "kv_pool_bytes": 4194304,
+        "other_bytes": 0,
+        "runtime_bytes": 1048576,
+        "safety_margin_bytes": 1048576,
+        "workspace_base_bytes": 1048576,
+        "workspace_bytes_per_token": 1024
+      },
+      "model": {
+        "activation_bytes": 2.0,
+        "activation_dtype": "auto",
+        "head_dim": 16,
+        "hidden_size": 128,
+        "intermediate_size": 512,
+        "kv_bytes": 2.0,
+        "kv_dtype": "auto",
+        "name": "toy-dense-gqa",
+        "num_attention_heads": 8,
+        "num_kv_heads": 2,
+        "num_layers": 4,
+        "revision": "unspecified",
+        "vocab_size": 256,
+        "weight_bytes": 2.0,
+        "weight_dtype": "auto"
+      },
+      "pipeline_parallel_size": 1,
+      "preemption": "recompute",
+      "replicas": 1,
+      "scheduler": "fifo",
+      "stage_layers": [
+        4
+      ],
+      "tensor_parallel_size": 1
+    },
+    "timing_boundary": "step_includes_output_and_sampling_v1",
+    "workload_sha256": "c86856998ebb6f785335be239a6bd40026790388a1e1defd57bad1cc11893340"
+  },
+  "source": {
+    "kind": "test_fixture",
+    "reference": "Hand-calculated v1.5 acceptance fixture; no GPU measurements."
+  },
+  "metrics": {
+    "ttft_p50_ms": 6.1,
+    "ttft_p95_ms": 6.1,
+    "ttft_p99_ms": 6.1,
+    "tpot_p50_ms": 1.1,
+    "tpot_p95_ms": 1.1,
+    "tpot_p99_ms": 1.1,
+    "end_to_end_p50_ms": 8.3,
+    "end_to_end_p95_ms": 8.3,
+    "end_to_end_p99_ms": 8.3,
+    "itl_p50_ms": 1.1,
+    "itl_p95_ms": 1.19,
+    "itl_p99_ms": 1.198,
+    "throughput_requests_per_s": 120.48192771084337,
+    "throughput_output_tokens_per_s": 361.4457831325301,
+    "goodput_requests_per_s": 120.48192771084337,
+    "goodput_output_tokens_per_s": 361.4457831325301,
+    "completion_rate": 1,
+    "sla_satisfied": true,
+    "request_count": 1
+  },
+  "requests": [
+    {
+      "request_id": "demo",
+      "ttft_ms": 6.1,
+      "tpot_ms": 1.1,
+      "end_to_end_ms": 8.3
+    }
+  ]
+}

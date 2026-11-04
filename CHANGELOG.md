@@ -1,5 +1,35 @@
 # Changelog
 
+## 1.5.0 — 2026-11-04
+
+Optional hardware adapters connect collected Runtime evidence to calibration
+and explicit, scoped acceptance. The serving simulator remains a CPU model.
+
+### Added
+
+- AMD/ROCm availability and version probing, synchronized stage-call collection
+  and raw allocated/reserved allocator evidence with explicit Workspace attribution.
+- RCCL AllReduce collection/import with preserved units, rank/mode identity,
+  correctness checks and raw provenance.
+- Semantic Runtime trace and token-ID-aware vLLM client collection paths that
+  retain their different server/client timing boundaries.
+- Read-only reference-package auditing for the supplied NVIDIA legacy and AMD
+  9070 XT release schemas, including integrity and model/timing compatibility.
+- A hardware-evidence workflow with per-replica fitting, disjoint holdout,
+  online comparison, sample/repeat/error criteria and explicit verdicts.
+- Hand-calculated acceptance fixtures and collection/evidence documentation.
+
+### Evidence limits
+
+- A CPU fixture remains a fixture, including when its numerical criteria pass.
+  A completed command is not automatically a hardware-validation verdict.
+- Client content-chunk times and profiling attribution do not become complete
+  stage times or semantic per-token events; raw allocator peaks do not imply Workspace.
+- AllReduce support does not establish unidirectional P2P, TP/PP or swap accuracy.
+  Supplied Qwen3 model gaps are reported rather than silently changing real shapes.
+- Raw archives and prompt/output text are not distributed with the library;
+  license selection and private-repository status remain unchanged.
+
 ## 1.4.0 — 2026-11-04
 
 Arriving requests can share a global serving timeline across independent model

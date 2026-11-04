@@ -1,14 +1,14 @@
-# V1.4 软件验证记录
+# V1.5 软件验证记录
 
 日期：2026-11-04  
 环境：Python 3.14.3，macOS，CPU 执行  
-版本：1.4.0
+版本：1.5.0
 
 ## 自动检查
 
-- `python3 -m unittest discover -s tests -v`：440 项测试通过，覆盖多副本路由、混合 Prefill/Decode、Prefix Cache、Chunked Prefill、PP、CPU swap、资源引用、Profile、校准、Compare、留出与 CLI 闭环；含固定 seed 的有界生成负载。
+- `python3 -m unittest discover -s tests -v`：561 项测试通过，覆盖 ROCm/RCCL/Runtime 采集适配、显式硬件验收、参考包导入、多副本路由、混合 Prefill/Decode、Prefix Cache、Chunked Prefill、PP、CPU swap、资源引用、Profile、校准、Compare、留出与 CLI 闭环；含固定 seed 的有界生成负载。
 - Ruff 0.17.3：检查通过。
-- mypy 2.4.1：`mypy mlsys_sim`，19 个源文件检查通过。
+- mypy 2.4.1：`mypy mlsys_sim`，25 个源文件检查通过。
 - `python3 -m compileall -q mlsys_sim tests scripts`：通过。
 
 Ruff/mypy 为临时开发检查工具，没有加入项目运行依赖。测试覆盖配置拒绝、
@@ -23,6 +23,8 @@ Prefix Cache 检查 namespace、完整 token ancestry 的 SHA256 链、保留最
 多副本检查共享事件时序、轮询／最少未完成请求／受负载约束的缓存亲和路由、到达时可见状态、固定归属、独立Host/DMA与纯读缓存探测。两条本地引擎仅抽取可逐事件驱动和幂等finalization接口，驱动结果与原run路径的请求、事件和资源报告逐项相等。全局预算/窗口、PP反馈和swap截止保留引用；局部停止不阻断健康副本，全部副本不可用时未来请求保持未路由。全局分位数从合并请求重算，三请求手算全局TTFT中位数为2ms，而局部中位数平均为2.5ms。Profile与CLI检查每副本身份、原始字节快照、有序hash、版本/来源、完整集群Compare，以及warmup缓存和路由游标重置。
 
 ## CLI 示例证据
+
+采集适配测试使用 CPU fake backend、合成 RCCL 日志及本机 HTTP/SSE 服务，未运行 AMD GPU kernel。检查 HIP 与 CUDA 区分、编译版本与实际 RCCL 库版本分离、真实 TP 的 Runtime 库版本/hash绑定、同步主机计时、allocator allocated/reserved 原始值与 Workspace 归因分离、精度/单位/rank/正确性、超时与部分失败证据。流式采集检查 delta token IDs/最终 usage、heartbeat 绝对期限、全局排队期限、重定向不转发凭据，以及客户端合并 chunk 不伪造服务端 Token 时刻。规范化 server trace 核对到达/输出数/逐 Token 索引及 execution/window/drain/request timeout 边界。验收测试覆盖组/形状泄漏、完整请求配对、重复内容去重、显式阈值与缺失证据；fixture 永不成为硬件 PASS，`--require-pass` 对非实测 PASS 返回3。
 
 基础示例与新增的校准闭环均通过公开 CLI 执行。生成的 `runs/` 和 `sample-runs/` 不纳入仓库或分发包；可按 README 重新生成。
 
@@ -48,20 +50,24 @@ Prefix Cache 检查 namespace、完整 token ancestry 的 SHA256 链、保留最
 | Online Compare | 19 项指标均可比较，覆盖率 100%；请求按 ID 配对 |
 | 分组留出 | 2 条同配置观测整体留出；域内覆盖率 100%，MAE 0.1ms，MAPE 约 1.61% |
 | 通信校准 | 独立 Ring/P2P 手算数据，拟合约 5µs 启动延迟与 20GB/s 带宽；输出显式 Infra patch |
+| ROCm Probe | 本机 Darwin/arm64、无 PyTorch/ROCm；诊断流程完成，hardware_available=false，不回退为 CPU 测量 |
+| 显式硬件验收 fixture | 校准→分组留出→模拟→Compare 数值条件通过；verdict=TEST_FIXTURE_ONLY，hardware_validated=false |
+| Runtime trace fixture | server-token-ready 事件转换为观察，TTFT6.1ms、TPOT1.1ms、E2E8.3ms；来源仍为fixture |
+| RX9070XT 参考包 | 195 runs/65 cells，9750正式＋1950预热请求；已读取已知数据文件校验匹配，规范化验收仍INSUFFICIENT_EVIDENCE |
+| 旧 NVIDIA 参考包 | 48 runs/2400正式请求，README哈希不一致被保留；不重标AMD或stage Profile |
 
-内存压力示例使用 synthetic 固定阶段时间；新增校准数据全部标记 test_fixture，未收集 GPU 测量。
-这些检查验证程序机制与假设内部一致性，不构成真实 GPU 时延准确率证明。
+内存压力示例使用 synthetic 固定阶段时间；仓库中分发的校准样例全部标记 test_fixture。本次另读取用户提供的真实外部采样包，仅作边界、覆盖与导入审计，没有重新运行 GPU 采集。完整性检查限定在导入器读取的已知文件，未重放嵌套原始归档。原始 prompt/response、归档代码与数据包不纳入仓库或分发。详见[参考包审计](reference-data-audit.md)。这些检查不构成真实 GPU 时延准确率证明。
 
 ## 当前限制
 
 本地执行环境为 Python 3.14.3；Python 3.11 至 3.14 的远程结果以该提交对应的 Actions 记录为准。
-Profile、PP 在线流水线、CPU swap、Prefix Cache、Chunked Prefill、混合 Prefill/Decode 与多副本调度均已实现。当前没有 AMD 原始测量数据，硬件留出误差、真实容量拐点、在线 SLA 和策略排序的预测有效性仍未建立。模型采用全 stage 预留、持久激活缓冲上界、排空 wave 后回收，以及 DMA 不与 GPU 计算重叠的保守策略；没有真实 CUDA/HIP DMA、NVMe 或分配器细粒度模拟。混合解析模型假设共享权重和宏观通信，混合 Profile 只接受精确成员形状，不推断真实 Kernel 效率；每chunk保守计入输出／sampling服务边界，缓存CPU开销未测量，swap恢复为完整私有KV。缓存占用在请求结束后保留是预期行为。组合手算示例显式使用单inflight微批和零P2P，另有R2×TP2×PP2启用P2P与正反馈延迟的组合检查。副本资源和DMA独立；未模拟共享fabric争用、跨副本请求迁移或实测路由开销。
+Profile、PP 在线流水线、CPU swap、Prefix Cache、Chunked Prefill、混合 Prefill/Decode 与多副本调度均已实现。用户现已提供 RX9070XT 请求级数据，但缺少匹配的整 stage 样本、服务端逐 Token 时间和 Workspace 归因；硬件留出误差、真实容量拐点、在线 SLA 和策略排序的预测有效性仍未建立。模型采用全 stage 预留、持久激活缓冲上界、排空 wave 后回收，以及 DMA 不与 GPU 计算重叠的保守策略；没有真实 CUDA/HIP DMA、NVMe 或分配器细粒度模拟。混合解析模型假设共享权重和宏观通信，混合 Profile 只接受精确成员形状，不推断真实 Kernel 效率；每chunk保守计入输出／sampling服务边界，缓存CPU开销未测量，swap恢复为完整私有KV。缓存占用在请求结束后保留是预期行为。组合手算示例显式使用单inflight微批和零P2P，另有R2×TP2×PP2启用P2P与正反馈延迟的组合检查。副本资源和DMA独立；未模拟共享fabric争用、跨副本请求迁移或实测路由开销。
 
 ## 库化与分发验证
 
 - Setuptools 84.2.1 通过标准 PEP 517 隔离构建生成 sdist，再从该 sdist 构建 wheel。
 - Twine 7.0.0 对两种分发文件的元数据检查通过。
-- `scripts/verify_distribution.py` 在源码目录以外创建新虚拟环境，离线安装 wheel；公共 API、PP 在线、单组／PP swap、单组／PP Prefix Cache＋Chunked Prefill、混合批处理和PP/缓存/swap组合、多副本三种路由/组合与逐副本Profile模拟和预测、PP 解析、校准→Profile→Compare→留出及通信校准 CLI 均通过。
+- `scripts/verify_distribution.py` 在源码目录以外创建新虚拟环境，离线安装 wheel；公共 API、PP 在线、单组／PP swap、单组／PP Prefix Cache＋Chunked Prefill、混合批处理和PP/缓存/swap组合、多副本三种路由/组合与逐副本Profile模拟和预测、ROCm probe/服务端trace/客户端token-ID fixture/显式验收命令、PP 解析、校准→Profile→Compare→留出及通信校准 CLI 均通过。
 - Wheel 内含 `py.typed`，安装元数据无必需第三方运行依赖；sdist 包含测试、示例和公共文档。
 - CI 覆盖 Python 3.11 至 3.14 的回归测试、lint、类型和分发检查，使用固定 Actions SHA。
 

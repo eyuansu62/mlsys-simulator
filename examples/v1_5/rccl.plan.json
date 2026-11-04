@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "dataset_id": "rccl-allreduce-collection",
+  "source_reference": "Set to the actual RCCL benchmark run and operator reference before collection.",
+  "ranks": 2,
+  "mode": "out_of_place",
+  "binary": "all_reduce_perf",
+  "message_bytes": [
+    1024,
+    1048576
+  ],
+  "repeats": 3,
+  "iterations": 20,
+  "warmup_iterations": 5,
+  "timeout_s": 60,
+  "algorithm": "Ring",
+  "rank_aggregation": "max"
+}

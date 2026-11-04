@@ -1,7 +1,8 @@
-# Version 1.4 capability matrix
+# Version 1.5 capability matrix
 
-This table describes the version 1.4 software scope. Available fixture demonstrations and
-unit tests do not establish AMD hardware accuracy.
+This table describes the version 1.5 software scope. Available fixture demonstrations
+and unit tests do not establish AMD hardware accuracy. User-supplied reference
+packages are external evidence with their own timing and model-coverage limits.
 
 | Capability | Software status | Supported scope and evidence boundary |
 | --- | --- | --- |
@@ -25,7 +26,12 @@ unit tests do not establish AMD hardware accuracy.
 | Grouped holdout evaluation | Implemented | Shape/group connected components, leakage rejection, coverage and latency errors |
 | Online run/candidate comparison | Implemented | Matching contracts, per-metric/request errors, SLA agreement, ties and candidate ordering |
 | Measured Workspace consumption | Implemented | Supported observed values; missing/extrapolated values use labeled analytical assumptions |
-| AMD measurement and accuracy | Not established | No AMD dataset supplied; actual collection and held-out hardware evidence remain required |
+| ROCm inventory and stage collection | Implemented adapter | Optional live HIP Runtime timing with explicit device/software identity; CPU fixture injection is not a GPU measurement |
+| RCCL AllReduce collection/import | Implemented adapter | Explicit benchmark units/ranks/mode, maximum-rank timing and correctness checks; sendrecv is not accepted as unidirectional PP P2P |
+| Runtime trace and vLLM client collection | Implemented adapters | Semantic server Token events and token-ID client streaming retain different boundaries; SSE chunk counts do not become token counts |
+| Reference-package audit | Implemented | Source hashes, structure, timing/shape coverage and compatibility diagnostics; archived programs and instructions are not executed |
+| Hardware-evidence acceptance | Implemented gate | Explicit training/holdout and online criteria, leakage rejection, paired requests, independent repeats and scoped verdicts; fixtures keep hardware status false |
+| AMD prediction accuracy | Not established generally | Supplied 9070 XT client traces do not provide compatible whole-stage/Workspace or multi-GPU measurements; acceptance is limited to evidenced identities and domains |
 | Prefix Cache | Implemented | Explicit token ancestry/namespace, full shared KV blocks in the fixed pool, reference pinning and bounded idle-block LRU |
 | Chunked Prefill/recompute | Implemented | Retained contexts, final-chunk-only output, decode priority; single-group and TP×PP recovery |
 | Mixed Prefill/Decode batches | Implemented | Opt-in shared stage execution, decode-first packing, ordered member roles, joint Workspace and exact mixed Profiles; PP/cache/swap lifetimes preserved |
@@ -42,6 +48,14 @@ PP and CPU swap have no supplied hardware validation. Their virtual links/DMA
 use declared rates and explicit conservative policies; successful synthetic
 examples do not establish actual multi-GPU throughput or PCIe copy accuracy.
 See [pipeline and swap](pipeline-and-swap.md) for configuration and lifetimes.
+
+Live collectors require the relevant tools already installed on an AMD host;
+the core simulator keeps no required third-party dependency. Probe failure does
+not trigger CPU timing. Raw allocated/reserved memory is not automatically
+Workspace, and a PyTorch collective build version is not a verified RCCL runtime
+version. The user reference packages do not establish TP/PP, preemption, swap or
+RCCL accuracy. See [ROCm collection](rocm-collection.md) for boundaries and the
+explicit acceptance plan.
 
 Prefix/chunk behavior is a declared simulator policy, not a reproduction of a
 particular Runtime implementation. Cached-prefix and chunked Profile queries

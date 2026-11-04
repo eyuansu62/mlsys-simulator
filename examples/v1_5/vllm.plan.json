@@ -1,0 +1,10 @@
+{
+  "schema_version": 1,
+  "endpoint": "http://127.0.0.1:8000",
+  "model": "replace-with-served-model-id",
+  "source_reference": "Set to the actual vLLM deployment and collection run reference.",
+  "timeout_s": 60,
+  "max_workers": 8,
+  "api_key_env": "OPENAI_API_KEY",
+  "max_response_bytes": 8388608
+}

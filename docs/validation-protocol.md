@@ -1,8 +1,16 @@
 # Validation protocol
 
+`validate-hardware --plan FILE --out DIR` evaluates the explicit collection and
+acceptance workflow described in [ROCm collection](rocm-collection.md). Use
+`--require-pass` in automation to exit with code 3 unless its scoped measured
+verdict is `PASS` and `hardware_validated=true`. Without that flag, successful
+evaluation exits 0 even when its verdict is `FAIL`, `INSUFFICIENT_EVIDENCE` or
+`TEST_FIXTURE_ONLY`; inspect the verdict separately from execution status.
+
 V1 separates software correctness, calibration fit and prediction validation.
-The supplied fixtures exercise the workflow. No AMD measurements or hardware
-accuracy result is included in this repository.
+The supplied fixtures exercise the workflow. User-provided hardware packages
+are audited as external evidence; raw packages are not included in this
+repository and do not establish general hardware accuracy.
 
 ## Establish a comparable experiment
 
@@ -91,6 +99,11 @@ coverage. Tail percentiles from a tiny sample are a correctness demonstration,
 not reliable p99 evidence. Define acceptable error and SLA/ranking criteria for
 the intended experiment before judging its results.
 
-The tools retain calibrated or fixture provenance and do not automatically set
-`hardware_validated` to true. Completing the V1 software workflow does not fill
-in missing measurement evidence or license/publication steps.
+Individual calibration, holdout and comparison tools retain calibrated or
+fixture provenance and do not automatically set `hardware_validated` to true.
+Version 1.5 adds a separate `validate-hardware` acceptance gate with explicit
+sample, repeat, coverage and error thresholds. Its scoped `PASS` requires
+measured inputs and satisfied criteria. Any required fixture produces
+`TEST_FIXTURE_ONLY`; missing evidence produces `INSUFFICIENT_EVIDENCE`.
+Completing a workflow does not fill in missing evidence or license/publication
+steps. See [ROCm collection and acceptance](rocm-collection.md).

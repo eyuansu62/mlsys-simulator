@@ -1,13 +1,14 @@
 # LLM 推理系统模拟器
 
 [English](README.md) · [Python API](docs/api.md) · [校准](docs/calibration.md) ·
-[验证规范](docs/validation-protocol.md) · [系统规范](docs/specification.md) · [PP 与 CPU swap](docs/pipeline-and-swap.md) · [Prefix Cache 与分块预填充](docs/prefix-cache-and-chunking.md) · [混合批处理](docs/mixed-batching.md) · [多副本路由](docs/multi-replica.md)
+[验证规范](docs/validation-protocol.md) · [系统规范](docs/specification.md) · [PP 与 CPU swap](docs/pipeline-and-swap.md) · [Prefix Cache 与分块预填充](docs/prefix-cache-and-chunking.md) · [混合批处理](docs/mixed-batching.md) · [多副本路由](docs/multi-replica.md) · [ROCm 采集](docs/rocm-collection.md)
 
-1.4 版软件覆盖多副本调度／负载均衡、Prefill/Decode 混合批处理、Prefix Cache、Chunked Prefill、PP 在线流水线、CPU KV swap、CPU 在线服务模拟、解析模型、版本化 Profile、校准、分组留出验证和运行／候选方案比较。当前没有 AMD 实测数据，也未建立真实硬件预测准确率。仓库为[私有仓库](https://github.com/eyuansu62/mlsys-simulator)，许可证待选择，尚未发布 PyPI。
+1.5 版增加可选 AMD/ROCm 采集 Adapter 与显式证据验收流程，并保留多副本调度／负载均衡、Prefill/Decode 混合批处理、Prefix Cache、Chunked Prefill、PP、CPU KV swap、解析模型、Profile、校准、留出验证和方案比较。用户提供的 AMD/NVIDIA 真机参考包用于格式适配与审计；原始包及 prompt/output 全文不随库分发，现有覆盖不代表通用硬件预测准确率。仓库为[私有仓库](https://github.com/eyuansu62/mlsys-simulator)，许可证待选择，尚未发布 PyPI。
 
 ## 安装和运行
 
 需要 Python 3.11 或更新版本。核心没有必需第三方运行依赖，JSON/TOML 使用标准库；已安装 PyYAML 时可读 YAML。
+实际 stage 采集另需 AMD 机器上已安装的 ROCm PyTorch 和 Runtime Adapter；CPU 模拟与 fixture 验证不会安装 GPU 软件或退回 CPU 冒充 GPU 计时。
 
 ```bash
 python -m pip install .
@@ -85,6 +86,16 @@ mlsys-sim validate --dataset examples/v1/step_measurements.fixture.json \
 ```
 
 `profile_serving.json` 引用首个命令生成的 `profile.json`，并在配置中允许 fixture。校准按精确形状汇总重复观测；留出按配置／分组连通分量切分；在线比较使用独立的观测运行契约。实测接入方法见[校准文档](docs/calibration.md)和[验证规范](docs/validation-protocol.md)。
+
+## 真机采集与证据验收
+
+```bash
+mlsys-sim collect --kind probe --out runs/rocm-probe
+mlsys-sim validate-hardware --plan examples/v1_5/fixture-validation.plan.json \
+  --out runs/acceptance-fixture --allow-test-fixture
+```
+
+Probe 会报告硬件可用性及版本证据。上面的验收示例全部为手算 fixture，必须保留 `hardware_validated=false`。实际 stage 采集计量同步后的 Runtime 调用；RCCL AllReduce 检查计时与正确性；在线采集保留服务端 Token-ready 与客户端 SSE 到达两种边界。验收报告分别给出 `PASS`、`FAIL`、`INSUFFICIENT_EVIDENCE` 或 `TEST_FIXTURE_ONLY`，命令执行完成本身不等于真机验收通过。完整计划、来源约束和参考数据缺口见[ROCm 采集说明](docs/rocm-collection.md)。
 
 ## Python 库接口
 

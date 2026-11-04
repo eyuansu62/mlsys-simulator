@@ -1,7 +1,8 @@
 # Python API
 
-Install distribution `mlsys-simulator` and import `mlsys_sim`. Version 1.4 exposes the
-simulation, profile, calibration and comparison functions through this package;
+Install distribution `mlsys-simulator` and import `mlsys_sim`. Version 1.5 exposes the
+simulation, profile, calibration and comparison functions through this package,
+with optional hardware collection and evidence-acceptance commands;
 `mlsys_sim.__version__` is the software version. JSON schema and Profile version
 labels are separate contracts.
 
@@ -21,7 +22,9 @@ assert run.result["status"] == "COMPLETED"
 `Experiment` and its nested specifications are frozen dataclasses. Use
 `dataclasses.replace` to derive a configuration. Durations use milliseconds,
 storage uses bytes, bandwidth uses decimal GB/s and compute uses TFLOP/s.
-The simulator does not execute GPU tensors or sleep in wall-clock time.
+`simulate` does not execute GPU tensors or sleep in wall-clock time. The separate
+live collection adapters execute configured Runtime work on a supported AMD
+machine; they are not a performance backend for the CPU simulator.
 
 | Export | Purpose |
 | --- | --- |
@@ -333,6 +336,79 @@ evaluation conditions. Each pair has `candidate_id`, `predicted` and `observed`
 paths. Reports preserve ties, excluded scores and pairwise ordering agreement.
 Use `higher_is_better=False` for latency metrics. Fixture comparisons additionally
 require `allow_test_fixture=True`.
+
+## Collect and accept hardware evidence
+
+```bash
+mlsys-sim collect --kind probe --out runs/rocm-probe
+mlsys-sim validate-hardware --plan examples/v1_5/fixture-validation.plan.json \
+  --out runs/acceptance-fixture --allow-test-fixture
+```
+
+The optional collection paths are `probe`, `steps`, `rccl`, `runtime-trace`,
+`vllm` and `reference`. Each keeps its own timing and source contract. Stage
+collection needs real HIP availability and synchronized Runtime execution;
+fixture backends retain fixture source. RCCL imports preserve explicit timing
+units, rank counts and correctness results. Client stream delivery cannot be
+reclassified as server Token-ready events or complete stage timings.
+
+The adapter modules provide the corresponding library entry points:
+
+```python
+from mlsys_sim.hardware import probe_rocm
+from mlsys_sim.rocm_steps import collect_steps
+from mlsys_sim.rccl_adapter import collect_rccl, parse_rccl_output
+from mlsys_sim.hardware_validation import run_hardware_validation
+from mlsys_sim.release_adapter import import_reference_data
+from mlsys_sim.runtime_adapter import (
+    RuntimeTraceRecorder, collect_vllm, normalize_runtime_trace,
+)
+
+inventory = probe_rocm()  # Inspect status and issues; does not install software.
+```
+
+`collect_steps(experiment, plan, adapter, inventory, *, torch_module=None,
+clock_ns=None, allow_test_fixture=False)` returns a collection bundle containing
+the effective experiment, canonical dataset and raw allocator/timing records.
+Supplying a test module or clock makes the records fixtures. The Runtime
+contract and shape-plan template are described in [ROCm collection](rocm-collection.md).
+`collect_rccl(experiment, plan, inventory=None, *, base_dir=None,
+allow_test_fixture=False, runner=None)` captures supported AllReduce runs or
+preserved logs. A custom runner is a fixture injection. `parse_rccl_output`
+validates the supported complete text table and takes explicit rank/mode inputs.
+`import_reference_data(path, *, allow_test_fixture=False)` audits a supported
+extracted AMD or legacy reference directory and returns an audit plus sanitized
+numeric request-service records. It does not execute archived code, extract
+nested archives or infer missing canonical timing/model fields. Integrity
+discrepancies remain reportable audit failures rather than silent repairs.
+`RuntimeTraceRecorder(experiment, *, source, clock_ns=None)` exposes arrival,
+token-ready and terminal hooks plus `snapshot()`. Its explicit
+`replay_experiment()` selects recorded arrivals and output lengths for a
+conditional replay; normalization itself does not alter the input contract.
+`normalize_runtime_trace(experiment, raw, *, allow_test_fixture=False)` returns
+a canonical observation only for matching semantic server events.
+`collect_vllm(experiment, plan, inventory=None, *, base_dir=None,
+allow_test_fixture=False, transport=None, clock_ns=None)` records client token-ID
+delivery. Its output is not an automatic server-token observation; injected
+transport or clock dependencies force fixture provenance.
+
+`validate-hardware` consumes explicit training/holdout, online and threshold
+inputs. It writes new Profiles and copied prediction/observation artifacts,
+then evaluates coverage, sample/repeat counts and declared error criteria.
+Fixture evidence produces `TEST_FIXTURE_ONLY` and keeps
+`hardware_validated=False`, independently of whether its numerical criteria
+pass. A real-evidence `PASS` applies only to the recorded validation scope.
+Individual `calibrate`, `validate` and `compare` commands retain their existing
+source and hardware-status behavior. See [collection contracts](rocm-collection.md)
+for plans and evidence boundaries.
+
+The library gate is `run_hardware_validation(plan, output_dir, *, base_dir=None,
+allow_test_fixture=False)`. Relative input paths resolve against `base_dir`
+(normally the plan directory). It preserves `validation-plan.json`, per-replica
+fit/holdout artifacts, copied online experiments and observations, predicted
+runs and `acceptance.json`. Its current acceptance scope is step latency and
+the explicitly selected online metrics; an optional communication fit does not
+automatically establish held-out communication or memory-capacity accuracy.
 
 ## Interpret simulation results
 

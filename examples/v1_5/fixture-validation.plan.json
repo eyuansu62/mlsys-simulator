@@ -1,0 +1,30 @@
+{
+  "schema_version": 1,
+  "steps": [
+    {
+      "replica_index": 0,
+      "training_dataset": "training.fixture.json",
+      "holdout_dataset": "holdout.fixture.json",
+      "profile_version": "acceptance-fixture-v1"
+    }
+  ],
+  "online": [
+    {
+      "experiment": "experiment.fixture.json",
+      "observation": "online-observation.fixture.json",
+      "group_id": "fixture-demo"
+    }
+  ],
+  "thresholds": {
+    "min_holdout_records": 2,
+    "min_holdout_coverage": 1,
+    "max_step_mape_percent": 10,
+    "min_online_requests": 1,
+    "min_online_repeats": 1,
+    "max_online_relative_error": {
+      "ttft_p50_ms": 0.1,
+      "tpot_p50_ms": 0.1
+    },
+    "require_sla_agreement": false
+  }
+}

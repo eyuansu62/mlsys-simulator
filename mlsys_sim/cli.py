@@ -3,6 +3,7 @@
 import argparse
 from dataclasses import asdict, replace
 import hashlib
+import importlib
 import json
 from pathlib import Path
 import sys
@@ -335,6 +336,148 @@ def _compare(args: argparse.Namespace, manifest: dict) -> dict:
     return result
 
 
+def _save_collection(bundle: dict, output: Path, manifest: dict) -> dict:
+    """Keep raw evidence in fixed artifact paths, separate from the summary."""
+    json_files = {"inventory": "inventory.json", "experiment": "experiment.json",
+                  "effective_experiment": "effective_experiment.json", "dataset": "dataset.json",
+                  "observation": "observed.json", "audit": "audit.json", "raw_records": "raw_records.json",
+                  "client_metrics": "client_metrics.json"}
+    line_files = {"request_service_records": "request_service.jsonl", "client_requests": "client_requests.jsonl"}
+    artifacts = {}
+    for key, filename in json_files.items():
+        if bundle.get(key) is not None:
+            destination = output / filename
+            if destination.exists():
+                raise SimulationError("OUTPUT_EXISTS", f"Collection artifact already exists: {destination}")
+            _write_json(destination, bundle[key])
+            artifacts[key] = {"file": filename, "sha256": hashlib.sha256(destination.read_bytes()).hexdigest()}
+    for key, filename in line_files.items():
+        if bundle.get(key) is not None:
+            destination = output / filename
+            with destination.open("x", encoding="utf-8") as stream:
+                for row in bundle[key]:
+                    stream.write(_json(row) + "\n")
+            artifacts[key] = {"file": filename, "sha256": hashlib.sha256(destination.read_bytes()).hexdigest()}
+    manifest["collection_artifacts"] = artifacts
+    if "source" in bundle:
+        manifest["source"] = bundle["source"]
+    result = {key: value for key, value in bundle.items() if key not in json_files and key not in line_files}
+    result["artifacts"] = artifacts
+    result["hardware_validated"] = False
+    return result
+
+
+def _collection(args: argparse.Namespace, manifest: dict) -> dict:
+    from .hardware import CollectionError, probe_rocm, read_json
+
+    allowed = {
+        "probe": {"rccl_library", "rocm_root"},
+        "steps": {"experiment", "plan", "adapter", "inventory", "rccl_library", "rocm_root"},
+        "rccl": {"experiment", "plan", "inventory", "rccl_library", "rocm_root"},
+        "runtime-trace": {"experiment", "raw"},
+        "vllm": {"experiment", "plan", "inventory", "rccl_library", "rocm_root"},
+        "reference": {"reference_dir"},
+    }[args.kind]
+    for field in ("experiment", "plan", "adapter", "raw", "reference_dir", "inventory", "rccl_library", "rocm_root"):
+        if getattr(args, field, None) is not None and field not in allowed:
+            raise SimulationError("INVALID_ARGUMENT", f"--{field.replace('_', '-')} does not apply to {args.kind}")
+    if args.inventory is not None and (args.rccl_library is not None or args.rocm_root is not None):
+        raise SimulationError("INVALID_ARGUMENT", "Use an existing --inventory or fresh probe options, not both")
+    if args.kind == "probe":
+        inventory = probe_rocm(rccl_library=args.rccl_library, rocm_root=args.rocm_root or Path("/opt/rocm"))
+        return _save_collection({"status": "COMPLETED", "kind": "rocm_probe", "inventory": inventory,
+                                 "hardware_available": inventory["status"] == "READY",
+                                 "source": inventory["source"]}, args.out, manifest)
+    if args.kind == "reference":
+        if args.reference_dir is None:
+            raise SimulationError("INVALID_ARGUMENT", "Reference import requires --reference-dir")
+        from .release_adapter import import_reference_data
+        bundle = import_reference_data(args.reference_dir, allow_test_fixture=args.allow_test_fixture)
+        return _save_collection(bundle, args.out, manifest)
+    if args.experiment is None:
+        raise SimulationError("INVALID_ARGUMENT", f"{args.kind} requires --experiment")
+    experiment = load_experiment(args.experiment)
+    _experiment_inputs(manifest, args.experiment, experiment)
+    if args.kind == "runtime-trace":
+        if args.raw is None:
+            raise SimulationError("INVALID_ARGUMENT", "Runtime trace import requires --raw")
+        from .runtime_adapter import normalize_runtime_trace
+        _record_input(manifest, args.raw)
+        bundle = normalize_runtime_trace(experiment, read_json(args.raw), allow_test_fixture=args.allow_test_fixture)
+        return _save_collection(bundle, args.out, manifest)
+    if args.plan is None:
+        raise SimulationError("INVALID_ARGUMENT", f"{args.kind} requires --plan")
+    _record_input(manifest, args.plan)
+    plan = read_json(args.plan)
+    if not isinstance(plan, dict):
+        raise SimulationError("INVALID_COLLECTION_PLAN", "Collection plan must be an object")
+    if args.inventory is not None:
+        _record_input(manifest, args.inventory)
+        inventory = read_json(args.inventory)
+    else:
+        inventory = probe_rocm(rccl_library=args.rccl_library, rocm_root=args.rocm_root or Path("/opt/rocm"))
+    # Preserve the actual readiness result even when collection cannot start.
+    _write_json(args.out / "inventory.json", inventory)
+    manifest["inventory_sha256"] = hashlib.sha256((args.out / "inventory.json").read_bytes()).hexdigest()
+    try:
+        if args.kind == "steps":
+            if args.adapter is None or args.adapter.count(":") != 1:
+                raise SimulationError("INVALID_ARGUMENT", "Steps require --adapter module:factory")
+            if not isinstance(inventory, dict) or inventory.get("status") != "READY":
+                raise SimulationError("HARDWARE_UNAVAILABLE", "ROCm step collection needs an available HIP GPU")
+            module_name, factory_name = args.adapter.split(":")
+            try:
+                module = importlib.import_module(module_name)
+                factory = getattr(module, factory_name)
+                if not callable(factory):
+                    raise TypeError("Adapter factory is not callable")
+                adapter = factory(experiment)
+            except Exception as exc:
+                raise SimulationError("COLLECTION_FAILED", f"Cannot create Runtime adapter: {exc}") from exc
+            manifest["runtime_adapter"] = {"entry_point": args.adapter}
+            filename = getattr(module, "__file__", None)
+            if filename and Path(filename).is_file():
+                _record_input(manifest, filename)
+            from .rocm_steps import collect_steps
+            bundle = collect_steps(experiment, plan, adapter, inventory, allow_test_fixture=args.allow_test_fixture)
+        elif args.kind == "rccl":
+            from .rccl_adapter import collect_rccl
+            bundle = collect_rccl(experiment, plan, inventory, base_dir=args.plan.parent,
+                                  allow_test_fixture=args.allow_test_fixture)
+        else:
+            from .runtime_adapter import collect_vllm
+            bundle = collect_vllm(experiment, plan, inventory, base_dir=args.plan.parent,
+                                 allow_test_fixture=args.allow_test_fixture)
+    except CollectionError as exc:
+        if exc.artifacts:
+            # inventory.json already exists; preserve a single immutable copy.
+            partial = {key: value for key, value in exc.artifacts.items() if key != "inventory"}
+            _save_collection(partial, args.out, manifest)
+        raise
+    # The readiness snapshot was already saved before invoking the adapter.
+    bundle = dict(bundle)
+    captured_inventory = bundle.pop("inventory", None)
+    if captured_inventory is not None and captured_inventory != inventory:
+        _write_json(args.out / "execution_inventory.json", captured_inventory)
+        manifest["execution_inventory_sha256"] = hashlib.sha256(
+            (args.out / "execution_inventory.json").read_bytes()).hexdigest()
+    result = _save_collection(bundle, args.out, manifest)
+    result["artifacts"]["inventory"] = {"file": "inventory.json", "sha256": manifest["inventory_sha256"]}
+    return result
+
+
+def _hardware_validation(args: argparse.Namespace, manifest: dict) -> dict:
+    from .hardware import read_json
+    from .hardware_validation import run_hardware_validation
+
+    _record_input(manifest, args.plan)
+    result = run_hardware_validation(read_json(args.plan), args.out, base_dir=args.plan.parent,
+                                     allow_test_fixture=args.allow_test_fixture)
+    manifest["validation_scope"] = result.get("validation_scope")
+    manifest["hardware_validated"] = result.get("hardware_validated", False)
+    return result
+
+
 def _execute(args: argparse.Namespace) -> dict:
     _fresh_output(args.out)
     manifest = {"schema_version": 1, "simulator_version": __version__,
@@ -348,18 +491,29 @@ def _execute(args: argparse.Namespace) -> dict:
             result = _calibrate(args, manifest)
         elif args.mode == "validate":
             result = _validate(args, manifest)
+        elif args.mode == "collect":
+            result = _collection(args, manifest)
+        elif args.mode == "validate-hardware":
+            result = _hardware_validation(args, manifest)
         else:
             result = _compare(args, manifest)
         result.setdefault("status", "COMPLETED")
         result.setdefault("hardware_validated", False)
         _write_json(args.out / "manifest.json", manifest)
         _write_json(args.out / "result.json", result)
-        (args.out / "logs.txt").write_text(
-            "CPU tool execution; hardware validation is not inferred from supplied records.\n", encoding="utf-8")
+        message = ("Collection adapter execution; raw evidence and measurement boundaries are preserved.\n"
+                   if args.mode == "collect" else
+                   "Explicit scoped hardware-validation criteria evaluated; inspect verdict and evidence.\n"
+                   if args.mode == "validate-hardware" else
+                   "CPU tool execution; hardware validation is not inferred from supplied records.\n")
+        (args.out / "logs.txt").write_text(message, encoding="utf-8")
         return result
     except (SimulationError, OSError) as exc:
         code = exc.code if isinstance(exc, SimulationError) else "IO_ERROR"
         result = {"status": "FAILED", "error_code": code, "message": str(exc)}
+        if args.mode in ("collect", "validate-hardware"):
+            result["hardware_validated"] = False
+            manifest["hardware_validated"] = False
         _write_json(args.out / "manifest.json", manifest)
         _write_json(args.out / "result.json", result)
         (args.out / "logs.txt").write_text(f"{code}: {exc}\n", encoding="utf-8")
@@ -384,6 +538,19 @@ def _arguments(parser: argparse.ArgumentParser, mode: str) -> None:
         parser.add_argument("--experiment", type=Path, required=True)
         return
     parser.add_argument("--allow-test-fixture", action="store_true")
+    if mode == "collect":
+        parser.add_argument("--kind", choices=("probe", "steps", "rccl", "runtime-trace", "vllm", "reference"),
+                            required=True)
+        for name in ("experiment", "plan", "raw", "reference-dir", "inventory", "rccl-library"):
+            parser.add_argument(f"--{name}", type=Path)
+        parser.add_argument("--adapter", help="Explicit Runtime factory as module:callable")
+        parser.add_argument("--rocm-root", type=Path, help="ROCm installation root (default: /opt/rocm)")
+        return
+    if mode == "validate-hardware":
+        parser.add_argument("--plan", type=Path, required=True)
+        parser.add_argument("--require-pass", action="store_true",
+                            help="Exit 3 unless scoped measured hardware acceptance passes")
+        return
     if mode in ("calibrate", "validate"):
         parser.add_argument("--dataset", type=Path, required=True)
         if mode == "calibrate":
@@ -425,7 +592,7 @@ def main(argv: list[str] | None = None, *, mode: str | None = None) -> int:
     parsed = False
     try:
         parser = _Parser(description="CPU LLM simulation, calibration and validation tools")
-        modes = ("simulate", "predict", "calibrate", "compare", "validate")
+        modes = ("simulate", "predict", "calibrate", "compare", "validate", "collect", "validate-hardware")
         if mode is None:
             commands = parser.add_subparsers(dest="mode", required=True, parser_class=_Parser)
             for name in modes:
@@ -450,12 +617,21 @@ def main(argv: list[str] | None = None, *, mode: str | None = None) -> int:
             except (SimulationError, OSError) as output_error:
                 result = {"status": "FAILED", "error_code": getattr(output_error, "code", "IO_ERROR"),
                           "message": str(output_error)}
-    print(json.dumps({"status": result.get("status"),
+    summary = {"status": result.get("status"),
                       "result_path": str((output / "result.json").resolve()) if output is not None else None,
                       "error_code": result.get("error_code"),
                       "next_actions": [] if result.get("status") == "COMPLETED"
-                      else ["Inspect result.json and logs.txt; use a fresh output directory."]},
-                     sort_keys=True, allow_nan=False))
+                      else ["Inspect result.json and logs.txt; use a fresh output directory."]}
+    acceptance_failed = False
+    if parsed and args.mode == "validate-hardware":
+        summary.update(verdict=result.get("verdict"), hardware_validated=result.get("hardware_validated", False))
+        acceptance_failed = args.require_pass and not (result.get("verdict") == "PASS"
+                                                       and result.get("hardware_validated") is True)
+        if acceptance_failed and result.get("status") == "COMPLETED":
+            summary["next_actions"] = ["Inspect acceptance.json; fixture or insufficient evidence is not a measured PASS."]
+    print(json.dumps(summary, sort_keys=True, allow_nan=False))
+    if acceptance_failed and result.get("status") == "COMPLETED":
+        return 3
     return 0 if result.get("status") == "COMPLETED" else (3 if result.get("status") == "UNRESOLVED" else 2)
 
 

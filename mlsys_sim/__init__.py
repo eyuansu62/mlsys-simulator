@@ -1,4 +1,4 @@
-"""Public Python API for CPU-only, deterministic LLM serving simulation.
+"""Public API for deterministic LLM simulation and optional ROCm collection.
 
 Construct an :class:`Experiment` directly or load a configuration with
 :func:`load_experiment`, then call :func:`simulate` or :func:`predict_experiment`.
@@ -6,7 +6,7 @@ Changes to this import surface and the versioned data contracts are recorded
 in the changelog. Calibration provenance and hardware validation are separate.
 """
 
-__version__ = "1.4.0"
+__version__ = "1.5.0"
 
 from .config import experiment_from_dict, load_experiment, validate_experiment
 from .engine import SimulationResult, simulate
@@ -35,6 +35,12 @@ from .comparison import (compare_candidates, compare_runs, comparison_contract,
                          extract_metrics)
 from .communication_calibration import calibrate_communication, load_communication_dataset
 from .swap import HostSwapManager, SwapTransfer
+from .hardware import CollectionError, bind_inventory, probe_rocm
+from .rocm_steps import collect_steps
+from .rccl_adapter import collect_rccl, parse_rccl_output
+from .runtime_adapter import RuntimeTraceRecorder, collect_vllm, normalize_runtime_trace
+from .hardware_validation import run_hardware_validation
+from .release_adapter import import_reference_data
 
 __all__ = [
     "__version__",
@@ -79,4 +85,15 @@ __all__ = [
     "load_communication_dataset",
     "HostSwapManager",
     "SwapTransfer",
+    "CollectionError",
+    "probe_rocm",
+    "bind_inventory",
+    "collect_steps",
+    "collect_rccl",
+    "parse_rccl_output",
+    "RuntimeTraceRecorder",
+    "collect_vllm",
+    "normalize_runtime_trace",
+    "run_hardware_validation",
+    "import_reference_data",
 ]

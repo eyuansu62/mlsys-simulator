@@ -1,0 +1,69 @@
+{
+  "schema_version": 1,
+  "dataset_id": "complete-stage-collection",
+  "source_reference": "Set to the actual model/runtime run and operator reference before collection.",
+  "warmup_iterations": 3,
+  "iterations": 10,
+  "samples": [
+    {
+      "sample_id": "prefill-q8-c0",
+      "group_id": "prefill-q8-c0",
+      "phase": "prefill",
+      "stage_index": 0,
+      "query_tokens": [
+        8
+      ],
+      "context_lengths": [
+        0
+      ]
+    },
+    {
+      "sample_id": "prefill-q16-c0",
+      "group_id": "prefill-q16-c0",
+      "phase": "prefill",
+      "stage_index": 0,
+      "query_tokens": [
+        16
+      ],
+      "context_lengths": [
+        0
+      ]
+    },
+    {
+      "sample_id": "prefill-q24-c0",
+      "group_id": "prefill-q24-c0",
+      "phase": "prefill",
+      "stage_index": 0,
+      "query_tokens": [
+        24
+      ],
+      "context_lengths": [
+        0
+      ]
+    },
+    {
+      "sample_id": "decode-q1-c16",
+      "group_id": "decode-q1-c16",
+      "phase": "decode",
+      "stage_index": 0,
+      "query_tokens": [
+        1
+      ],
+      "context_lengths": [
+        16
+      ]
+    },
+    {
+      "sample_id": "decode-q1-c17",
+      "group_id": "decode-q1-c17",
+      "phase": "decode",
+      "stage_index": 0,
+      "query_tokens": [
+        1
+      ],
+      "context_lengths": [
+        17
+      ]
+    }
+  ]
+}

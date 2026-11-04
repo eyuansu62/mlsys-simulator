@@ -9,13 +9,17 @@ request timelines, per-rank memory accounting and service metrics.
 [Specification](docs/specification.md) · [PP and CPU swap](docs/pipeline-and-swap.md) ·
 [Prefix Cache and Chunked Prefill](docs/prefix-cache-and-chunking.md) ·
 [Mixed batching](docs/mixed-batching.md) · [Multi-replica routing](docs/multi-replica.md) ·
+[ROCm collection](docs/rocm-collection.md) ·
 [Contributing](CONTRIBUTING.md)
 
-**Version 1.4 software scope:** multi-replica routing and load balancing with
+**Version 1.5 software scope:** optional AMD/ROCm collection adapters and an
+explicit hardware-evidence acceptance workflow, alongside multi-replica routing and load balancing with
 mixed Prefill/Decode batches, Prefix Cache, Chunked Prefill, online TP/PP and
 optional CPU KV swap, analytical models, versioned lookup
 profiles, calibration, grouped holdout evaluation and run/candidate comparison.
-No AMD measurements have been supplied or hardware accuracy established. The
+User-supplied AMD and NVIDIA reference packages inform the import and audit
+contracts; raw packages and prompt/output text are not distributed with this
+library. Their coverage does not establish general hardware accuracy. The
 repository is [private](https://github.com/eyuansu62/mlsys-simulator), the license
 is pending selection, and no package has been published to PyPI.
 
@@ -36,6 +40,9 @@ python -m pip install -r requirements-dev.txt
 
 JSON and TOML use the standard library. YAML works when PyYAML is already
 installed; it is not a required dependency.
+Live stage collection requires an already installed ROCm-enabled PyTorch and a
+Runtime adapter on the AMD machine. CPU simulation and fixture validation keep
+the dependency-free core; they do not install ROCm, PyTorch or serving software.
 
 ## Run the serving examples
 
@@ -142,6 +149,23 @@ fixture consumption. Step calibration fits repeated-shape means; validation
 holds out complete configuration groups. Online comparison uses a separate
 observed-run contract. See [calibration](docs/calibration.md) and
 [validation](docs/validation-protocol.md) before supplying real records.
+
+## Collect and assess hardware evidence
+
+```bash
+mlsys-sim collect --kind probe --out runs/rocm-probe
+mlsys-sim validate-hardware --plan examples/v1_5/fixture-validation.plan.json \
+  --out runs/acceptance-fixture --allow-test-fixture
+```
+
+The probe reports availability and version evidence without a CPU timing
+fallback. The acceptance example uses hand-calculated fixtures and must retain
+`hardware_validated=false`. A live stage adapter measures a synchronized Runtime
+call; RCCL collection checks AllReduce timing and correctness; online imports
+keep server Token-ready traces distinct from client SSE delivery. See
+[ROCm collection](docs/rocm-collection.md) for the supported plans, reference-data
+limits and explicit `PASS`/`FAIL`/`INSUFFICIENT_EVIDENCE`/`TEST_FIXTURE_ONLY`
+verdicts. A completed command is not itself a hardware acceptance result.
 
 ## Use the Python API
 

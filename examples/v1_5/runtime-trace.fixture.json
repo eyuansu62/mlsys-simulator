@@ -1,0 +1,44 @@
+{
+  "schema_version": 1,
+  "kind": "runtime_trace",
+  "source": {
+    "kind": "test_fixture",
+    "reference": "Hand-calculated server Token-ready events, not a collected Runtime trace."
+  },
+  "timing_boundary": "server_token_ready_v1",
+  "observed_until_ms": 8.3,
+  "events": [
+    {
+      "event": "REQUEST_ARRIVAL",
+      "request_id": "demo",
+      "timestamp_ms": 0
+    },
+    {
+      "event": "TOKEN_READY",
+      "request_id": "demo",
+      "timestamp_ms": 6.1,
+      "token_count": 1,
+      "output_token_index": 1
+    },
+    {
+      "event": "TOKEN_READY",
+      "request_id": "demo",
+      "timestamp_ms": 7.1,
+      "token_count": 1,
+      "output_token_index": 2
+    },
+    {
+      "event": "TOKEN_READY",
+      "request_id": "demo",
+      "timestamp_ms": 8.3,
+      "token_count": 1,
+      "output_token_index": 3
+    },
+    {
+      "event": "REQUEST_FINISH",
+      "request_id": "demo",
+      "timestamp_ms": 8.3,
+      "status": "COMPLETED"
+    }
+  ]
+}

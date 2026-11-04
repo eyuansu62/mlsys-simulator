@@ -1,8 +1,11 @@
 # Calibration and Profile data
 
-V1 supports externally collected step timing records and versioned lookup
-Profiles. It does not collect GPU measurements. The included `.fixture.json`
-files are hand-calculated tests and never become measured evidence.
+The calibration workflow consumes step timing records and versioned lookup
+Profiles. Version 1.5 adds separate optional ROCm collection adapters; the
+`calibrate` command still fits supplied records rather than running a GPU.
+The included `.fixture.json` files are hand-calculated tests and never become
+measured evidence. See [ROCm collection](rocm-collection.md) for live prerequisites
+and raw-record boundaries.
 
 ## Evidence and identity
 

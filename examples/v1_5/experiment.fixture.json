@@ -1,0 +1,30 @@
+{
+  "schema_version": 1,
+  "workload": [
+    {
+      "request_id": "demo",
+      "arrival_ms": 0,
+      "input_tokens": 16,
+      "output_tokens": 3
+    }
+  ],
+  "infra": {},
+  "strategy": {
+    "scheduler": "fifo"
+  },
+  "calibration": {
+    "backend": "analytical",
+    "profile_version": "uncalibrated-v1",
+    "allow_test_fixture": false,
+    "runtime_name": "fixture-runtime",
+    "runtime_version": "fixture-1",
+    "driver_version": "not-applicable",
+    "rocm_version": "not-applicable",
+    "rccl_version": "not-applicable"
+  },
+  "evaluation": {
+    "ttft_sla_ms": 20,
+    "tpot_sla_ms": 2
+  },
+  "execution": {}
+}

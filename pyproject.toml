@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "mlsys-simulator"
 dynamic = ["version"]
-description = "CPU-only deterministic LLM serving simulation with explicit memory planning"
+description = "Deterministic LLM serving simulation with optional ROCm collection adapters"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = []

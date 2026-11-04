@@ -25,6 +25,24 @@ from mlsys_sim import (CalibrationSpec, DeviceSpec, Experiment, InfraSpec,
 assert Path(mlsys_sim.__file__).resolve().is_relative_to(Path(sys.prefix).resolve())
 assert version("mlsys-simulator") == mlsys_sim.__version__
 assert not metadata("mlsys-simulator").get_all("Requires-Dist")
+assert "torch" not in sys.modules, "Optional GPU dependency was imported eagerly"
+def fixture_transport(url, body, headers, timeout_s):
+    if body is None:
+        return [json.dumps({"version": "installed-fixture-vllm"}).encode()]
+    packet = {"choices": [{"index": 0, "token_ids": [2, 3], "finish_reason": "length"}],
+              "usage": {"prompt_tokens": 1, "completion_tokens": 2, "total_tokens": 3}}
+    newline = chr(10)
+    return [("data: " + json.dumps(packet) + newline * 2 + "data: [DONE]" + newline * 2).encode()]
+client_fixture = mlsys_sim.collect_vllm(
+    Experiment(workload=(RequestSpec("client-fixture", 0, 1, 2, prompt_token_ids=(1,)),)),
+    {"schema_version": 1, "endpoint": "http://fixture.invalid", "model": "fixture-model",
+     "source_reference": "Installed-wheel injected transport, no GPU or network"},
+    transport=fixture_transport, allow_test_fixture=True)
+assert client_fixture["source"]["kind"] == "test_fixture"
+assert client_fixture["coalesced_delivery"] is True
+assert client_fixture["observation"] is None
+assert client_fixture["canonical_comparable"] is False
+assert client_fixture["hardware_validated"] is False
 mixed_model = mlsys_sim.AnalyticalModel(Experiment(
     calibration=CalibrationSpec(backend="synthetic", mixed_ms=3)))
 assert mixed_model.estimate_step("mixed", [1, 4], [8, 0],
@@ -147,6 +165,9 @@ def verify(dist: Path) -> dict:
         assert "mlsys_sim/__init__.py" in names
         assert "mlsys_sim/batching.py" in names
         assert "mlsys_sim/replicas.py" in names
+        for module in ("hardware", "rocm_steps", "rccl_adapter", "runtime_adapter",
+                       "hardware_validation", "release_adapter"):
+            assert f"mlsys_sim/{module}.py" in names
         assert not any(name.startswith(("tests/", "sample-runs/", "work/")) for name in names)
         assert archive.testzip() is None
     with tarfile.open(sdists[0]) as archive:
@@ -159,6 +180,8 @@ def verify(dist: Path) -> dict:
                          "docs/mixed-batching.md",
                          "docs/multi-replica.md", "examples/v1_4/round_robin.json",
                          "examples/v1_4/replicas_pp_mixed_cache_swap.json",
+                         "docs/rocm-collection.md", "docs/reference-data-audit.md",
+                         "examples/v1_5/fixture-validation.plan.json", "examples/v1_5/runtime-trace.fixture.json",
                          "scripts/verify_distribution.py"):
             assert required in names, f"Source distribution missing {required}"
         assert not any(name.startswith(("sample-runs/", "work/")) for name in names)
@@ -175,6 +198,31 @@ def verify(dist: Path) -> dict:
         env.update(PIP_NO_INDEX="1", PIP_DISABLE_PIP_VERSION_CHECK="1")
         run([str(python), "-I", "-m", "pip", "install", "--no-deps", str(wheel)], outside, env)
         run([str(python), "-I", "-c", SMOKE_CODE], outside, env)
+        run([str(console), "collect", "--kind", "probe", "--out", "rocm-probe"], outside, env)
+        probe = json.loads((outside / "rocm-probe/result.json").read_text())
+        assert probe["hardware_available"] is False
+        assert probe["hardware_validated"] is False
+        hardware_inputs = outside / "hardware-inputs"
+        hardware_inputs.mkdir()
+        for source in (Path(__file__).resolve().parents[1] / "examples/v1_5").glob("*.json"):
+            (hardware_inputs / source.name).write_bytes(source.read_bytes())
+        run([str(console), "validate-hardware", "--plan", str(hardware_inputs / "fixture-validation.plan.json"),
+             "--out", "hardware-fixture", "--allow-test-fixture"], outside, env)
+        acceptance = json.loads((outside / "hardware-fixture/result.json").read_text())
+        assert acceptance["verdict"] == "TEST_FIXTURE_ONLY"
+        assert acceptance["criteria_passed"] is True
+        assert acceptance["hardware_validated"] is False
+        run([str(console), "validate-hardware", "--plan", str(hardware_inputs / "fixture-validation.plan.json"),
+             "--out", "hardware-required-pass", "--allow-test-fixture", "--require-pass"], outside, env, expected=3)
+        run([str(console), "collect", "--kind", "runtime-trace",
+             "--experiment", str(hardware_inputs / "experiment.fixture.json"),
+             "--raw", str(hardware_inputs / "runtime-trace.fixture.json"),
+             "--out", "runtime-fixture", "--allow-test-fixture"], outside, env)
+        trace = json.loads((outside / "runtime-fixture/result.json").read_text())
+        observation = json.loads((outside / "runtime-fixture/observed.json").read_text())
+        assert trace["canonical_comparable"] is True
+        assert observation["source"]["kind"] == "test_fixture"
+        assert trace["hardware_validated"] is False
         for example, completed in (("round_robin", 4), ("prefix_aware", 3),
                                    ("replicas_pp_mixed_cache_swap", 10)):
             source = Path(__file__).resolve().parents[1] / "examples" / "v1_4" / f"{example}.json"
@@ -277,6 +325,7 @@ def verify(dist: Path) -> dict:
             "installed_prefix_cache_and_chunking": "passed",
             "installed_mixed_batches_pipeline_cache_and_swap": "passed",
             "installed_replica_routing_resources_and_profiles": "passed",
+            "installed_rocm_collection_and_validation_fixture": "passed",
             "installed_calibration_comparison_holdout": "passed"}
 
 
