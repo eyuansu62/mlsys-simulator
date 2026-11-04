@@ -1,4 +1,4 @@
-# Version 1.8 software specification
+# Version 1.9 software specification
 
 The CPU simulator separates system events, performance/communication models and
 calibration data. It has no required third-party runtime dependency and performs
@@ -15,7 +15,7 @@ sections, with strict unknown-field/type/range checks:
 | `workload` | Unique request IDs, nonnegative arrival ms, positive input/output lengths, priority, optional relative timeout and explicit prompt token IDs/cache namespace |
 | `infra` | Ordered devices, memory bytes, effective compute/bandwidth assumptions and named topology/link parameters |
 | `strategy` | Dense model/revision, replica count/routing, TP/PP/stage layers, microbatch/inflight/feedback/link policy, Batch/chunk limits, mixed batching, Prefix Cache and preemption/fallback |
-| `calibration` | Analytical/synthetic parameters, local/per-replica stage and independent native communication Profile paths/versions, full software identity and explicit fixture/extrapolation policy |
+| `calibration` | Analytical/synthetic parameters, local/per-replica stage, independent Workspace and native communication Profile paths/versions, full software identity and explicit fixture/extrapolation policy |
 | `evaluation` | Optional TTFT/TPOT SLA, half-open arrival window, drain and optional drain limit |
 | `execution` | Seed, time/event limits, detailed logging, isolated warmup requests and `empty_cache` initial state |
 
@@ -113,9 +113,14 @@ Wire slicing never divides the resident budget by TP. A payload descriptor's
 resident bytes represent one final pair, not total allocator peak. See the
 [native buffer contract](native-pp-capture.md#charge-transport-once-and-reserve-full-buffers).
 This is separate from collective communication buffers.
-Workspace uses a supported Profile observation when available; otherwise its
-source is explicitly analytical. Releasing request blocks preserves the fixed
-pool's physical allocation and cannot by itself solve a Workspace OOM.
+An explicitly selected independent Workspace Profile replaces dynamic bytes
+per exact shape and rank, using complete ownership and repeated per-rank maxima.
+Observed zero is valid; unknown or missing shapes do not silently fall back.
+Static feasibility retains fixed reserves while shape admission checks the
+selected dynamic bytes instead of an unused analytical-base floor. Without
+selection, the old stage-Workspace/analytical path remains. Releasing request
+blocks preserves the fixed pool allocation and cannot by itself solve a Workspace
+OOM. See [Workspace and capacity](workspace-and-capacity.md).
 
 Prefix Cache uses namespace and full token ancestry from explicit prompt token
 IDs. Missing IDs bypass cache lookup. Only complete immutable prompt blocks
@@ -291,3 +296,24 @@ defaults, cache lifecycle, result fields and examples.
 See [mixed batching](mixed-batching.md) for member-phase and joint-Profile contracts.
 See [multi-replica routing](multi-replica.md) for placement, resource scope,
 dispatch policies and per-replica diagnostics.
+
+## Independent Workspace and capacity evidence
+
+Workspace calibration is independent of stage duration. Complete Runtime-owned
+allocation/lease events deduplicate physical-storage aliases, preserve pending
+frees until completion and explicitly complete each rank. The canonical scope
+excludes fixed weight/KV/graph/Runtime/PP/communication storage and includes
+non-Torch scratch. Partial manager observation and allocator deltas remain raw.
+Selected Workspace Profiles are exact-only and retain local replica identity,
+source/version/SHA and immutable CLI snapshots.
+
+Capacity collection gives every axis candidate/repeat a fresh process/Runtime.
+Input-token, request-cohort and KV-pool axes preserve effective configuration
+evidence; existing prompt IDs may only be truncated and KV-pool application
+requires actual Runtime storage proof. Prediction simulates the entire effective
+experiment. Typed verified-device allocator OOM requires a scoped preparation/execution
+phase and allocator `num_ooms` evidence, and is classified separately from
+admission rejection, lock errors, timeout and missing peers. Validation reports
+repeat instability, nonmonotonic/censored evidence and adjacent success-to-OOM
+brackets with resolution, never an inferred exact universal knee. See the
+[full contract](workspace-and-capacity.md).

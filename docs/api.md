@@ -431,7 +431,8 @@ mlsys-sim validate-hardware --plan examples/v1_5/fixture-validation.plan.json \
 ```
 
 The optional collection paths are `probe`, `steps`, `rccl`, `runtime-trace`,
-`vllm`, `vllm-hook`, `pp-communication` and `reference`. Each keeps its own timing and source contract. Stage
+`vllm`, `vllm-hook`, `pp-communication`, `workspace`, `memory-capacity` and
+`reference`. Each keeps its own timing and source contract. Stage
 collection needs real HIP availability and synchronized Runtime execution;
 fixture backends retain fixture source. RCCL imports preserve explicit timing
 units, rank counts and correctness results. Client stream delivery cannot be
@@ -561,3 +562,37 @@ existing one. Fixture inputs require `allow_test_fixture=True`. The collector's
 optional `runner` injection is a test interface and cannot promote CPU results
 to measured evidence. `PPCommunicationModel` loads the selected local Profile
 and exposes placement/size estimates with provenance.
+
+## Workspace and memory-capacity workflows
+
+`collect --kind workspace --adapter module:factory` uses a Runtime-owned scratch
+ledger and step sample plan. `calibrate --workspace` produces an independent
+exact per-rank Workspace Profile without duration. Optional `CalibrationSpec`
+fields are `workspace_profile_path`, `replica_workspace_profile_paths` and
+`workspace_profile_version`; fixtures still require `allow_test_fixture=True`.
+Explicit selection replaces dynamic bytes and rejects missing shapes instead
+of using a fallback. Stage timing and fixed allocations retain their identities.
+
+The `mlsys_sim.workspace` module provides `load_workspace_dataset`,
+`load_workspace_profile`, `validate_workspace_dataset`,
+`validate_workspace_profile`, `calibrate_workspace` and `WorkspaceModel`.
+Calibration reduces repeats by per-rank maximum. Each canonical record must
+contain complete exclusive Runtime ownership, including non-Torch scratch; a
+passive manager observer supplies partial raw evidence instead.
+
+`collect --kind memory-capacity` runs or imports a fresh-Runtime axis sweep,
+and `validate --memory-capacity --dataset ...` assesses complete configuration
+evidence and success-to-typed-OOM brackets. This validation needs no fitted
+Profile argument. Request count denotes a cohort, not actual batch size;
+non-OOM failures and prediction-domain gaps remain separate. See
+[Workspace and capacity](workspace-and-capacity.md) for adapter, ledger, fixture
+and interpretation contracts.
+
+`mlsys_sim.workspace_capture` provides `WorkspaceRecorder`, `collect_workspace`
+and `PinnedVllmWorkspaceObserver`. The recorder receives explicit storage
+leases/releases and rank completion; it does not infer ownership from a process
+peak. Complete adapters expose `begin_workspace_capture(sample, recorder)` and
+`end_workspace_capture(sample, recorder)` as well as the stage adapter methods.
+The pinned manager observer stays partial `managed_scratch_capacity`, without
+canonical Workspace data. Live Workspace collection has no raw-ledger importer
+or CPU fallback; injected backends are a fixture-only library test interface.

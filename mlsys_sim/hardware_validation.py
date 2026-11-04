@@ -259,6 +259,7 @@ def run_hardware_validation(
     group_counts: dict[str, int] = {}
     online_reports: list[dict] = []
     native_communication_inputs: list[dict] = []
+    workspace_inputs: list[dict] = []
     for position, supplied in enumerate(online):
         item = _object(supplied, {"experiment", "observation", "group_id"}, set(), f"online[{position}]")
         group = _text(item["group_id"], "group_id")
@@ -328,6 +329,30 @@ def run_hardware_validation(
             calibration = (replace(calibration, native_pp_communication_profile_path=communication_snapshots[0])
                 if experiment.strategy.replicas == 1 else replace(calibration,
                     replica_native_pp_communication_profile_paths=tuple(communication_snapshots)))
+        workspace_paths = (experiment.calibration.replica_workspace_profile_paths
+            or ((experiment.calibration.workspace_profile_path,) if experiment.calibration.workspace_profile_path else ()))
+        if workspace_paths:
+            from .workspace import validate_workspace_profile
+
+            workspace_snapshots = []
+            for replica, workspace_path in enumerate(workspace_paths):
+                snapshot = directory / f"workspace-r{replica}.json"
+                raw = capture(Path(workspace_path), snapshot)
+                workspace = validate_workspace_profile(raw, allow_test_fixture=allow_test_fixture)
+                if workspace["identity"] != profile_identity(replica_experiment(experiment, replica)):
+                    raise SimulationError("CALIBRATION_MISMATCH", f"Workspace Profile differs from replica {replica}")
+                requested_workspace = experiment.calibration.workspace_profile_version
+                if requested_workspace and requested_workspace != workspace["profile_version"]:
+                    raise SimulationError("CALIBRATION_MISMATCH", "Workspace Profile version differs")
+                sources.add(workspace["source"]["kind"])
+                workspace_inputs.append({"online_index": position, "replica_index": replica,
+                    "profile_id": workspace["profile_id"], "profile_version": workspace["profile_version"],
+                    "source_kind": workspace["source"]["kind"], "sha256": input_files[-1]["sha256"],
+                    "snapshot_file": str(snapshot.relative_to(output))})
+                workspace_snapshots.append(str(snapshot.resolve()))
+            calibration = (replace(calibration, workspace_profile_path=workspace_snapshots[0])
+                if experiment.strategy.replicas == 1 else replace(calibration,
+                    replica_workspace_profile_paths=tuple(workspace_snapshots)))
         effective = replace(experiment, calibration=calibration)
         effective_path = directory / "experiment.json"
         write_json_exclusive(effective_path, asdict(effective))
@@ -404,6 +429,8 @@ def run_hardware_validation(
         "thresholds": limits, "communication_prediction_validated": False}
     if native_communication_inputs:
         scope["native_pp_communication_profiles"] = native_communication_inputs
+    if workspace_inputs:
+        scope["workspace_profiles"] = workspace_inputs
     result = {"schema_version": 1, "status": "COMPLETED", "mode": "validate-hardware",
         "verdict": verdict, "criteria_passed": passed, "hardware_validated": verdict == "PASS",
         "source_kinds": sorted(sources), "thresholds": limits, "criteria": criteria,

@@ -6,6 +6,7 @@ checked for every TP rank and pipeline stage before any state is committed.
 """
 
 from collections.abc import Iterator, Mapping, Sequence
+from copy import deepcopy
 from dataclasses import dataclass
 
 from .batching import batch_members
@@ -83,9 +84,13 @@ class MemoryPlanner:
         self._workspace_sources: dict[str, str] = {}
         self._workspace_last_sources: dict[str, str] = {}
         self._profile_model = None
+        self._workspace_model = None
         if experiment.calibration.backend == "profile":
             from .profiles import ProfileModel
             self._profile_model = ProfileModel(experiment)
+        if experiment.calibration.workspace_profile_path:
+            from .workspace import WorkspaceModel
+            self._workspace_model = WorkspaceModel(experiment)
         self._peak_used_blocks = 0
         self._validate_memory_config()
 
@@ -148,11 +153,12 @@ class MemoryPlanner:
             for tp_rank in range(tp):
                 device = experiment.infra.devices[stage * tp + tp_rank]
                 capacity = _integer(device.memory_bytes, f"{device.id}.memory_bytes", 1)
-                if fixed_budget + self.config.workspace_base_bytes > capacity:
+                static_workspace_floor = 0 if self._workspace_model is not None else self.config.workspace_base_bytes
+                if fixed_budget + static_workspace_floor > capacity:
                     raise SimulationError(
                         "STATIC_MEMORY_INFEASIBLE",
                         f"{device.id}: fixed budget and base workspace require "
-                        f"{fixed_budget + self.config.workspace_base_bytes} bytes, "
+                        f"{fixed_budget + static_workspace_floor} bytes, "
                         f"capacity is {capacity}",
                     )
                 self._ranks.append(_RankBudget(
@@ -503,7 +509,12 @@ class MemoryPlanner:
         for rank in self._ranks:
             rank_workspace = workspace
             workspace_source = "analytical_assumption"
-            if self._profile_model is not None and queries:
+            if self._workspace_model is not None and queries:
+                contexts = [target - query for target, query in zip(targets.values(), queries)]
+                rank_workspace = self._workspace_model.workspace_bytes(
+                    phase, queries, contexts, rank.stage_index, rank.tp_rank, request_phases=request_phases)
+                workspace_source = "workspace_profile"
+            elif self._profile_model is not None and queries:
                 contexts = [target - query for target, query in zip(targets.values(), queries)]
                 if phase == "mixed":
                     observed_workspace = self._profile_model.workspace_bytes(
@@ -529,6 +540,10 @@ class MemoryPlanner:
                 "guard_blocks": self.config.guard_blocks,
                 "workspace_bytes": rank_workspace,
                 "workspace_source": workspace_source,
+                **({"workspace_profile_provenance": {
+                        key: value for key, value in self._workspace_model.provenance.items()
+                        if key not in ("attribution", "source_reference")}}
+                   if self._workspace_model is not None else {}),
                 "required_budget_bytes": budget,
                 "device_memory_bytes": rank.device_memory_bytes,
                 "physical_ok": physical_ok,
@@ -626,6 +641,8 @@ class MemoryPlanner:
                 "workspace_peak_bytes": workspace_peak,
                 "workspace_source": self._workspace_sources.get(rank.device_id, "not_executed"),
                 "workspace_last_source": self._workspace_last_sources.get(rank.device_id, "not_executed"),
+                **({"workspace_profile_provenance": deepcopy(self._workspace_model.provenance)}
+                   if self._workspace_model is not None else {}),
                 "physical_peak_bytes": rank.physical_reserved_bytes + workspace_peak,
                 "budget_peak_bytes": rank.fixed_budget_bytes + workspace_peak,
             })

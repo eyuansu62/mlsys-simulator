@@ -107,3 +107,21 @@ measured inputs and satisfied criteria. Any required fixture produces
 `TEST_FIXTURE_ONLY`; missing evidence produces `INSUFFICIENT_EVIDENCE`.
 Completing a workflow does not fill in missing evidence or license/publication
 steps. See [ROCm collection and acceptance](rocm-collection.md).
+
+## Workspace and capacity evidence
+
+Independent Workspace validation starts with complete Runtime-owned attribution,
+not allocator deltas or passive manager capacity. Exact per-rank Profiles use
+repeated maxima with observed zero distinct from missing evidence. Their source
+and coverage do not establish unseen-shape or hardware accuracy.
+
+Capacity validation uses the full effective configuration and a fresh Runtime
+for each candidate/repeat. The supported OOM boundary requires a typed
+verified-device exception and a failure-phase-bound allocator `num_ooms`
+increase. Pre-workload OOM does not close a workload-axis bracket. Logical KV
+refusal, timeout, lock AssertionError, peer failure and incomplete cohorts retain
+separate classifications. Repeated disagreement is unstable, and
+success beyond a smaller OOM is nonmonotonic. Missing endpoints are censored.
+Reports may state adjacent observed success-to-OOM intervals and axis resolution;
+they do not manufacture a precise universal knee. Fixture source remains fixture.
+See [Workspace and capacity validation](workspace-and-capacity.md).

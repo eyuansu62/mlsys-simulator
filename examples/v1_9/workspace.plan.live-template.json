@@ -1,0 +1,58 @@
+{
+  "schema_version": 1,
+  "dataset_id": "runtime-workspace-live-01",
+  "source_reference": "Complete Runtime-owned scratch ledger on the bound AMD host.",
+  "warmup_iterations": 3,
+  "iterations": 10,
+  "max_events_per_sample": 1000,
+  "samples": [
+    {
+      "sample_id": "prefill-s0",
+      "group_id": "prefill-s0",
+      "phase": "prefill",
+      "stage_index": 0,
+      "query_tokens": [
+        4
+      ],
+      "context_lengths": [
+        0
+      ]
+    },
+    {
+      "sample_id": "prefill-s1",
+      "group_id": "prefill-s1",
+      "phase": "prefill",
+      "stage_index": 1,
+      "query_tokens": [
+        4
+      ],
+      "context_lengths": [
+        0
+      ]
+    },
+    {
+      "sample_id": "decode-s0",
+      "group_id": "decode-s0",
+      "phase": "decode",
+      "stage_index": 0,
+      "query_tokens": [
+        1
+      ],
+      "context_lengths": [
+        4
+      ]
+    },
+    {
+      "sample_id": "decode-s1",
+      "group_id": "decode-s1",
+      "phase": "decode",
+      "stage_index": 1,
+      "query_tokens": [
+        1
+      ],
+      "context_lengths": [
+        4
+      ]
+    }
+  ]
+}

@@ -1,0 +1,156 @@
+{
+  "workload": [
+    {
+      "request_id": "r0",
+      "arrival_ms": 0.0,
+      "input_tokens": 4,
+      "output_tokens": 2,
+      "priority": 0,
+      "timeout_ms": null,
+      "prompt_token_ids": [],
+      "cache_namespace": ""
+    }
+  ],
+  "infra": {
+    "devices": [
+      {
+        "id": "g0",
+        "memory_bytes": 134217728,
+        "compute_tflops": 1.0,
+        "memory_bandwidth_gbps": 10.0,
+        "name": "toy-device"
+      },
+      {
+        "id": "g1",
+        "memory_bytes": 134217728,
+        "compute_tflops": 1.0,
+        "memory_bandwidth_gbps": 10.0,
+        "name": "toy-device"
+      },
+      {
+        "id": "g2",
+        "memory_bytes": 134217728,
+        "compute_tflops": 1.0,
+        "memory_bandwidth_gbps": 10.0,
+        "name": "toy-device"
+      },
+      {
+        "id": "g3",
+        "memory_bytes": 134217728,
+        "compute_tflops": 1.0,
+        "memory_bandwidth_gbps": 10.0,
+        "name": "toy-device"
+      }
+    ],
+    "link_bandwidth_gbps": 20.0,
+    "link_latency_us": 5.0,
+    "topology": "single-node-uncontended"
+  },
+  "strategy": {
+    "model": {
+      "name": "toy-dense-gqa",
+      "num_layers": 4,
+      "hidden_size": 128,
+      "intermediate_size": 512,
+      "num_attention_heads": 8,
+      "num_kv_heads": 2,
+      "head_dim": 16,
+      "vocab_size": 256,
+      "weight_bytes": 2.0,
+      "kv_bytes": 2.0,
+      "activation_bytes": 2.0,
+      "revision": "unspecified",
+      "weight_dtype": "auto",
+      "kv_dtype": "auto",
+      "activation_dtype": "float16",
+      "tie_word_embeddings": false,
+      "qk_norm": false,
+      "final_norm": false,
+      "architecture_config_sha256": ""
+    },
+    "tensor_parallel_size": 2,
+    "pipeline_parallel_size": 2,
+    "stage_layers": [],
+    "replicas": 1,
+    "scheduler": "continuous_batching",
+    "max_batch_size": 1,
+    "max_batch_tokens": 8,
+    "preemption": "recompute",
+    "max_preemptions_per_request": 100,
+    "memory": {
+      "kv_block_tokens": 16,
+      "kv_pool_bytes": 4194304,
+      "workspace_base_bytes": 1048576,
+      "workspace_bytes_per_token": 1024,
+      "graph_bytes": 0,
+      "runtime_bytes": 1048576,
+      "communication_buffer_bytes": 0,
+      "other_bytes": 0,
+      "safety_margin_bytes": 1048576,
+      "guard_blocks": 0,
+      "cpu_swap_bytes": 0,
+      "swap_d2h_bandwidth_gbps": 12.0,
+      "swap_h2d_bandwidth_gbps": 12.0,
+      "swap_latency_us": 10.0
+    },
+    "pipeline_microbatch_size": 1,
+    "pipeline_max_inflight_microbatches": 1,
+    "pipeline_feedback_latency_us": 0.0,
+    "pipeline_p2p": true,
+    "pipeline_transport": "vllm_native",
+    "pipeline_transport_max_tokens": 0,
+    "swap_fallback": "none",
+    "prefix_cache": false,
+    "prefix_cache_max_blocks": 128,
+    "chunked_prefill": false,
+    "prefill_chunk_tokens": 512,
+    "mixed_batching": false,
+    "replica_routing": "round_robin"
+  },
+  "calibration": {
+    "backend": "synthetic",
+    "profile_version": "uncalibrated-v1",
+    "compute_efficiency": 0.5,
+    "bandwidth_efficiency": 0.5,
+    "launch_overhead_us": 2.0,
+    "framework_overhead_us": 5.0,
+    "prefill_ms": 5.0,
+    "decode_ms": 1.0,
+    "recompute_ms": 10.0,
+    "mixed_ms": 10.0,
+    "profile_path": null,
+    "replica_profile_paths": [],
+    "allow_extrapolation": false,
+    "allow_test_fixture": false,
+    "runtime_name": "unspecified",
+    "runtime_version": "unspecified",
+    "driver_version": "unspecified",
+    "rocm_version": "unspecified",
+    "rccl_version": "unspecified",
+    "timing_boundary": "step_includes_output_and_sampling_v1",
+    "runtime_config_sha256": "",
+    "native_pp_communication_profile_path": null,
+    "replica_native_pp_communication_profile_paths": [],
+    "native_pp_communication_profile_version": "",
+    "native_pp_communication_allow_extrapolation": false,
+    "workspace_profile_path": null,
+    "replica_workspace_profile_paths": [],
+    "workspace_profile_version": ""
+  },
+  "evaluation": {
+    "ttft_sla_ms": null,
+    "tpot_sla_ms": null,
+    "measurement_window_ms": null,
+    "drain": true,
+    "max_drain_ms": null
+  },
+  "execution": {
+    "seed": 42,
+    "max_simulated_ms": 180000.0,
+    "max_events": 1000000,
+    "detailed_events": true,
+    "initial_state": "empty_cache",
+    "warmup": []
+  },
+  "schema_version": 1
+}

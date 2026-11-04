@@ -1,6 +1,6 @@
-# Version 1.8 capability matrix
+# Version 1.9 capability matrix
 
-This table describes the version 1.8 software scope. Available fixture demonstrations
+This table describes the version 1.9 software scope. Available fixture demonstrations
 and unit tests do not establish AMD hardware accuracy. User-supplied reference
 packages are external evidence with their own timing and model-coverage limits.
 
@@ -28,7 +28,10 @@ packages are external evidence with their own timing and model-coverage limits.
 | Calibration and lineage | Implemented | Repeated-shape mean time/max Workspace, new versions, input and training provenance |
 | Grouped holdout evaluation | Implemented | Shape/group connected components, leakage rejection, coverage and latency errors |
 | Online run/candidate comparison | Implemented | Matching contracts, per-metric/request errors, SLA agreement, ties and candidate ordering |
-| Measured Workspace consumption | Implemented | Supported observed values; missing/extrapolated values use labeled analytical assumptions |
+| Independent Workspace Profiles | Implemented | Complete Runtime ownership, exact per-rank repeated maxima including observed zero; selected missing shapes fail without fallback |
+| Partial managed-scratch observation | Implemented observer | Existing pinned vLLM WorkspaceManager capacity stays raw/partial; it does not prove complete dynamic Workspace |
+| Legacy stage Workspace consumption | Implemented | Without an explicit Workspace Profile, supported stage observations or labeled analytical assumptions |
+| Capacity/OOM collection and validation | Implemented adapter/workflow | Fresh Runtime/process per point/repeat, typed OOM and applied-axis/configuration evidence; unstable/nonmonotonic/censored outcomes and observed brackets |
 | ROCm inventory and stage collection | Implemented adapter | Optional live HIP Runtime timing with explicit device/software identity; CPU fixture injection is not a GPU measurement |
 | Pinned vLLM internal runner hooks | Implemented adapter | Explicit MRv1 ABI/version, member-aware shapes and sampling boundaries; native lazy receive/receiver AG excluded from stage service; async, SP and unproven intervals remain raw |
 | Pinned vLLM Scheduler lifecycle | Implemented adapter | Actual enqueue, published output and terminal events; conditional replay is explicit, with prompt identity required for Prefix Cache |
@@ -63,7 +66,9 @@ communication Profile or the labeled analytical default; see
 Live collectors require the relevant tools already installed on an AMD host;
 the core simulator keeps no required third-party dependency. Probe failure does
 not trigger CPU timing. Raw allocated/reserved memory is not automatically
-Workspace, and a PyTorch collective build version is not a verified RCCL runtime
+Workspace. Complete scratch attribution is an explicit user Runtime integration
+contract; passive manager capture does not establish it. A PyTorch collective
+build version is not a verified RCCL runtime
 version. The user reference packages do not establish TP/PP, preemption, swap or
 RCCL accuracy. See [ROCm collection](rocm-collection.md) for boundaries and the
 explicit acceptance plan.
@@ -81,3 +86,9 @@ clock, execution budgets and evaluation. Each replica needs its own strict
 Profile identity; online Compare retains the cluster identity. Shared-fabric
 contention and cross-replica migration are outside the model. See
 [multi-replica routing](multi-replica.md).
+
+Workspace and capacity fixtures establish software contracts only. Capacity
+request-count sweeps preserve the scheduler and do not imply actual GPU batch
+size. Logical KV refusal, timeout, peer death and lock errors are distinct from
+typed allocator OOM. Observed brackets retain resolution and evidence gaps; see
+[Workspace and capacity validation](workspace-and-capacity.md).

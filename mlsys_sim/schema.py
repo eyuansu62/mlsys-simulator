@@ -139,6 +139,9 @@ class CalibrationSpec:
     replica_native_pp_communication_profile_paths: tuple[str, ...] = ()
     native_pp_communication_profile_version: str = ""
     native_pp_communication_allow_extrapolation: bool = False
+    workspace_profile_path: str | None = None
+    replica_workspace_profile_paths: tuple[str, ...] = ()
+    workspace_profile_version: str = ""
 
 
 @dataclass(frozen=True)

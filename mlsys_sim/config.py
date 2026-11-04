@@ -172,6 +172,19 @@ def validate_experiment(experiment: Experiment) -> None:
         raise SimulationError("UNSUPPORTED_MECHANISM", "supported backends are analytical, synthetic and profile")
     communication_selected = (calibration.native_pp_communication_profile_path is not None
                               or bool(calibration.replica_native_pp_communication_profile_paths))
+    workspace_selected = (calibration.workspace_profile_path is not None
+                          or bool(calibration.replica_workspace_profile_paths))
+    if workspace_selected:
+        if strategy.replicas == 1:
+            if (not calibration.workspace_profile_path or not calibration.workspace_profile_path.strip()
+                    or calibration.replica_workspace_profile_paths):
+                _invalid("calibration", "one replica requires one Workspace Profile path")
+        elif (calibration.workspace_profile_path is not None
+              or len(calibration.replica_workspace_profile_paths) != strategy.replicas
+              or any(not path.strip() for path in calibration.replica_workspace_profile_paths)):
+            _invalid("calibration", "Workspace requires one Profile path per replica")
+    elif calibration.workspace_profile_version:
+        _invalid("calibration.workspace_profile_version", "Workspace version requires an explicitly selected Profile")
     if communication_selected:
         if strategy.pipeline_transport != "vllm_native" or not strategy.pipeline_p2p:
             _invalid("calibration", "native PP communication Profiles require native transport and enabled P2P")
@@ -198,7 +211,8 @@ def validate_experiment(experiment: Experiment) -> None:
               or any(not path.strip() for path in calibration.replica_profile_paths)):
             _invalid("calibration.replica_profile_paths", "multiple replicas require one path each and no profile_path")
     elif (calibration.profile_path is not None or calibration.replica_profile_paths
-          or calibration.allow_extrapolation or calibration.allow_test_fixture and not communication_selected):
+          or calibration.allow_extrapolation
+          or calibration.allow_test_fixture and not (communication_selected or workspace_selected)):
         _invalid("calibration", "profile file and domain/source overrides require backend=profile")
     for name in ("runtime_name", "runtime_version", "driver_version", "rocm_version", "rccl_version",
                  "timing_boundary"):
@@ -340,10 +354,10 @@ def load_experiment(path: str | Path) -> Experiment:
         mapping["strategy"] = strategy
     if isinstance(mapping.get("calibration"), dict):
         calibration = dict(mapping["calibration"])
-        for name in ("profile_path", "native_pp_communication_profile_path"):
+        for name in ("profile_path", "native_pp_communication_profile_path", "workspace_profile_path"):
             if isinstance(calibration.get(name), str):
                 calibration[name] = str((calibration_root / calibration[name]).resolve())
-        for name in ("replica_profile_paths", "replica_native_pp_communication_profile_paths"):
+        for name in ("replica_profile_paths", "replica_native_pp_communication_profile_paths", "replica_workspace_profile_paths"):
             if isinstance(calibration.get(name), (list, tuple)):
                 calibration[name] = [
                     str((calibration_root / path).resolve()) if isinstance(path, str) else path

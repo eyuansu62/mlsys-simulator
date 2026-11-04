@@ -12,10 +12,13 @@ collection adapters instrument an installed Runtime separately from simulation.
 [Mixed batching](docs/mixed-batching.md) · [Multi-replica routing](docs/multi-replica.md) ·
 [ROCm collection](docs/rocm-collection.md) · [Qwen3 and vLLM hooks](docs/qwen3-and-vllm-hooks.md) ·
 [Native PP capture and Profiles](docs/native-pp-capture.md) ·
-[Native PP communication calibration](docs/native-pp-communication.md) · [Contributing](CONTRIBUTING.md)
+[Native PP communication calibration](docs/native-pp-communication.md) ·
+[Workspace and capacity validation](docs/workspace-and-capacity.md) · [Contributing](CONTRIBUTING.md)
 
-**Version 1.8 software scope:** independent native PP P2P/AllGather
-microbenchmarks and placement-specific communication Profiles, native vLLM PP
+**Version 1.9 software scope:** independent exact per-rank Workspace Profiles,
+Runtime-owned scratch attribution and fresh-Runtime capacity/OOM-bracket
+validation; independent native PP P2P/AllGather microbenchmarks and
+placement-specific communication Profiles, native vLLM PP
 lazy-receive capture and exact stage Profiles, Qwen3 geometry/import and
 version-checked internal capture, with optional AMD/ROCm collection adapters, explicit hardware
 evidence acceptance, multi-replica routing and load balancing with
@@ -225,6 +228,30 @@ mlsys-sim simulate --experiment examples/v1_8/native-pp-serving.fixture.json \
 The example selects a hand-calculated communication Profile and synthetic stage
 times. See [native communication calibration](docs/native-pp-communication.md)
 for collection, fitting, independent holdout and fixture provenance.
+
+## Attribute Workspace and validate capacity
+
+Workspace calibration accepts a complete Runtime-owned allocation ledger,
+with physical-storage alias deduplication and completed-release lifetimes.
+The resulting exact per-rank Profile supplies dynamic Workspace bytes without
+changing stage duration or charging fixed reserves again. A selected Profile
+has no interpolation or analytical fallback. Passive vLLM WorkspaceManager
+observation remains partial managed-scratch evidence, not automatic attribution
+of all Runtime temporary memory.
+
+A capacity sweep starts a fresh Runtime/process for each candidate and repeat,
+retains typed device OOM separately from logical admission refusal, timeout and
+other failures, and compares observations with full-experiment simulation.
+Reports give observed success-to-OOM brackets and resolution; unstable,
+nonmonotonic or censored evidence does not become a precise universal threshold.
+```bash
+mlsys-sim predict --experiment examples/v1_9/native-pp-workspace.fixture.json \
+  --out runs/workspace-fixture-predict
+```
+
+This example combines hand-calculated Workspace/communication Profiles with
+synthetic stage time. See [Workspace and capacity validation](docs/workspace-and-capacity.md)
+for adapter contracts, fixture workflows and evidence limits.
 
 ## Use the Python API
 

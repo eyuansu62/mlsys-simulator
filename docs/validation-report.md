@@ -1,14 +1,14 @@
-# V1.8 软件验证记录
+# V1.9 软件验证记录
 
 日期：2026-11-04  
 环境：Python 3.14.3，macOS，CPU 执行  
-版本：1.8.0
+版本：1.9.0
 
 ## 自动检查
 
-- `python3 -m unittest discover -s tests -v`：764 项 CPU 测试通过，新增独立 P2P/AllGather 微基准、同次运行校验、按位置校准/留出、双 Profile 与验收来源绑定；保留原生 PP 自然接收、准备流、持久池容量、双张量/切片及 exact Profile 闭环；覆盖 Qwen3 几何/权重、vLLM 内部 Hook/聚合、ROCm/RCCL/Runtime 采集适配、显式硬件验收、参考包导入、多副本路由、混合 Prefill/Decode、Prefix Cache、Chunked Prefill、PP、CPU swap、资源引用、Profile、校准、Compare、留出与 CLI 闭环；含固定 seed 的有界生成负载。
+- `python3 -m unittest discover -s tests -v`：827 项 CPU 测试通过，新增完整 Workspace ledger/独立逐rank校准、三 Profile 联用、fresh Runtime 容量/OOM 区间与来源验证；保留独立 P2P/AllGather 微基准、同次运行校验、按位置校准/留出及验收来源绑定；保留原生 PP 自然接收、准备流、持久池容量、双张量/切片及 exact Profile 闭环；覆盖 Qwen3 几何/权重、vLLM 内部 Hook/聚合、ROCm/RCCL/Runtime 采集适配、显式硬件验收、参考包导入、多副本路由、混合 Prefill/Decode、Prefix Cache、Chunked Prefill、PP、CPU swap、资源引用、Profile、校准、Compare、留出与 CLI 闭环；含固定 seed 的有界生成负载。
 - Ruff 0.17.3：检查通过。
-- mypy 2.4.1：`mypy mlsys_sim`，32 个源文件检查通过。
+- mypy 2.4.1：`mypy mlsys_sim`，36 个源文件检查通过。
 - `python3 -m compileall -q mlsys_sim tests scripts`：通过。
 
 Ruff/mypy 为临时开发检查工具，没有加入项目运行依赖。测试覆盖配置拒绝、
@@ -23,6 +23,10 @@ Prefix Cache 检查 namespace、完整 token ancestry 的 SHA256 链、保留最
 多副本检查共享事件时序、轮询／最少未完成请求／受负载约束的缓存亲和路由、到达时可见状态、固定归属、独立Host/DMA与纯读缓存探测。两条本地引擎仅抽取可逐事件驱动和幂等finalization接口，驱动结果与原run路径的请求、事件和资源报告逐项相等。全局预算/窗口、PP反馈和swap截止保留引用；局部停止不阻断健康副本，全部副本不可用时未来请求保持未路由。全局分位数从合并请求重算，三请求手算全局TTFT中位数为2ms，而局部中位数平均为2.5ms。Profile与CLI检查每副本身份、原始字节快照、有序hash、版本/来源、完整集群Compare，以及warmup缓存和路由游标重置。
 
 ## CLI 示例证据
+
+Workspace 新增完整 Runtime-owned storage ledger、alias 去重、异步 release-completed 与逐 rank 完成证明。完整动态归因才进入独立 exact Profile，重复 shape 逐 rank 取最大；零值合法，未知/partial/超限不可伪成零。显式 Profile 替换动态预算，并保留所有固定池、PP backing、通信与 Runtime 预算。每 rank 不同峰值、一字节容量边界、缺形状原子失败与三类 Profile 的 R2×TP2×PP2/cache/chunk/swap/mixed 重放已测试；硬件验收纳入 Workspace 原始字节 SHA 和来源。
+
+容量扫描每个 axis point/repeat 使用独立 Runtime 进程，绑定完整有效配置、模型/设备、所选 Profile 字节及实际应用的轴。typed GPU OOM 还需实际设备 allocator `num_ooms` 增量；只有可验证的 prepare/run 证据可形成区间，startup/load/cleanup、timeout、锁错误、KV 逻辑拒绝与缺校准域各自保留状态。KV 轴成功需实际 Tensor storage 证明，分配失败需明确目标请求与设备 OOM 证明。验证不假定单调，混合重复和非单调结果明确标记；只记录相邻成功/OOM 的观察区间和分辨率，精确阈值为 null。CPU fixture 的 `[4,8]` 区间不构成真机容量结论。详见[Workspace 与容量验证](workspace-and-capacity.md)。
 
 原生 PP 独立微基准使用单向 P2P 与 out-of-place AllGather；以完整参与 rank 的本地同步主机时长取最大值。AllGather 拟合字节数是完整输出，P2P 则是实际 wire payload。CPU 测试锁定预热、分配、CPU Gloo 控制 barrier 和正确性检查均在计时外，`Work.wait()` 后还需设备同步；同一 cohort 的完整 rank 输出才可归并，超时和进程组失败保留原始证据。没有运行真实 HIP 通信。
 
@@ -74,6 +78,9 @@ Qwen3 新增手算验证保留真实 residual/query 两种宽度，计入 Q/K No
 | 原生 Qwen3 R2×TP2×PP2 组合 | synthetic与fixture Profile路径均完成10请求，4混批、24缓存Token，D2H/H2D各2次，最终资源引用归零；网络成本仍为分析估计 |
 | PP primitive fixture 闭环 | collect→独立 affine 校准→留出→predict/simulate；5请求完成、D2H/H2D各1次，来源仍为fixture |
 | 双 Profile 组合 | 每副本同时选择阶段与通信 Profile，10请求完成、24缓存Token、D2H/H2D各2次，结束引用归零 |
+| 三 Profile 组合 | 逐副本阶段/通信/Workspace同时选择，10请求完成、24缓存Token、D2H/H2D各2次；Workspace按rank计量，结束引用归零 |
+| Workspace 独立校准 | 完整归因夹具按精确shape/rank重复取max，校准→预测→模拟通过；manager与allocator诊断保持partial/raw |
+| 容量验证 fixture | 4个fresh trial，2成功/2typedOOM；观察区间4至8、分辨率4、exact_threshold=null；fixture身份保持 |
 
 内存压力示例使用 synthetic 固定阶段时间；仓库中分发的校准样例全部标记 test_fixture。本次另读取用户提供的真实外部采样包，仅作边界、覆盖与导入审计，没有重新运行 GPU 采集。完整性检查限定在导入器读取的已知文件，未重放嵌套原始归档。原始 prompt/response、归档代码与数据包不纳入仓库或分发。详见[参考包审计](reference-data-audit.md)。这些检查不构成真实 GPU 时延准确率证明。
 

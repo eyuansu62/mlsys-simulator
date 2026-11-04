@@ -114,7 +114,8 @@ Raw allocator evidence retains baseline/current/peak **allocated** and
 peak-minus-baseline difference identifies Workspace: weights, KV growth,
 outputs, lazy initialization and allocator caching can contribute. Without a
 Runtime attribution contract, canonical `workspace_peak_bytes` stays null.
-The simulator then retains its labeled analytical Workspace assumption. See
+Without a selected independent Workspace Profile, the simulator then retains
+its labeled analytical Workspace assumption. See
 [PyTorch peak-memory semantics](https://docs.pytorch.org/docs/2.15/generated/torch.cuda.memory.reset_peak_memory_stats.html).
 
 ## RCCL timing and version identity
@@ -373,3 +374,16 @@ are preallocated out of place; actual stack/RCCL/device and correctness evidence
 are required. Fitting produces a placement-specific native communication
 Profile, not an automatic Infra patch or an end-to-end Runtime-boundary claim.
 See [native PP communication calibration](native-pp-communication.md).
+
+Version 1.9 adds `collect --kind workspace --adapter module:factory` with complete
+Runtime-owned scratch attribution and `calibrate --workspace` for exact per-rank
+Workspace bounds. Installing the partial pinned vLLM WorkspaceManager observer
+does not complete that user Runtime instrumentation contract.
+
+`collect --kind memory-capacity` starts a fresh Runtime/process for every axis
+point/repeat. `validate --memory-capacity --dataset ...` preserves typed device
+OOM with allocator-counter proof, logical refusal, other failure and
+cohort/configuration evidence, reporting
+observed brackets and resolution rather than an exact inferred threshold. Raw
+imports and CPU injection keep their explicit source gates. See
+[Workspace and capacity validation](workspace-and-capacity.md).

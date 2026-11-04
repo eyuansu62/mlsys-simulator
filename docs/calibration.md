@@ -179,7 +179,8 @@ Interpolation uses the maximum of measured corner values, only when all corners
 have workspace observations. This is a stated policy, not a guarantee about an
 unmeasured interior peak. Extrapolated or unobserved workspace is unknown.
 
-When workspace is unknown, Memory Planner uses its labeled analytical
+Without an explicitly selected independent Workspace Profile, when stage
+workspace is unknown, Memory Planner uses its labeled analytical
 `base + query_tokens × bytes_per_token` assumption. Missing workspace does not
 mean zero usage or measured feasibility. Timing lookup still follows its strict
 domain policy.
@@ -227,3 +228,21 @@ independent network measurement. Missing placement or byte coverage never
 silently falls back when a communication Profile is selected. See
 [native PP communication calibration](native-pp-communication.md) for commands,
 fixture examples and interpretation limits.
+
+## Independent exact per-rank Workspace Profiles
+
+`calibrate --workspace` consumes the complete ownership contract described in
+[Workspace and capacity validation](workspace-and-capacity.md). It fits no
+duration: repeated observations reduce to a maximum for each exact shape/rank,
+including observed zero. Mixed roles and all TP rank peaks remain explicit.
+An explicitly selected Workspace Profile replaces only the dynamic Workspace
+budget, has no interpolation/extrapolation or missing-shape fallback, and leaves
+fixed reserves and stage timing identity unchanged. Without selection, the
+legacy stage-observation/analytical policy above remains available.
+
+The Runtime adapter owns complete scratch instrumentation, including non-Torch
+allocations; passive vLLM manager capacity or allocator peak-minus-baseline is
+partial evidence and cannot be relabeled canonical Workspace. Profile snapshots
+retain attribution scope, source, version and SHA per local replica. Capacity
+validation is a separate full-experiment workflow and does not fit Workspace
+from an observed OOM point.

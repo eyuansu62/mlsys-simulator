@@ -284,7 +284,8 @@ class PPCommunicationCLITests(unittest.TestCase):
         manifest = json.loads((output / "manifest.json").read_text())
         previous = deepcopy(manifest["effective_config"])
         for key in ("native_pp_communication_profile_path", "replica_native_pp_communication_profile_paths",
-                    "native_pp_communication_profile_version", "native_pp_communication_allow_extrapolation"):
+                    "native_pp_communication_profile_version", "native_pp_communication_allow_extrapolation",
+                    "workspace_profile_path", "replica_workspace_profile_paths", "workspace_profile_version"):
             previous["calibration"].pop(key)
         expected = hashlib.sha256(json.dumps(previous, sort_keys=True, separators=(",", ":"),
                                              allow_nan=False).encode()).hexdigest()

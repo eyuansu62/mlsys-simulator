@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "dataset_id": "memory-capacity-live-01",
+  "axis": {
+    "name": "input_tokens",
+    "values": [
+      256,
+      512,
+      1024
+    ]
+  },
+  "repeats": 2,
+  "timeout_s": 120,
+  "max_output_bytes": 8388608,
+  "source_reference": "Fresh Runtime/process capacity sweep on the bound AMD host."
+}

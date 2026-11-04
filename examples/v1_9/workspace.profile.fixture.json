@@ -1,0 +1,228 @@
+{
+  "schema_version": 1,
+  "kind": "workspace_profile",
+  "profile_id": "workspace-rank-max-fixture:workspace-fixture-v1",
+  "profile_version": "workspace-fixture-v1",
+  "identity": {
+    "model": {
+      "name": "Qwen3-4B",
+      "num_layers": 36,
+      "hidden_size": 2560,
+      "intermediate_size": 9728,
+      "num_attention_heads": 32,
+      "num_kv_heads": 8,
+      "head_dim": 128,
+      "vocab_size": 151936,
+      "weight_bytes": 2.0,
+      "kv_bytes": 2.0,
+      "activation_bytes": 2.0,
+      "revision": "1cfa9a7208912126459214e8b04321603b3df60c",
+      "weight_dtype": "bfloat16",
+      "kv_dtype": "bfloat16",
+      "activation_dtype": "bfloat16",
+      "tie_word_embeddings": true,
+      "qk_norm": true,
+      "final_norm": true,
+      "architecture_config_sha256": "f27adcaf3cf45423f86940d9c8b9f55c1568274b4272d63a991325a28f4a4baa"
+    },
+    "devices": [
+      {
+        "id": "replica0-stage0-rank0",
+        "memory_bytes": 17179869184,
+        "compute_tflops": 1.0,
+        "memory_bandwidth_gbps": 10.0,
+        "name": "toy-device"
+      },
+      {
+        "id": "replica0-stage0-rank1",
+        "memory_bytes": 17179869184,
+        "compute_tflops": 1.0,
+        "memory_bandwidth_gbps": 10.0,
+        "name": "toy-device"
+      },
+      {
+        "id": "replica0-stage1-rank0",
+        "memory_bytes": 17179869184,
+        "compute_tflops": 1.0,
+        "memory_bandwidth_gbps": 10.0,
+        "name": "toy-device"
+      },
+      {
+        "id": "replica0-stage1-rank1",
+        "memory_bytes": 17179869184,
+        "compute_tflops": 1.0,
+        "memory_bandwidth_gbps": 10.0,
+        "name": "toy-device"
+      }
+    ],
+    "parallelism": {
+      "tensor_parallel_size": 2,
+      "pipeline_parallel_size": 2,
+      "stage_layers": [
+        18,
+        18
+      ],
+      "shard_plan": "megatron_dense_no_sp",
+      "pipeline_transport": "vllm_native",
+      "pipeline_transport_max_tokens": 8
+    },
+    "topology": {
+      "name": "single-node-uncontended",
+      "link_bandwidth_gbps": 20.0,
+      "link_latency_us": 5.0
+    },
+    "runtime": {
+      "name": "unspecified",
+      "version": "unspecified",
+      "driver_version": "unspecified",
+      "rocm_version": "unspecified",
+      "rccl_version": "unspecified",
+      "timing_boundary": "step_includes_output_and_sampling_v1"
+    },
+    "execution": {
+      "kv_block_tokens": 4,
+      "graph_bytes": 0,
+      "runtime_bytes": 1048576,
+      "communication_buffer_bytes": 0
+    }
+  },
+  "source": {
+    "kind": "test_fixture",
+    "reference": "Hand-calculated complete per-rank Workspace fixture, including an observed zero; no GPU execution."
+  },
+  "attribution": {
+    "method": "runtime_workspace_ledger_v1",
+    "complete": true,
+    "scope": "exclusive_dynamic_workspace",
+    "excluded_categories": [
+      "weights",
+      "kv_pool",
+      "graphs",
+      "runtime",
+      "pp_buffers",
+      "communication_buffers"
+    ],
+    "includes_non_torch": true
+  },
+  "method": "exact_rank_max_v1",
+  "samples": [
+    {
+      "phase": "decode",
+      "stage_index": 0,
+      "query_tokens": [
+        1
+      ],
+      "context_lengths": [
+        4
+      ],
+      "workspace_bytes_per_rank": [
+        {
+          "tp_rank": 0,
+          "peak_bytes": 4096
+        },
+        {
+          "tp_rank": 1,
+          "peak_bytes": 6144
+        }
+      ],
+      "sample_count": 2
+    },
+    {
+      "phase": "decode",
+      "stage_index": 1,
+      "query_tokens": [
+        1
+      ],
+      "context_lengths": [
+        4
+      ],
+      "workspace_bytes_per_rank": [
+        {
+          "tp_rank": 0,
+          "peak_bytes": 8192
+        },
+        {
+          "tp_rank": 1,
+          "peak_bytes": 12288
+        }
+      ],
+      "sample_count": 2
+    },
+    {
+      "phase": "prefill",
+      "stage_index": 0,
+      "query_tokens": [
+        4
+      ],
+      "context_lengths": [
+        0
+      ],
+      "workspace_bytes_per_rank": [
+        {
+          "tp_rank": 0,
+          "peak_bytes": 0
+        },
+        {
+          "tp_rank": 1,
+          "peak_bytes": 12288
+        }
+      ],
+      "sample_count": 2
+    },
+    {
+      "phase": "prefill",
+      "stage_index": 1,
+      "query_tokens": [
+        4
+      ],
+      "context_lengths": [
+        0
+      ],
+      "workspace_bytes_per_rank": [
+        {
+          "tp_rank": 0,
+          "peak_bytes": 16384
+        },
+        {
+          "tp_rank": 1,
+          "peak_bytes": 24576
+        }
+      ],
+      "sample_count": 2
+    }
+  ],
+  "training": {
+    "dataset_sha256": "5d80cf5f41ab77ed7e1a08429c8f7fae41d71b42bdd64c311be2bc9da72be47e",
+    "record_ids": [
+      "decode-s0-r0",
+      "decode-s0-r1",
+      "decode-s1-r0",
+      "decode-s1-r1",
+      "prefill-s0-r0",
+      "prefill-s0-r1",
+      "prefill-s1-r0",
+      "prefill-s1-r1"
+    ],
+    "group_ids": [
+      "decode-s0",
+      "decode-s1",
+      "prefill-s0",
+      "prefill-s1"
+    ],
+    "shape_keys": [
+      "[\"decode\",0,[1],[4]]",
+      "[\"decode\",1,[1],[4]]",
+      "[\"prefill\",0,[4],[0]]",
+      "[\"prefill\",1,[4],[0]]"
+    ],
+    "parent_profile_version": null
+  },
+  "notes": {
+    "dataset_id": "workspace-rank-max-fixture",
+    "extrapolation": false,
+    "fit": "maximum_observed_bytes_per_exact_shape_and_rank",
+    "interpolation": false,
+    "parent_samples_reused": false,
+    "scope": "replacement_for_dynamic_workspace_only"
+  }
+}

@@ -25,6 +25,10 @@ def replica_experiment(experiment: Experiment, replica_index: int) -> Experiment
         calibration = replace(calibration,
             native_pp_communication_profile_path=calibration.replica_native_pp_communication_profile_paths[replica_index],
             replica_native_pp_communication_profile_paths=())
+    if replicas > 1 and calibration.replica_workspace_profile_paths:
+        calibration = replace(calibration,
+            workspace_profile_path=calibration.replica_workspace_profile_paths[replica_index],
+            replica_workspace_profile_paths=())
     return replace(experiment, infra=replace(experiment.infra, devices=devices),
                    strategy=replace(experiment.strategy, replicas=1), calibration=calibration)
 

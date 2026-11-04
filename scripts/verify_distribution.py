@@ -199,7 +199,8 @@ def verify(dist: Path) -> dict:
         assert "mlsys_sim/replicas.py" in names
         for module in ("hardware", "rocm_steps", "rccl_adapter", "runtime_adapter",
                        "hardware_validation", "release_adapter", "qwen3", "vllm_hooks", "vllm_capture", "pp_transport",
-                       "pp_communication", "pp_benchmark", "pp_benchmark_worker"):
+                       "pp_communication", "pp_benchmark", "pp_benchmark_worker", "workspace", "workspace_capture",
+                       "capacity", "capacity_worker"):
             assert f"mlsys_sim/{module}.py" in names
         assert not any(name.startswith(("tests/", "sample-runs/", "work/")) for name in names)
         assert archive.testzip() is None
@@ -220,6 +221,8 @@ def verify(dist: Path) -> dict:
                          "docs/native-pp-capture.md", "tests/test_native_pp_capture.py",
                          "docs/native-pp-communication.md", "examples/v1_8/communication-train.fixture.json",
                          "examples/v1_8/primitive-capture.fixture.json",
+                         "docs/workspace-and-capacity.md", "examples/v1_9/workspace-measurements.fixture.json",
+                         "examples/v1_9/capacity-measurements.fixture.json",
                          "scripts/verify_distribution.py"):
             assert required in names, f"Source distribution missing {required}"
         assert not any(name.startswith(("sample-runs/", "work/")) for name in names)
@@ -271,6 +274,38 @@ def verify(dist: Path) -> dict:
                 assert result["swap"]["completed_transfers_by_direction"] == {"D2H": 1, "H2D": 1}
             else:
                 assert result["communication"]["p2p_source"] == "test_fixture_native_pp_communication_profile"
+        workspace_inputs = outside / "v1_9"
+        workspace_inputs.mkdir()
+        communication_inputs = outside / "v1_8"
+        communication_inputs.mkdir()
+        for source in primitive_inputs.glob("*.json"):
+            (communication_inputs / source.name).write_bytes(source.read_bytes())
+        for source in (Path(__file__).resolve().parents[1] / "examples/v1_9").glob("*.json"):
+            (workspace_inputs / source.name).write_bytes(source.read_bytes())
+        run([str(console), "calibrate", "--workspace", "--dataset",
+             str(workspace_inputs / "workspace-measurements.fixture.json"), "--profile-version", "installed-ws-v1",
+             "--allow-test-fixture", "--out", "workspace-fit"], outside, env)
+        for mode in ("predict", "simulate"):
+            target = f"workspace-{mode}"
+            run([str(console), mode, "--experiment", str(workspace_inputs / "native-pp-workspace.fixture.json"),
+                 "--out", target], outside, env)
+            result = json.loads((outside / target / "result.json").read_text())
+            manifest = json.loads((outside / target / "manifest.json").read_text())
+            assert manifest["workspace_profiles"][0]["source_kind"] == "test_fixture"
+            if mode == "simulate":
+                assert result["counts"]["completed"] == 1
+                assert all(row["workspace_source"] == "workspace_profile" for row in result["memory"])
+        run([str(console), "collect", "--kind", "memory-capacity", "--experiment",
+             str(workspace_inputs / "capacity-base.fixture.json"), "--plan",
+             str(workspace_inputs / "capacity.plan.fixture.json"), "--allow-test-fixture", "--out", "capacity-capture"],
+             outside, env)
+        run([str(console), "validate", "--memory-capacity", "--dataset", "capacity-capture/dataset.json",
+             "--allow-test-fixture", "--out", "capacity-validation"], outside, env)
+        capacity_result = json.loads((outside / "capacity-validation/result.json").read_text())
+        assert capacity_result["hardware_validated"] is False
+        assert capacity_result["threshold_status"] == "BRACKETED"
+        assert capacity_result["observed_brackets"] == [{"success_value": 4, "oom_value": 8,
+                                                         "resolution": 4, "exact_threshold": None}]
         for mode in ("predict", "simulate"):
             target = f"native-pp-{mode}"
             run([str(console), mode, "--experiment", "native-pp.json", "--out", target], outside, env)
@@ -438,6 +473,7 @@ def verify(dist: Path) -> dict:
             "installed_qwen_geometry_dormant_plugin_and_capture_fixture": "passed",
             "installed_native_pp_exact_profile_and_transport": "passed",
             "installed_pp_primitives_collection_calibration_holdout_and_serving": "passed",
+            "installed_workspace_calibration_and_capacity_brackets": "passed",
             "installed_calibration_comparison_holdout": "passed"}
 
 

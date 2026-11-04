@@ -1,9 +1,9 @@
 # LLM 推理系统模拟器
 
 [English](README.md) · [Python API](docs/api.md) · [校准](docs/calibration.md) ·
-[验证规范](docs/validation-protocol.md) · [系统规范](docs/specification.md) · [PP 与 CPU swap](docs/pipeline-and-swap.md) · [Prefix Cache 与分块预填充](docs/prefix-cache-and-chunking.md) · [混合批处理](docs/mixed-batching.md) · [多副本路由](docs/multi-replica.md) · [ROCm 采集](docs/rocm-collection.md) · [Qwen3 与 vLLM 内部 hook](docs/qwen3-and-vllm-hooks.md) · [原生 PP 采样与 Profile](docs/native-pp-capture.md) · [原生 PP 通信微基准与校准](docs/native-pp-communication.md)
+[验证规范](docs/validation-protocol.md) · [系统规范](docs/specification.md) · [PP 与 CPU swap](docs/pipeline-and-swap.md) · [Prefix Cache 与分块预填充](docs/prefix-cache-and-chunking.md) · [混合批处理](docs/mixed-batching.md) · [多副本路由](docs/multi-replica.md) · [ROCm 采集](docs/rocm-collection.md) · [Qwen3 与 vLLM 内部 hook](docs/qwen3-and-vllm-hooks.md) · [原生 PP 采样与 Profile](docs/native-pp-capture.md) · [原生 PP 通信微基准与校准](docs/native-pp-communication.md) · [Workspace 与容量验证](docs/workspace-and-capacity.md)
 
-1.8 版增加原生 PP 独立 P2P／AllGather 微基准与按位置校准的通信 Profile，保留 vLLM 原生 PP 延迟接收和切片传输的阶段采样／Profile 契约，并保留 Qwen3 模型几何兼容、HF 配置导入和带版本检查的内部采集，并保留可选 AMD/ROCm Adapter、显式验收、多副本调度／负载均衡、Prefill/Decode 混合批处理、Prefix Cache、Chunked Prefill、PP、CPU KV swap、解析模型、Profile、校准、留出验证和方案比较。用户提供的 AMD/NVIDIA 真机参考包用于格式适配与审计；原始包及 prompt/output 全文不随库分发，现有覆盖不代表通用硬件预测准确率。仓库为[私有仓库](https://github.com/eyuansu62/mlsys-simulator)，许可证待选择，尚未发布 PyPI。
+1.9 版增加独立逐 rank Workspace Profile、完整 Runtime scratch 归因契约与全新 Runtime 容量／OOM 区间验证。已有能力包括原生 PP 通信微基准与 Profile、Qwen3／vLLM 内部采集、多副本调度、TP/PP、缓存、分块、混合批处理、CPU swap、校准和验证。用户提供的 AMD/NVIDIA 参考包用于格式适配与审计；原始包及 prompt/output 全文不随库分发，现有覆盖不代表通用硬件准确率。仓库为[私有仓库](https://github.com/eyuansu62/mlsys-simulator)，许可证待选择，尚未发布 PyPI。
 
 ## 安装和运行
 
@@ -128,6 +128,19 @@ mlsys-sim simulate --experiment examples/v1_8/native-pp-serving.fixture.json \
 
 此示例使用手算通信 Profile 和 synthetic 阶段耗时，保留 fixture 来源，不代表真机测量。
 
+## Workspace 归因与容量／OOM 验证
+
+Workspace 校准只接收完整的 Runtime-owned allocation ledger：按实际底层 storage 去重 alias，等释放完成才扣除占用，逐 rank 区分真实零和未知。独立 Workspace Profile 只替换动态 Workspace 预算，不改变阶段耗时或重复计固定储备；显式选择后按精确形状查询，不插值、不解析回退。默认 vLLM WorkspaceManager 观察器只提供部分 managed scratch 信息，不能自动代表所有 temporary Workspace。
+
+容量扫描为每个候选点和重复实验建立全新 Runtime／进程，区分 typed device OOM、逻辑 KV 准入拒绝、超时及其他错误，并与整个有效配置的模拟结果比较。报告只给有证据的相邻成功→OOM 区间和分辨率；不稳定、非单调或删失结果不能推成一个精确通用阈值。适配器集成契约、fixture 示例和证据边界见[专门说明](docs/workspace-and-capacity.md)。
+
+```bash
+mlsys-sim predict --experiment examples/v1_9/native-pp-workspace.fixture.json \
+  --out runs/workspace-fixture-predict
+```
+
+示例联合使用手算 Workspace／通信 Profile 和 synthetic 阶段耗时，不代表真机测量。
+
 ## Python 库接口
 
 ```python
@@ -149,7 +162,7 @@ print(run.result["counts"])
 
 首次 Prefill 构建输入 KV，最终输入块完成后生成首 Token；最新采样 Token 的 KV 在下一 Decode 才计算。已输出数量和已计算 KV 位置分别记录。每步先检查物理预算和逻辑 KV，再跨 rank 原子预留；PP 在进入 stage 0 前为整个流水线预留 KV，并另计常驻激活 Buffer。压力下限制准入／缩 Batch，必要时在安全边界按配置重算恢复或经 CPU swap 保存／恢复 KV；历史输出不重复生成，停顿计入延迟。PP 回收先排空在途 wave，DMA 期间不启动新的 GPU 工作。
 
-固定 KV pool 释放逻辑 block 不会缩小 GPU 预分配 tensor。Workspace 可使用 Profile 中的观测；缺少数据时明确回退解析假设，不声称实测。张量分配器碎片和 Kernel 周期不做细粒度模拟。
+固定 KV pool 释放逻辑 block 不会缩小 GPU 预分配 tensor。显式 Workspace Profile 逐 rank 精确替换动态预算，缺形状不回退；未选择时仍使用阶段 Profile 中的受支持观测或明确标记的解析假设。张量分配器碎片和 Kernel 周期不做细粒度模拟。
 
 性能后端分为 `synthetic`、`analytical` 和 `profile`。Profile 严格核对模型、设备、软件版本、并行布局与计时边界；ragged 形状只精确匹配，同质 Batch 仅在所需角点齐全时插值。混合形状还按有序成员 phase 精确匹配；原生 PP Profile 也只允许精确形状，并保留实际 padding／传输描述，二者均不做插值或外推。其它形状越界默认拒绝，显式外推会记录来源。Profile 的整 stage 时间已包含局部 collective，不重复加通信。
 

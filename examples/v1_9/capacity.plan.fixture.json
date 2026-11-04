@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "dataset_id": "capacity-cli-fixture",
+  "axis": {
+    "name": "input_tokens",
+    "values": [
+      4,
+      8
+    ]
+  },
+  "repeats": 2,
+  "timeout_s": 30,
+  "max_output_bytes": 1048576,
+  "source_reference": "Source-shaped complete capacity fixture; no GPU allocation or fresh Runtime execution.",
+  "raw_path": "capacity-measurements.fixture.json",
+  "source": {
+    "kind": "test_fixture",
+    "reference": "CLI protocol fixture; no GPU or communication measurement"
+  }
+}

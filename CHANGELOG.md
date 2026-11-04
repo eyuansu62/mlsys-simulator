@@ -1,5 +1,38 @@
 # Changelog
 
+## 1.9.0 — 2026-11-04
+
+Dynamic Workspace can use a separately attributed per-rank Profile, while
+capacity evidence distinguishes allocator OOM from admission and Runtime failure.
+
+### Added
+
+- Complete Runtime-owned scratch-ledger attribution with underlying-storage
+  alias deduplication, pending-release lifetimes and explicit per-rank
+  completeness; partial and saturated captures cannot form Workspace data.
+- Independent exact-only Workspace datasets/Profiles, repeated-shape per-rank
+  maximum fitting, observed-zero support and explicit local/per-replica
+  selection with immutable CLI snapshots.
+- Per-rank Workspace budget selection alongside stage and native communication
+  Profiles, preserving static reserves and existing cache/swap/TP/PP lifetimes.
+- Optional pinned vLLM WorkspaceManager observation, labeled partial managed
+  scratch capacity rather than complete temporary Workspace.
+- Fresh-Runtime/process capacity collection across input-token, request-cohort
+  or KV-pool axes, typed OOM phase/allocator-counter proof, scoped KV allocation
+  evidence and full-configuration binding.
+- Capacity validation reporting repeat instability, nonmonotonic evidence,
+  censored endpoints and adjacent observed success-to-OOM brackets.
+
+### Evidence limits
+
+- Full scratch instrumentation is a user Runtime adapter contract. Allocator
+  peak minus baseline and managed scratch alone are not complete attribution.
+- Capacity collection preserves the scheduler; request count is a cohort size,
+  not a claim about actual GPU batch size. Logical KV rejection, timeout,
+  lock AssertionError and peer failure are not silently relabeled device OOM.
+- CPU fixtures test contracts and orchestration; no live AMD accuracy or
+  hardware-validation verdict is established by their completion.
+
 ## 1.8.0 — 2026-11-04
 
 Native PP boundary communication can use independently collected, explicitly

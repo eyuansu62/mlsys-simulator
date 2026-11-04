@@ -6,7 +6,7 @@ Changes to this import surface and the versioned data contracts are recorded
 in the changelog. Calibration provenance and hardware validation are separate.
 """
 
-__version__ = "1.8.0"
+__version__ = "1.9.0"
 
 from .config import experiment_from_dict, load_experiment, validate_experiment
 from .engine import SimulationResult, simulate
@@ -53,8 +53,26 @@ from .pp_benchmark import collect_pp_communication
 from .pp_communication import (PPCommunicationModel, calibrate_pp_communication,
     load_pp_communication_dataset, load_pp_communication_profile, validate_pp_communication_dataset,
     validate_pp_communication_profile, validate_pp_communication_holdout)
+from .workspace import (WorkspaceModel, calibrate_workspace, load_workspace_dataset,
+    load_workspace_profile, validate_workspace_dataset, validate_workspace_profile)
+from .workspace_capture import WorkspaceRecorder, PinnedVllmWorkspaceObserver, collect_workspace
+from .capacity import (collect_memory_capacity, load_capacity_dataset, validate_capacity_dataset,
+                       validate_memory_capacity)
 
 __all__ = [
+    "WorkspaceModel",
+    "calibrate_workspace",
+    "load_workspace_dataset",
+    "load_workspace_profile",
+    "validate_workspace_dataset",
+    "validate_workspace_profile",
+    "WorkspaceRecorder",
+    "PinnedVllmWorkspaceObserver",
+    "collect_workspace",
+    "collect_memory_capacity",
+    "load_capacity_dataset",
+    "validate_capacity_dataset",
+    "validate_memory_capacity",
     "collect_pp_communication",
     "PPCommunicationModel",
     "calibrate_pp_communication",

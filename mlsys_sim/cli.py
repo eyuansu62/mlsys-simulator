@@ -77,6 +77,10 @@ def _experiment_inputs(manifest: dict, path: Path, experiment: Any) -> None:
         _record_input(manifest, experiment.calibration.native_pp_communication_profile_path)
     for profile_path in experiment.calibration.replica_native_pp_communication_profile_paths:
         _record_input(manifest, profile_path)
+    if experiment.calibration.workspace_profile_path:
+        _record_input(manifest, experiment.calibration.workspace_profile_path)
+    for profile_path in experiment.calibration.replica_workspace_profile_paths:
+        _record_input(manifest, profile_path)
 
 
 def _read_json(path: Path) -> tuple[Any, bytes]:
@@ -105,11 +109,15 @@ def _simulation(args: argparse.Namespace, manifest: dict) -> dict:
     _experiment_inputs(manifest, args.experiment, original)
     expanded = asdict(original)
     fingerprint_config = expanded
+    if original.calibration.workspace_profile_path is None and not original.calibration.replica_workspace_profile_paths:
+        fingerprint_config = {**fingerprint_config, "calibration": {
+            key: value for key, value in fingerprint_config["calibration"].items() if key not in {
+                "workspace_profile_path", "replica_workspace_profile_paths", "workspace_profile_version"}}}
     if (original.calibration.native_pp_communication_profile_path is None
             and not original.calibration.replica_native_pp_communication_profile_paths):
         # New opt-in boundary settings do not change pre-existing run hashes.
-        fingerprint_config = {**expanded, "calibration": {
-            key: value for key, value in expanded["calibration"].items() if key not in {
+        fingerprint_config = {**fingerprint_config, "calibration": {
+            key: value for key, value in fingerprint_config["calibration"].items() if key not in {
                 "native_pp_communication_profile_path", "replica_native_pp_communication_profile_paths",
                 "native_pp_communication_profile_version", "native_pp_communication_allow_extrapolation"}}}
     manifest.update({"backend": "simulated", "experiment_path": str(args.experiment.resolve()),
@@ -230,12 +238,55 @@ def _simulation(args: argparse.Namespace, manifest: dict) -> dict:
             replace(experiment.calibration,
                 replica_native_pp_communication_profile_paths=tuple(communication_snapshots)))
         experiment = replace(experiment, calibration=calibration)
-        fingerprint: dict[str, Any] = {"experiment": expanded,
+        fingerprint: dict[str, Any] = {"experiment": fingerprint_config,
             "native_pp_communication_profile_sha256": [item["sha256"] for item in communication_profiles]}
         if profile is not None:
             fingerprint["profile_sha256"] = manifest["profile_sha256"]
         if replica_profiles:
             fingerprint["replica_profile_sha256"] = [item["sha256"] for item in replica_profiles]
+        manifest["config_sha256"] = hashlib.sha256(_json(fingerprint).encode()).hexdigest()
+    workspace_profiles = []
+    workspace_paths = (original.calibration.replica_workspace_profile_paths
+        or ((original.calibration.workspace_profile_path,) if original.calibration.workspace_profile_path else ()))
+    if workspace_paths:
+        from .layout import replica_experiment
+        from .workspace import validate_workspace_profile
+        from .profiles import profile_identity
+
+        (args.out / "workspace-profiles").mkdir()
+        workspace_snapshots = []
+        for replica_index, workspace_path in enumerate(workspace_paths):
+            source = Path(workspace_path).resolve()
+            payload, raw = _read_json(source)
+            current = validate_workspace_profile(payload, allow_test_fixture=original.calibration.allow_test_fixture)
+            if current["identity"] != profile_identity(replica_experiment(original, replica_index)):
+                raise SimulationError("CALIBRATION_MISMATCH", f"Workspace Profile identity differs for replica {replica_index}")
+            requested = original.calibration.workspace_profile_version
+            if requested and requested != current["profile_version"]:
+                raise SimulationError("CALIBRATION_MISMATCH", "Workspace Profile version differs")
+            snapshot_file = f"workspace-profiles/replica-{replica_index}.json"
+            snapshot = args.out / snapshot_file
+            with snapshot.open("xb") as stream:
+                stream.write(raw)
+            _record_input(manifest, source, raw)
+            workspace_profiles.append({"replica_index": replica_index, "origin_profile_path": str(source),
+                "snapshot_file": snapshot_file, "sha256": hashlib.sha256(raw).hexdigest(),
+                "profile_id": current["profile_id"], "profile_version": current["profile_version"],
+                "source_kind": current["source"]["kind"], "source_reference": current["source"]["reference"]})
+            workspace_snapshots.append(str(snapshot.resolve()))
+            manifest["workspace_profiles"] = workspace_profiles
+        calibration = (replace(experiment.calibration, workspace_profile_path=workspace_snapshots[0])
+            if original.strategy.replicas == 1 else
+            replace(experiment.calibration, replica_workspace_profile_paths=tuple(workspace_snapshots)))
+        experiment = replace(experiment, calibration=calibration)
+        fingerprint = {"experiment": fingerprint_config,
+            "workspace_profile_sha256": [item["sha256"] for item in workspace_profiles]}
+        if profile is not None:
+            fingerprint["profile_sha256"] = manifest["profile_sha256"]
+        if replica_profiles:
+            fingerprint["replica_profile_sha256"] = [item["sha256"] for item in replica_profiles]
+        if communication_profiles:
+            fingerprint["native_pp_communication_profile_sha256"] = [item["sha256"] for item in communication_profiles]
         manifest["config_sha256"] = hashlib.sha256(_json(fingerprint).encode()).hexdigest()
     _write_json(args.out / "manifest.json", manifest)
     if args.mode == "simulate":
@@ -293,6 +344,24 @@ def _simulation(args: argparse.Namespace, manifest: dict) -> dict:
             for item in result.get(collection, []):
                 if isinstance(item, dict):
                     annotate_communication(item.get(local_key), item.get("replica_index"))
+    if workspace_profiles:
+        workspace_index = {item["replica_index"]: item for item in workspace_profiles}
+
+        def annotate_workspace(current, default_replica):
+            if not isinstance(current, dict):
+                return
+            for row in current.get("memory", []):
+                replica_index = row.get("replica_index", default_replica)
+                provenance = row.get("workspace_profile_provenance")
+                if replica_index in workspace_index and isinstance(provenance, dict):
+                    item = workspace_index[replica_index]
+                    provenance.update(origin_profile_path=item["origin_profile_path"], snapshot_file=item["snapshot_file"])
+
+        annotate_workspace(result, 0)
+        for collection, local_key in (("replicas", "result"), ("replica_predictions", "prediction")):
+            for item in result.get(collection, []):
+                if isinstance(item, dict):
+                    annotate_workspace(item.get(local_key), item.get("replica_index"))
     for name, rows in (("requests.jsonl", requests), ("events.jsonl", events)):
         if name == "events.jsonl" and not experiment.execution.detailed_events:
             continue
@@ -308,7 +377,11 @@ def _calibrate(args: argparse.Namespace, manifest: dict) -> dict:
 
     _record_input(manifest, args.dataset)
     native = getattr(args, "native_pp_communication", False)
-    if native:
+    workspace = getattr(args, "workspace", False)
+    if workspace:
+        from .workspace import calibrate_workspace, load_workspace_dataset
+        dataset = load_workspace_dataset(args.dataset, allow_test_fixture=args.allow_test_fixture)
+    elif native:
         from .pp_communication import calibrate_pp_communication, load_pp_communication_dataset
         dataset = load_pp_communication_dataset(args.dataset, allow_test_fixture=args.allow_test_fixture)
     elif args.communication:
@@ -320,13 +393,14 @@ def _calibrate(args: argparse.Namespace, manifest: dict) -> dict:
     parent = None
     if args.parent_profile is not None:
         _record_input(manifest, args.parent_profile)
-        if native or args.communication:
+        if workspace or native or args.communication:
             parent, _ = _read_json(args.parent_profile)
             if not isinstance(parent, dict):
                 raise SimulationError("INVALID_ARGUMENT", "Parent profile must be a JSON object")
         else:
             parent = load_profile(args.parent_profile, allow_test_fixture=args.allow_test_fixture)
-    fit = calibrate_pp_communication if native else calibrate_communication if args.communication else calibrate_dataset
+    fit = (calibrate_workspace if workspace else calibrate_pp_communication if native
+           else calibrate_communication if args.communication else calibrate_dataset)
     profile = fit(dataset, profile_version=args.profile_version,
                   parent_profile=parent, allow_test_fixture=args.allow_test_fixture)
     _write_json(args.out / "dataset.json", dataset)
@@ -347,6 +421,21 @@ def _validate(args: argparse.Namespace, manifest: dict) -> dict:
     from .calibration import calibrate_dataset, split_dataset, validate_holdout
     from .profiles import load_dataset, load_profile
 
+    if getattr(args, "memory_capacity", False):
+        from .capacity import load_capacity_dataset, validate_memory_capacity
+        if (args.profile is not None or args.profile_version is not None or args.allow_extrapolation
+                or any(value is not None for value in (args.holdout_group, args.holdout_fraction, args.seed))):
+            raise SimulationError("INVALID_ARGUMENT", "Memory-capacity validation consumes its dataset; "
+                                  "Profile and split options do not apply")
+        _record_input(manifest, args.dataset)
+        dataset = load_capacity_dataset(args.dataset, allow_test_fixture=args.allow_test_fixture)
+        report = validate_memory_capacity(dataset, allow_test_fixture=args.allow_test_fixture)
+        _write_json(args.out / "dataset.json", dataset)
+        _write_json(args.out / "capacity_report.json", report)
+        manifest["source"] = dataset["source"]
+        return report
+    if args.profile is None and args.profile_version is None:
+        raise SimulationError("INVALID_ARGUMENT", "Validation requires --profile or --profile-version")
     if getattr(args, "native_pp_communication", False):
         from .pp_communication import (load_pp_communication_dataset, load_pp_communication_profile,
                                        validate_pp_communication_holdout)
@@ -439,9 +528,14 @@ def _compare(args: argparse.Namespace, manifest: dict) -> dict:
 
 def _save_collection(bundle: dict, output: Path, manifest: dict) -> dict:
     """Keep raw evidence in fixed artifact paths, separate from the summary."""
-    if bundle.get("kind") == "native_pp_communication_collection":
+    if bundle.get("kind") == "memory_capacity_collection" and "report" in bundle:
+        bundle = {**bundle, "capacity_report": bundle["report"]}
+        bundle.pop("report")
+    if bundle.get("kind") in ("native_pp_communication_collection", "memory_capacity_collection"):
         for record in bundle.get("raw_records", []):
-            captured_input = record.get("raw_input") if isinstance(record, dict) else None
+            captured_input = None
+            if isinstance(record, dict):
+                captured_input = record if bundle.get("kind") == "memory_capacity_collection" else record.get("raw_input")
             if isinstance(captured_input, dict) and "path" in captured_input and "sha256" in captured_input:
                 entry = {key: captured_input[key] for key in ("path", "sha256")}
                 # Use the collector's bounded read, including on partial failure,
@@ -452,7 +546,7 @@ def _save_collection(bundle: dict, output: Path, manifest: dict) -> dict:
     json_files = {"inventory": "inventory.json", "experiment": "experiment.json",
                   "effective_experiment": "effective_experiment.json", "dataset": "dataset.json",
                   "observation": "observed.json", "audit": "audit.json", "raw_records": "raw_records.json",
-                  "client_metrics": "client_metrics.json"}
+                  "client_metrics": "client_metrics.json", "capacity_report": "capacity_report.json"}
     line_files = {"request_service_records": "request_service.jsonl", "client_requests": "client_requests.jsonl"}
     artifacts: dict[str, Any] = {}
     for key, filename in json_files.items():
@@ -500,6 +594,8 @@ def _collection(args: argparse.Namespace, manifest: dict) -> dict:
     allowed = {
         "probe": {"rccl_library", "rocm_root"},
         "steps": {"experiment", "plan", "adapter", "inventory", "rccl_library", "rocm_root"},
+        "workspace": {"experiment", "plan", "adapter", "inventory", "rccl_library", "rocm_root"},
+        "memory-capacity": {"experiment", "plan", "adapter", "inventory", "rccl_library", "rocm_root"},
         "rccl": {"experiment", "plan", "inventory", "rccl_library", "rocm_root"},
         "pp-communication": {"experiment", "plan", "inventory", "rccl_library", "rocm_root"},
         "runtime-trace": {"experiment", "raw"},
@@ -577,7 +673,7 @@ def _collection(args: argparse.Namespace, manifest: dict) -> dict:
     plan = read_json(args.plan)
     if not isinstance(plan, dict):
         raise SimulationError("INVALID_COLLECTION_PLAN", "Collection plan must be an object")
-    if args.kind == "pp-communication" and isinstance(plan.get("raw_path"), str):
+    if args.kind in ("pp-communication", "memory-capacity") and isinstance(plan.get("raw_path"), str):
         raw_path = args.plan.parent / plan["raw_path"]
         with raw_path.open("rb") as stream:
             raw = stream.read(16 * 1024 * 1024 + 1)
@@ -593,9 +689,9 @@ def _collection(args: argparse.Namespace, manifest: dict) -> dict:
     _write_json(args.out / "inventory.json", inventory)
     manifest["inventory_sha256"] = hashlib.sha256((args.out / "inventory.json").read_bytes()).hexdigest()
     try:
-        if args.kind == "steps":
+        if args.kind in ("steps", "workspace"):
             if args.adapter is None or args.adapter.count(":") != 1:
-                raise SimulationError("INVALID_ARGUMENT", "Steps require --adapter module:factory")
+                raise SimulationError("INVALID_ARGUMENT", f"{args.kind} requires --adapter module:factory")
             if not isinstance(inventory, dict) or inventory.get("status") != "READY":
                 raise SimulationError("HARDWARE_UNAVAILABLE", "ROCm step collection needs an available HIP GPU")
             module_name, factory_name = args.adapter.split(":")
@@ -611,8 +707,13 @@ def _collection(args: argparse.Namespace, manifest: dict) -> dict:
             filename = getattr(module, "__file__", None)
             if filename and Path(filename).is_file():
                 _record_input(manifest, filename)
-            from .rocm_steps import collect_steps
-            bundle = collect_steps(experiment, plan, adapter, inventory, allow_test_fixture=args.allow_test_fixture)
+            if args.kind == "workspace":
+                from .workspace_capture import collect_workspace
+                bundle = collect_workspace(experiment, plan, adapter, inventory,
+                                           allow_test_fixture=args.allow_test_fixture)
+            else:
+                from .rocm_steps import collect_steps
+                bundle = collect_steps(experiment, plan, adapter, inventory, allow_test_fixture=args.allow_test_fixture)
         elif args.kind == "rccl":
             from .rccl_adapter import collect_rccl
             bundle = collect_rccl(experiment, plan, inventory, base_dir=args.plan.parent,
@@ -621,6 +722,11 @@ def _collection(args: argparse.Namespace, manifest: dict) -> dict:
             from .pp_benchmark import collect_pp_communication
             bundle = collect_pp_communication(experiment, plan, inventory, base_dir=args.plan.parent,
                                                allow_test_fixture=args.allow_test_fixture)
+        elif args.kind == "memory-capacity":
+            from .capacity import collect_memory_capacity
+            bundle = collect_memory_capacity(experiment, plan, inventory,
+                adapter_entry_point=args.adapter, base_dir=args.plan.parent,
+                allow_test_fixture=args.allow_test_fixture)
         else:
             from .runtime_adapter import collect_vllm
             bundle = collect_vllm(experiment, plan, inventory, base_dir=args.plan.parent,
@@ -743,7 +849,7 @@ def _arguments(parser: argparse.ArgumentParser, mode: str) -> None:
         return
     parser.add_argument("--allow-test-fixture", action="store_true")
     if mode == "collect":
-        parser.add_argument("--kind", choices=("probe", "steps", "rccl", "pp-communication", "runtime-trace", "vllm", "vllm-hook", "reference"),
+        parser.add_argument("--kind", choices=("probe", "steps", "workspace", "memory-capacity", "rccl", "pp-communication", "runtime-trace", "vllm", "vllm-hook", "reference"),
                             required=True)
         for name in ("experiment", "plan", "raw", "reference-dir", "inventory", "rccl-library"):
             parser.add_argument(f"--{name}", type=Path)
@@ -763,15 +869,18 @@ def _arguments(parser: argparse.ArgumentParser, mode: str) -> None:
             communication = parser.add_mutually_exclusive_group()
             communication.add_argument("--communication", action="store_true")
             communication.add_argument("--native-pp-communication", action="store_true")
+            communication.add_argument("--workspace", action="store_true")
         else:
-            profile = parser.add_mutually_exclusive_group(required=True)
+            profile = parser.add_mutually_exclusive_group()
             profile.add_argument("--profile", type=Path)
             profile.add_argument("--profile-version")
             parser.add_argument("--holdout-group", action="append")
             parser.add_argument("--holdout-fraction", type=float, help="Component fraction (default: 0.25)")
             parser.add_argument("--seed", type=int, help="Deterministic split seed (default: 42)")
             parser.add_argument("--allow-extrapolation", action="store_true")
-            parser.add_argument("--native-pp-communication", action="store_true")
+            validation_kind = parser.add_mutually_exclusive_group()
+            validation_kind.add_argument("--native-pp-communication", action="store_true")
+            validation_kind.add_argument("--memory-capacity", action="store_true")
         return
     source = parser.add_mutually_exclusive_group(required=True)
     source.add_argument("--predicted", type=Path)
