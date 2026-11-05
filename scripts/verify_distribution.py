@@ -256,6 +256,11 @@ def verify(dist: Path) -> dict:
                          "scripts/rocm_workspace_audit/assemble_stage_workspace.py",
                          "scripts/rocm_workspace_audit/workspace_transport_audit.py",
                          "scripts/rocm_workspace_audit/synchronization_resource_audit.py",
+                         "scripts/rocm_workspace_audit/hsa_signal_backing_capture.py",
+                         "scripts/rocm_workspace_audit/hsa_signal_backing_probe.cpp",
+                         "scripts/rocm_workspace_audit/hsa_signal_namespace_control.cpp",
+                         "scripts/rocm_workspace_audit/kfd_event_probe.cpp",
+                         "scripts/rocm_workspace_audit/kfd_event_audit.py",
                          "tests/test_workspace_repeats.py", "tests/test_workspace_repeat_cli.py",
                          "tests/test_native_pp_retention_budget.py",
                          "tests/test_rocm_workspace_worker.py",
@@ -265,6 +270,8 @@ def verify(dist: Path) -> dict:
                          "tests/test_rocm_workspace_transport.py",
                          "tests/test_rocm_workspace_native_comm.py",
                          "tests/test_rocm_synchronization_resources.py",
+                         "tests/test_rocm_hsa_signal_backing.py",
+                         "tests/test_rocm_kfd_events.py",
                          "scripts/rocm_workspace_audit/native_probe.cpp",
                          "scripts/rocm_workspace_audit/torch_allocator_probe.cpp",
                          "scripts/rocm_workspace_audit/device_heap_controls.hip",
@@ -272,6 +279,7 @@ def verify(dist: Path) -> dict:
                          "docs/multigpu-stage-validation.md",
                          "docs/online-policy-live-validation.md",
                          "docs/workspace-stage-validation.md",
+                         "docs/pp2-synchronization-evidence.md",
                          "scripts/verify_distribution.py"):
             assert required in source_names, f"Source distribution missing {required}"
         assert not any(name.startswith(("sample-runs/", "work/")) for name in source_names)

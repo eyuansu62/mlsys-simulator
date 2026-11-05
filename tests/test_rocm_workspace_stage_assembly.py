@@ -12,6 +12,7 @@ import importlib.util
 import json
 from pathlib import Path
 import sys
+import struct
 import tempfile
 import unittest
 from unittest.mock import patch
@@ -218,6 +219,36 @@ class StageAssemblyTests(unittest.TestCase):
         self.assertEqual(peaks, {0: 0, 1: 37})
         self.assertEqual(sum(row["code"] == "COMMUNICATION_BINDING_MISSING" for row in report["issues"]), 2)
 
+    def test_host_envelope_is_forwarded_unchanged_and_never_overrides_independent_native_partial(self):
+        base, receipt, plan, workers, _ = fixture(self.root, mode="pp2")
+        library = self.root / "shared-sources/librccl.so"
+        library.write_bytes(b"CPU-only fixture, never loaded")
+        bindings = {}
+        for worker in workers:
+            worker["loaded_rccl"].update(path=str(library), library_sha256=sha(library))
+            worker["stage_capture"]["metadata"]["rccl_binding"] = deepcopy(worker["loaded_rccl"])
+            worker["observed_hardware_inventory"]["rccl_library"]["sha256"] = sha(library)
+            worker["host_signal_evidence"] = {"kind": "CPU forwarding fixture", "status": "FORGED_PASS",
+                "process_id": worker["process_id"], "original_integer_id": 37}
+            write(Path(worker["startup_snapshot"]).with_name("session.json"), worker)
+            bindings[str(worker["process_id"])] = {"driver_source_reference": plan["worker_source"],
+                "driver_source_sha256": plan["worker_source_sha256"], "loaded_rccl": worker["loaded_rccl"],
+                "rank": {**worker["placement"], "agent_handle": worker["process_id"] + 10000},
+                "initialization_epochs": []}
+        path = self.root / "communication.json"
+        write(path, bindings)
+        with patch.object(_ASSEMBLY, "_host_signal_source_gate") as file_gate, \
+             patch.object(_ASSEMBLY, "audit_native_backing", return_value={"status": "PARTIAL"}) as native, \
+             patch.object(_ASSEMBLY, "audit_torch_workspace", side_effect=torch_ok), \
+             patch.object(_ASSEMBLY, "audit_workspace_transport", return_value={"status": "TRANSPORT_GENERATIONS_PROVEN"}):
+            result = _ASSEMBLY.assemble_stage_workspace(base, receipt, self.root / "out", communication_bindings=path)
+        self.assertEqual(file_gate.call_count, 2)
+        self.assertEqual(native.call_count, 2)
+        for observed, worker in zip(native.call_args_list, workers):
+            self.assertEqual(observed.kwargs["communication_binding"]["host_signal_evidence"], worker["host_signal_evidence"])
+        self.assertFalse(result["attribution_complete"])
+        self.assertFalse((self.root / "out/dataset.json").exists())
+
     def test_multicard_final_native_window_requires_actual_natural_shutdown_receipts(self):
         for broken in ("missing", "changed", "failed", "pending", "alive"):
             with self.subTest(broken=broken):
@@ -417,6 +448,338 @@ class CommunicationSourceGateTests(unittest.TestCase):
         runtime.write_bytes(b"changed after capture")
         with self.assertRaises(ValueError):
             self.gate()
+
+
+class HostSignalSourceGateTests(unittest.TestCase):
+    """Only file/source admission is exercised; no callback ownership is mocked as real."""
+
+    def setUp(self):
+        temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(temporary.cleanup)
+        self.root = Path(temporary.name)
+        shared, session = self.root / "shared", self.root / "session"
+        shared.mkdir()
+        session.mkdir()
+        worker_file = shared / "worker_workspace_capture.py"
+        worker_file.write_text("class WorkspaceWorker:\n"
+            "    def _ws_capture_host_signals(self):\n        return None\n"
+            "    def mlsys_workspace_close(self):\n        return None\n"
+            "    def _ws_capture_final_kfd_prefix(self):\n        return None\n")
+        helper = shared / "hsa_signal_backing_capture.py"
+        helper.write_text("def capture_hsa_signal_backings():\n    return {}\n")
+        cpp = shared / "hsa_signal_backing_probe.cpp"
+        cpp.write_text("// CPU fixture source; never compiled\n")
+        compiled = shared / "actual-compiled-source.cpp"
+        compiled.write_bytes(cpp.read_bytes())
+        provider, runtime = shared / "provider.so", shared / "runtime.so"
+        provider.write_bytes(b"CPU fixture provider, not executable")
+        runtime.write_bytes(b"CPU fixture runtime, not executable")
+        alias = shared / "runtime-loaded-alias.so"
+        alias.symlink_to(runtime)
+        headers = []
+        for name in ("amd_hsa_signal.h", "hsa.h", "hsa_ext_amd.h", "amd_hsa_common.h", "amd_hsa_queue.h"):
+            path = shared / name
+            path.write_text("// CPU fixture header " + name)
+            headers.append(self.artifact(path))
+        self.plan = {"mode": "pp2", "native_finalization": "worker_shutdown", "session_id": "cpu-source-gate",
+            "worker_source": str(worker_file), "worker_source_sha256": sha(worker_file),
+            "host_signal_provider": {"provider_path": str(provider), "provider_sha256": sha(provider),
+                "rocr_path": str(runtime), "rocr_sha256": sha(runtime),
+                "abi_header_path": str(shared / "amd_hsa_signal.h"),
+                "abi_header_sha256": sha(shared / "amd_hsa_signal.h")}}
+        source = {"worker_source_reference": str(worker_file), "worker_source_sha256": sha(worker_file)}
+        self.worker = {"process_id": 12, "logical_device_index": 1, "source_bindings": source,
+            "startup_snapshot": str(session / "startup.json.gz"),
+            "runtime_shutdown": {"thread_id": 19},
+            "records": [{"cohort": "formal", "native_epoch_id": 10001}]}
+        scope = {"kind": "post_formal_pre_natural_shutdown_public_signal_queries", "session_id": self.plan["session_id"],
+            "process_id": 12, "thread_id": 17, "target_device_index": 1, "native_clock": "CLOCK_MONOTONIC_RAW",
+            "worker_source": source, "formal_native_epochs": [10001], "query_started_monotonic_raw_ns": 300,
+            "source": self.method_source(worker_file, "_ws_capture_host_signals")}
+        fence = {"method": "existing_post_cohort_last_target_device_synchronize", "process_id": 12,
+            "thread_id": 17, "target_device_index": 1, "native_clock": "CLOCK_MONOTONIC_RAW",
+            "native_epoch_id": 9001, "native_cursor_before": 10, "native_cursor_after": 12,
+            "started_monotonic_raw_ns": 100, "ended_monotonic_raw_ns": 200,
+            "source": self.method_source(worker_file, "mlsys_workspace_close")}
+        capture = {"schema_version": 1, "kind": "public_hsa_signal_backing_capture",
+            "process_id": 12, "thread_id": 17, "status": "CAPTURED", "issues": [],
+            "complete_workspace": False, "hardware_validated": False,
+            "provider": self.artifact(provider), "sources": [self.artifact(helper), self.artifact(cpp)],
+            "compiler_source": self.artifact(compiled), "abi_headers": headers,
+            "runtime_dsos": [{**self.artifact(runtime), "loaded_path": str(alias)}],
+            "initialization": {"compiled_source_path": str(compiled), "api_bindings": {
+                "hsa_amd_pointer_info": {"symbol_name": "hsa_amd_pointer_info", "dladdr_success": True,
+                    "module_path": str(alias), "address": 8193, "module_base": 8192}}},
+            "source_binding": {"qualified_name": "hsa_signal_backing_capture.capture_hsa_signal_backings",
+                "source_sha256": sha(helper)}, "source_scope": scope, "source_fence": fence,
+            "capture_started_monotonic_raw_ns": 310, "capture_ended_monotonic_raw_ns": 390}
+        for phase, cursor in (("before", 13), ("after", 18)):
+            data = {"schema_version": 1, "kind": "observed_live_hsa_signal_generations", "pid": 12,
+                "event_cursor": cursor, "generations": []}
+            path = session / ("live-" + phase + ".json")
+            write(path, data)
+            capture[phase + "_live"] = data
+            capture[phase + "_live_artifact"] = self.artifact(path)
+        capture_file = session / "capture.json"
+        write(capture_file, capture)
+        evidence = {"schema_version": 1, "kind": "public_hsa_signal_backing_worker_evidence",
+            "process_id": 12, "thread_id": 17, "status": "CAPTURE_RETURNED_REQUIRES_INDEPENDENT_NATIVE_AUDIT",
+            "source_scope": scope, "source_fence": fence, "native_cursor_before": 12, "native_cursor_after": 19,
+            "query_started_monotonic_raw_ns": 300, "query_ended_monotonic_raw_ns": 400,
+            "capture": capture, "capture_artifact": {"path": str(capture_file), "sha256": sha(capture_file),
+                "bytes": capture_file.stat().st_size}, "complete_workspace": False, "hardware_validated": False}
+        write(session / "host-signal-worker-evidence.json", evidence)
+        observed = {"schema_version": 1, "kind": "observed_live_hsa_signal_generations", "pid": 12,
+            "event_cursor": 20, "generations": []}
+        post_file = session / "host-signals-after-natural-shutdown.json"
+        write(post_file, observed)
+        evidence["after_natural_shutdown_live"] = {"kind": "post_natural_shutdown_observed_signal_generations",
+            "process_id": 12, "thread_id": 19, "path": str(post_file), "sha256": sha(post_file),
+            "bytes": post_file.stat().st_size, "observed_live": observed, "new_signal_queries_performed": False}
+        self.worker["host_signal_evidence"] = evidence
+        self.inputs = _ASSEMBLY.Inputs(session)
+
+    @staticmethod
+    def artifact(path):
+        return {"path": str(path.resolve()), "sha256": sha(path), "size_bytes": path.stat().st_size}
+
+    @staticmethod
+    def method_source(path, name):
+        return {"source_reference": str(path), "file_sha256": sha(path),
+            "qualified_name": "worker_workspace_capture.WorkspaceWorker." + name,
+            "source_sha256": hashlib.sha256(("    def " + name + "(self):\n        return None\n").encode()).hexdigest()}
+
+    def gate(self):
+        _ASSEMBLY._host_signal_source_gate(self.plan, self.worker, self.inputs, inference_thread=17)
+
+    def refresh_metadata_artifacts(self):
+        evidence = self.worker["host_signal_evidence"]
+        path = Path(evidence["capture_artifact"]["path"])
+        write(path, evidence["capture"])
+        evidence["capture_artifact"].update(sha256=sha(path), bytes=path.stat().st_size)
+        write(self.root / "session/host-signal-worker-evidence.json",
+              {key: value for key, value in evidence.items()
+               if key not in {"after_natural_shutdown_live", "kfd_event_evidence"}})
+
+    def add_kfd(self):
+        """Only source/artifact fixture data; these are not valid hardware tapes."""
+        shared, session, cold = self.root / "shared", self.root / "session", self.root / "cold-control"
+        cold.mkdir()
+        artifacts = {}
+        for name, filename in {"probe_source": "kfd_event_probe.cpp", "native_probe_source": "native_probe.cpp",
+            "probe_library": "combined.so", "libc": "libc.so", "kfd_header": "kfd_ioctl.h", "drm_header": "drm.h"}.items():
+            path = shared / filename
+            path.write_text("CPU-only fixture " + name)
+            artifacts[name] = self.artifact(path)
+        artifacts["hsa_runtime"] = self.artifact(shared / "runtime.so")
+        library = shared / "combined.so"
+        self.plan.update(native_probe_library=str(library), native_probe_library_sha256=sha(library))
+        build = cold / "build.json"
+        write(build, {"returncode": 0, "binary_sha256": sha(library), "sources_sha256": {
+            Path(artifacts[name]["path"]).name: artifacts[name]["sha256"] for name in ("probe_source", "native_probe_source")}})
+        abi = {"fixture": "not hardware ABI"}
+        binding = {name + "_sha256": value["sha256"] for name, value in artifacts.items()}
+        binding.update(artifacts=artifacts, abi=abi, build_receipt_artifact=self.artifact(build))
+        system = session / "system"
+        system.mkdir()
+        snapshots = []
+        files = {"/sys/class/kfd/kfd/topology/nodes/1/gpu_id": b"77\n",
+            "/sys/class/kfd/kfd/topology/nodes/1/properties": b"drm_render_minor 128\n",
+            "/sys/class/drm/renderD128/dev": b"226:128\n",
+            "/sys/class/drm/renderD128/device/uevent": b"PCI_SLOT_NAME=0000:01:00.0\n",
+            "/sys/module/amdgpu/notes/.note.gnu.build-id": struct.pack("<III", 4, 20, 3) + b"GNU\0" + bytes.fromhex("a" * 40)}
+        for index, (name, data) in enumerate(files.items()):
+            path = system / (str(index) + ".json")
+            doc = {"schema_version": 1, "kind": "actual_system_file_bytes", "original_path": name,
+                "contents_hex": data.hex(), "contents_size_bytes": len(data), "contents_sha256": hashlib.sha256(data).hexdigest()}
+            write(path, doc)
+            snapshots.append({**{key: doc[key] for key in ("original_path", "contents_size_bytes", "contents_sha256")},
+                "snapshot_artifact": self.artifact(path)})
+        uname = system / "uname.json"
+        write(uname, {"schema_version": 1, "kind": "actual_uname_result", "release": "CPU-fixture"})
+        snapshots.append({"source": "os.uname", "snapshot_artifact": self.artifact(uname)})
+        binding.update(kernel_release="CPU-fixture", amdgpu_module_build_id="a" * 40,
+            device_nodes=[{"gpu_id": 77, "rdev_major": 226, "rdev_minor": 128, "pci_bus_id": "0000:01:00.0"}],
+            system_observation_artifacts=snapshots)
+
+        def report(pid):
+            return {"pid": pid, "abi": abi, "compiled_source_path": artifacts["probe_source"]["path"],
+                "libc_bindings": {"ioctl": {"address": 8193, "module_base": 8192,
+                    "dladdr_success": True, "module_path": artifacts["libc"]["path"]}, "unused": {"address": None}}}
+
+        cold_native, cold_kfd, control = cold / "native.json", cold / "kfd.json", cold / "control.jsonl"
+        write(cold_native, {"pid": 99, "fixture": "not a Native SDK tape"})
+        write(cold_kfd, report(99))
+        control.write_text('{"original_control_line":1}\n{"original_control_line":2}\n')
+        manifest = {"schema_version": 1, "kind": "cold_hsa_kfd_namespace_control_manifest",
+            "source_binding": binding, "native_report": self.artifact(cold_native),
+            "kfd_report": self.artifact(cold_kfd), "control_jsonl": self.artifact(control),
+            "build_receipt": self.artifact(build), "create_cid": 137, "event_query_cid": 139,
+            "kfd_create_event_call_id": 3, "target_epochs": [8001]}
+        manifest_file = cold / "manifest.json"
+        write(manifest_file, manifest)
+        self.plan["host_signal_provider"].update(namespace_control_path=str(manifest_file),
+            namespace_control_sha256=sha(manifest_file))
+        kernel = {"schema_version": 1, "kind": "passive_kfd_event_evidence", "source_binding": binding,
+            "namespace_control": manifest, "namespace_control_artifact": self.artifact(manifest_file)}
+        for key in ("report_artifact", "pre_query_report_artifact", "post_query_report_artifact"):
+            path = session / (key + ".json")
+            write(path, report(12))
+            kernel[key] = self.artifact(path)
+        self.worker["host_signal_evidence"]["capture"]["kfd_event_evidence"] = deepcopy(kernel)
+        self.refresh_metadata_artifacts()
+        self.worker["native_sdk_stop_status"] = 0
+        final = session / "kfd-final.json"
+        write(final, report(12))
+        kernel["final_report_artifact"] = self.artifact(final)
+        kernel["final_snapshot_observation"] = {"process_id": 12, "thread_id": 19,
+            "native_stop_returncode": 0, "write_returncode": 0, "prefix_only": True,
+            "method": "passive_KFD_registry_prefix_after_natural_shutdown_and_successful_SDK_stop",
+            "source": self.method_source(Path(self.plan["worker_source"]), "_ws_capture_final_kfd_prefix"),
+            "complete_workspace": False, "hardware_validated": False}
+        self.worker["host_signal_evidence"]["kfd_event_evidence"] = kernel
+
+    def test_original_artifacts_sources_and_same_byte_runtime_aliases_are_verified_without_rewriting(self):
+        before = deepcopy(self.worker)
+        self.gate()
+        self.assertEqual(before, self.worker)
+        self.assertIn(str((self.root / "session/capture.json").resolve()), self.inputs.capture)
+        self.assertIn(str(self.root / "shared/runtime-loaded-alias.so"), self.inputs.shared)
+
+    def test_changed_capture_registry_or_size_is_rejected(self):
+        for what in ("capture", "before", "after_shutdown", "size"):
+            with self.subTest(what=what):
+                self.setUp()
+                evidence = self.worker["host_signal_evidence"]
+                if what == "size":
+                    evidence["capture_artifact"]["bytes"] += 1
+                else:
+                    artifact = (evidence["capture_artifact"] if what == "capture" else
+                        evidence["capture"]["before_live_artifact"] if what == "before" else
+                        evidence["after_natural_shutdown_live"])
+                    Path(artifact["path"]).write_text("{}")
+                with self.assertRaises(ValueError):
+                    self.gate()
+
+    def test_scope_fence_function_and_compiled_source_cannot_be_substituted(self):
+        for what in ("session", "device", "body", "compiled_source", "runtime"):
+            with self.subTest(what=what):
+                self.setUp()
+                evidence = self.worker["host_signal_evidence"]
+                if what == "session":
+                    evidence["source_scope"]["session_id"] = "other-session"
+                elif what == "device":
+                    evidence["source_fence"]["target_device_index"] = 0
+                elif what == "body":
+                    evidence["source_fence"]["source"]["source_sha256"] = "f" * 64
+                elif what == "compiled_source":
+                    Path(evidence["capture"]["compiler_source"]["path"]).write_text("different CPP source")
+                else:
+                    (self.root / "shared/runtime.so").write_bytes(b"different actual library")
+                if what in {"session", "device", "body"}:
+                    self.refresh_metadata_artifacts()
+                with self.assertRaises(ValueError):
+                    self.gate()
+
+    def test_unconfigured_or_missing_evidence_is_rejected_and_legacy_absence_is_unchanged(self):
+        evidence = self.worker.pop("host_signal_evidence")
+        with self.assertRaises(ValueError):
+            self.gate()
+        self.plan.pop("host_signal_provider")
+        self.gate()
+        self.worker["host_signal_evidence"] = evidence
+        with self.assertRaises(ValueError):
+            self.gate()
+
+    def test_no_live_targets_need_no_provider_initialization_but_cannot_hide_queried_records(self):
+        capture = self.worker["host_signal_evidence"]["capture"]
+        capture.pop("initialization")
+        capture.pop("compiler_source")
+        capture.update(status="NO_LIVE_FORMAL_TARGETS", records=[], ordinary_signal_control=None)
+        self.refresh_metadata_artifacts()
+        self.gate()  # Independent Native replay must still establish the actual empty target set.
+        capture["records"] = [{"signal_handle": 37}]
+        self.refresh_metadata_artifacts()
+        with self.assertRaises(ValueError):
+            self.gate()
+
+    def test_capture_function_body_and_complete_public_headers_are_not_status_claims(self):
+        for what in ("body", "header", "module"):
+            with self.subTest(what=what):
+                self.setUp()
+                capture = self.worker["host_signal_evidence"]["capture"]
+                if what == "body":
+                    capture["source_binding"]["source_sha256"] = "f" * 64
+                elif what == "header":
+                    capture["abi_headers"].pop()
+                else:
+                    capture["initialization"]["api_bindings"]["hsa_amd_pointer_info"]["module_path"] = "/unbound/module.so"
+                self.refresh_metadata_artifacts()
+                with self.assertRaises(ValueError):
+                    self.gate()
+
+    def test_raw_capture_cannot_escape_its_session_and_registry_c_never_queries_a_handle(self):
+        evidence = self.worker["host_signal_evidence"]
+        evidence["after_natural_shutdown_live"]["new_signal_queries_performed"] = True
+        with self.assertRaises(ValueError):
+            self.gate()
+        evidence["after_natural_shutdown_live"]["new_signal_queries_performed"] = False
+        other = self.root / "shared/capture.json"
+        write(other, evidence["capture"])
+        evidence["capture_artifact"].update(path=str(other), sha256=sha(other), bytes=other.stat().st_size)
+        write(self.root / "session/host-signal-worker-evidence.json",
+              {key: value for key, value in evidence.items() if key != "after_natural_shutdown_live"})
+        with self.assertRaisesRegex(ValueError, "escapes"):
+            self.gate()
+
+    def test_kfd_original_files_and_common_cold_control_are_separate_from_fresh_capture_hashes(self):
+        self.add_kfd()
+        before = deepcopy(self.worker)
+        self.gate()
+        self.assertEqual(before, self.worker)
+        kernel = self.worker["host_signal_evidence"]["kfd_event_evidence"]
+        self.assertIn(kernel["final_report_artifact"]["path"], self.inputs.capture)
+        for key in ("native_report", "kfd_report", "control_jsonl", "build_receipt"):
+            path = kernel["namespace_control"][key]["path"]
+            self.assertIn(path, self.inputs.raw)
+            self.assertNotIn(path, self.inputs.capture)
+        for row in kernel["source_binding"]["system_observation_artifacts"]:
+            self.assertNotIn(row["snapshot_artifact"]["path"], self.inputs.capture)
+
+    def test_na_final_kfd_diagnostic_does_not_invent_a_query_source_or_namespace(self):
+        self.add_kfd()
+        evidence = self.worker["host_signal_evidence"]
+        evidence["capture"].pop("kfd_event_evidence")
+        evidence["capture"].update(status="NO_LIVE_FORMAL_TARGETS", records=[], ordinary_signal_control=None)
+        evidence["kfd_event_evidence"] = {key: value for key, value in evidence["kfd_event_evidence"].items()
+            if key in {"final_report_artifact", "final_snapshot_observation"}}
+        self.refresh_metadata_artifacts()
+        self.gate()  # Source admission only; no hardware-event backing is claimed.
+
+    def test_kfd_tape_source_and_build_bytes_cannot_be_backfilled_or_replaced(self):
+        for what in ("worker_report", "cold_report", "source", "cpp_path", "libc", "build"):
+            with self.subTest(what=what):
+                self.setUp()
+                self.add_kfd()
+                kernel = self.worker["host_signal_evidence"]["kfd_event_evidence"]
+                if what == "worker_report":
+                    Path(kernel["final_report_artifact"]["path"]).write_text("{}")
+                elif what == "cold_report":
+                    Path(kernel["namespace_control"]["native_report"]["path"]).write_text("{}")
+                elif what == "source":
+                    Path(kernel["source_binding"]["artifacts"]["native_probe_source"]["path"]).write_text("different source")
+                elif what == "cpp_path":
+                    path = Path(kernel["final_report_artifact"]["path"])
+                    value = json.loads(path.read_text())
+                    value["compiled_source_path"] = kernel["source_binding"]["artifacts"]["native_probe_source"]["path"]
+                    write(path, value)
+                    kernel["final_report_artifact"] = self.artifact(path)
+                elif what == "libc":
+                    Path(kernel["source_binding"]["artifacts"]["libc"]["path"]).write_text("different libc bytes")
+                else:
+                    Path(kernel["source_binding"]["build_receipt_artifact"]["path"]).write_text("{}")
+                with self.assertRaises(ValueError):
+                    self.gate()
 
 
 if __name__ == "__main__":

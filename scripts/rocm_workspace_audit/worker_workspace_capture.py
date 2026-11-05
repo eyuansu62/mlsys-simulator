@@ -219,11 +219,20 @@ class WorkspaceWorker(Worker):
         self._ws_plan_path = plan_path
         self._ws_plan_sha = file_sha256(plan_path)
         self._ws_plan = json.loads(plan_path.read_text())
-        from workspace_stage_session import validate_native_finalization
+        from workspace_stage_session import host_signal_configuration, validate_native_finalization
 
         self._ws_native_finalization = validate_native_finalization(
             self._ws_plan["mode"], self._ws_plan["cohort"], self._ws_plan["repeats"],
             self._ws_plan.get("native_finalization", "worker_shutdown"))
+        provider = self._ws_plan.get("host_signal_provider")
+        if provider is not None:
+            observed = host_signal_configuration(Path(provider["provider_path"]), Path(provider["rocr_path"]),
+                Path(provider["abi_header_path"]), mode=self._ws_plan["mode"],
+                finalization=self._ws_native_finalization,
+                namespace_control=Path(provider["namespace_control_path"])
+                if "namespace_control_path" in provider else None)
+            if observed != provider:
+                raise RuntimeError("Immutable host-signal provider inputs changed before worker initialization")
         self._ws_root = Path(self._ws_plan["out"]) / ("worker-pid-" + str(os.getpid()))
         self._ws_root.mkdir()
         self._ws_native: Any = None
@@ -250,6 +259,7 @@ class WorkspaceWorker(Worker):
         self._ws_pending_close_ack: dict[str, Any] | None = None
         self._ws_attribute_patches: list[tuple[Any, str, Any, Any]] = []
         self._ws_stdthread_control: dict[str, Any] | None = None
+        self._ws_host_signal_evidence: dict[str, Any] | None = None
         self._ws_index = 0
         self._ws_sources = {"worker_source_reference": str(Path(__file__).resolve()),
                             "worker_source_sha256": file_sha256(Path(__file__).resolve()),
@@ -356,6 +366,147 @@ class WorkspaceWorker(Worker):
             "header": {"path": control["header_reference"], "sha256": file_sha256(header)},
             "runtime_library": {"path": control["module_path"], "sha256": file_sha256(module),
                                 "mapped_segments": mapped_library_segments(str(module))}}
+
+    def _ws_native_cursor(self) -> int:
+        cursor = self._ws_load_native().mlsys_probe_cursor
+        cursor.argtypes = []
+        cursor.restype = ctypes.c_uint64
+        return int(cursor())
+
+    def _ws_capture_host_signals(self, fence: dict[str, Any]) -> None:
+        """Optional read-only queries after all formal work and its existing fence."""
+        config = self._ws_plan.get("host_signal_provider")
+        if config is None:
+            return
+        started = time.clock_gettime_ns(time.CLOCK_MONOTONIC_RAW)
+        evidence: dict[str, Any] = {"schema_version": 1,
+            "kind": "public_hsa_signal_backing_worker_evidence", "process_id": os.getpid(),
+            "thread_id": threading.get_native_id(), "source_fence": deepcopy(fence),
+            "query_started_monotonic_raw_ns": started,
+            "complete_workspace": False, "hardware_validated": False, "status": "STARTED"}
+        if fence.get("observation_errors"):
+            self._ws_errors.append("Existing target-fence metadata was not completely observed")
+        try:
+            if self._ws_native_active is not None or self._ws_torch_active is not None:
+                raise RuntimeError("Host-signal evidence cannot nest a model or teardown epoch")
+            from hsa_signal_backing_capture import capture_hsa_signal_backings
+            from workspace_stage_session import host_signal_configuration
+
+            actual = host_signal_configuration(Path(config["provider_path"]), Path(config["rocr_path"]),
+                Path(config["abi_header_path"]), mode=self._ws_plan["mode"],
+                finalization=getattr(self, "_ws_native_finalization", "worker_shutdown"),
+                namespace_control=Path(config["namespace_control_path"])
+                if "namespace_control_path" in config else None)
+            if actual != config:
+                raise RuntimeError("Host-signal provider file/DSO/header changed during acquisition")
+            epochs = sorted({row["native_epoch_id"] for row in self._ws_records
+                             if row["cohort"] == "formal" and row["native_epoch_id"] is not None})
+            scope = {"kind": "post_formal_pre_natural_shutdown_public_signal_queries",
+                "session_id": self._ws_plan["session_id"], "process_id": os.getpid(),
+                "thread_id": threading.get_native_id(), "target_device_index": int(self.device.index),
+                "native_clock": "CLOCK_MONOTONIC_RAW", "source": source_binding(type(self)._ws_capture_host_signals),
+                "worker_source": deepcopy(self._ws_sources), "formal_native_epochs": epochs,
+                "query_started_monotonic_raw_ns": started}
+            evidence["source_scope"] = scope
+            evidence["native_cursor_before"] = self._ws_native_cursor()
+            output = self._ws_root / "host-signal-evidence"
+            optional: dict[str, Any] = {}
+            if "namespace_control_path" in config:
+                optional["namespace_control"] = Path(config["namespace_control_path"])
+                scope["namespace_control_artifact"] = {"path": config["namespace_control_path"],
+                    "sha256": config["namespace_control_sha256"]}
+            report = capture_hsa_signal_backings(native_bridge=self._ws_native,
+                provider_path=Path(config["provider_path"]), rocr_path=Path(config["rocr_path"]),
+                abi_header_path=Path(config["abi_header_path"]), output_dir=output,
+                target_epochs=epochs, source_fence=deepcopy(fence), source_scope=deepcopy(scope), **optional)
+            evidence["native_cursor_after"] = self._ws_native_cursor()
+            evidence["capture"] = report
+            if isinstance(report.get("kfd_event_evidence"), dict):
+                evidence["kfd_event_evidence"] = deepcopy(report["kfd_event_evidence"])
+            path = output / "capture.json"
+            if not path.is_file():
+                raise RuntimeError("Read-only provider did not emit its immutable capture.json artifact")
+            evidence["capture_artifact"] = {"path": str(path), "sha256": file_sha256(path),
+                                             "bytes": path.stat().st_size}
+            if report.get("status") not in {"CAPTURED", "NO_LIVE_FORMAL_TARGETS"} or report.get("issues"):
+                evidence["status"] = "CAPTURE_RETURNED_PARTIAL"
+                self._ws_errors.append("Read-only host-signal capture returned unresolved partial evidence")
+            else:
+                evidence["status"] = "CAPTURE_RETURNED_REQUIRES_INDEPENDENT_NATIVE_AUDIT"
+        except Exception as exc:
+            evidence.update(status="PROVIDER_EXCEPTION", error={"type": type(exc).__name__, "message": str(exc)})
+            self._ws_errors.append("Read-only host-signal provider failed: " + type(exc).__name__ + ": " + str(exc))
+        finally:
+            evidence["query_ended_monotonic_raw_ns"] = time.clock_gettime_ns(time.CLOCK_MONOTONIC_RAW)
+            self._ws_host_signal_evidence = evidence
+            write_new(self._ws_root / "host-signal-worker-evidence.json", evidence)
+
+    def _ws_post_shutdown_signal_snapshot(self) -> dict[str, Any]:
+        """Registry export only; never query a possibly invalid Runtime handle."""
+        path = self._ws_root / "host-signals-after-natural-shutdown.json"
+        result: dict[str, Any] = {"process_id": os.getpid(), "thread_id": threading.get_native_id(),
+            "kind": "post_natural_shutdown_observed_signal_generations", "path": str(path),
+            "new_signal_queries_performed": False, "complete_workspace": False, "hardware_validated": False}
+        try:
+            exporter = self._ws_native.mlsys_probe_write_live_signals
+            exporter.argtypes = [ctypes.c_char_p]
+            exporter.restype = ctypes.c_int
+            result["export_returncode"] = int(exporter(str(path).encode()))
+            if path.is_file():
+                result.update(sha256=file_sha256(path), bytes=path.stat().st_size,
+                              observed_live=json.loads(path.read_text()))
+            if result["export_returncode"] != 0 or not path.is_file():
+                result["status"] = "EXPORT_NOT_PROVEN_SUCCESSFUL"
+            else:
+                result["status"] = "OBSERVED_REGISTRY_SNAPSHOT_ONLY"
+        except Exception as exc:
+            result.update(status="EXPORT_EXCEPTION", error={"type": type(exc).__name__, "message": str(exc)})
+        return result
+
+    def _ws_capture_final_kfd_prefix(self, raw: dict[str, Any], stop_status: int) -> None:
+        """Read the passive registry after real SDK stop, never issue a driver API."""
+        if getattr(self, "_ws_plan", {}).get("host_signal_provider") is None:
+            return
+        envelope = raw.setdefault("host_signal_evidence", {})
+        kernel = envelope.setdefault("kfd_event_evidence", {})
+        observation: dict[str, Any] = {"process_id": os.getpid(), "thread_id": threading.get_native_id(),
+            "native_stop_returncode": stop_status, "prefix_only": True,
+            "method": "passive_KFD_registry_prefix_after_natural_shutdown_and_successful_SDK_stop",
+            "started_monotonic_raw_ns": time.clock_gettime_ns(time.CLOCK_MONOTONIC_RAW),
+            "complete_workspace": False, "hardware_validated": False}
+        kernel["final_snapshot_observation"] = observation
+        if stop_status != 0:
+            observation.update(status="NOT_ATTEMPTED_SDK_STOP_FAILED",
+                ended_monotonic_raw_ns=time.clock_gettime_ns(time.CLOCK_MONOTONIC_RAW))
+            return
+        path = self._ws_root / "kfd-after-native-stop.json"
+        try:
+            observation["source"] = source_binding(type(self)._ws_capture_final_kfd_prefix)
+            cursor = self._ws_native.mlsys_kfd_probe_cursor
+            cursor.argtypes = []
+            cursor.restype = ctypes.c_uint64
+            writer = self._ws_native.mlsys_kfd_probe_write
+            writer.argtypes = [ctypes.c_char_p]
+            writer.restype = ctypes.c_int
+            observation["before_cursor"] = int(cursor())
+            observation["write_returncode"] = int(writer(str(path).encode()))
+            observation["after_cursor"] = int(cursor())
+            if path.is_file():
+                kernel["final_report_artifact"] = {"path": str(path), "sha256": file_sha256(path),
+                                                    "size_bytes": path.stat().st_size}
+            if (observation["write_returncode"] != 0 or not path.is_file()
+                    or observation["before_cursor"] == UINT64_MAX
+                    or observation["after_cursor"] == UINT64_MAX):
+                observation["status"] = "KFD_PREFIX_NOT_PROVEN_SUCCESSFUL"
+                raw.setdefault("capture_errors", []).append("Final passive KFD prefix has failed or uncertain evidence")
+            else:
+                observation["status"] = "OBSERVED_PASSIVE_PREFIX_REQUIRES_INDEPENDENT_AUDIT"
+        except Exception as exc:
+            observation.update(status="KFD_PREFIX_EXCEPTION", error={"type": type(exc).__name__, "message": str(exc)})
+            raw.setdefault("capture_errors", []).append("Final passive KFD prefix failed: " + type(exc).__name__ +
+                                                         ": " + str(exc))
+        finally:
+            observation["ended_monotonic_raw_ns"] = time.clock_gettime_ns(time.CLOCK_MONOTONIC_RAW)
 
     def load_model(self, *, load_dummy_weights: bool = False) -> None:
         import torch
@@ -910,7 +1061,7 @@ class WorkspaceWorker(Worker):
             if isinstance(weight, torch.Tensor):
                 row["weight"] = tensor_descriptor(weight, name + ".weight", cursor=self._ws_cursor)
             vocabulary_modules.append(row)
-        return {"schema_version": 1, "kind": "vllm_worker_workspace_raw",
+        result = {"schema_version": 1, "kind": "vllm_worker_workspace_raw",
             "session_id": self._ws_plan["session_id"], "process_id": os.getpid(),
             **self._ws_placement, "placement": dict(self._ws_placement),
             "source_bindings": self._ws_sources, "plan_sha256": self._ws_plan_sha,
@@ -946,6 +1097,9 @@ class WorkspaceWorker(Worker):
             "limitations": ["Raw worker observation requires independent owner/native/transport/root audits.",
                 "Nonfinal Worker return is an asynchronous PP handoff, not a CPU-only release proof.",
                 "Warmup native callbacks retain global startup scope; only formal rows have model native epochs."]}
+        if self._ws_host_signal_evidence is not None:
+            result["host_signal_evidence"] = deepcopy(self._ws_host_signal_evidence)
+        return result
 
     def mlsys_workspace_close(self) -> dict[str, Any]:
         import torch
@@ -979,7 +1133,25 @@ class WorkspaceWorker(Worker):
         # releases so the full tape can audit transport generations; no formal
         # row's peak, original wait/reap order or endpoint is changed.
         torch.cuda.empty_cache()
+        provider_enabled = self._ws_plan.get("host_signal_provider") is not None
+        fence: dict[str, Any] = {}
+        if provider_enabled:
+            try:
+                fence["native_cursor_before"] = self._ws_native_cursor()
+            except Exception as exc:
+                fence.setdefault("observation_errors", []).append(type(exc).__name__ + ": " + str(exc))
+            fence["started_monotonic_raw_ns"] = time.clock_gettime_ns(time.CLOCK_MONOTONIC_RAW)
         torch.cuda.synchronize(self.device)
+        if provider_enabled:
+            fence.update(ended_monotonic_raw_ns=time.clock_gettime_ns(time.CLOCK_MONOTONIC_RAW),
+                native_epoch_id=epoch, process_id=os.getpid(), thread_id=threading.get_native_id(),
+                target_device_index=int(self.device.index), native_clock="CLOCK_MONOTONIC_RAW",
+                method="existing_post_cohort_last_target_device_synchronize")
+            try:
+                fence["native_cursor_after"] = self._ws_native_cursor()
+                fence["source"] = source_binding(type(self).mlsys_workspace_close)
+            except Exception as exc:
+                fence.setdefault("observation_errors", []).append(type(exc).__name__ + ": " + str(exc))
         after = {**self._ws_take_snapshot(), "pending_pp": self._ws_pending()}
         if self._ws_bridge.mlsys_torch_probe_end(epoch) != 0:
             raise RuntimeError("Teardown Torch epoch end failed")
@@ -987,6 +1159,8 @@ class WorkspaceWorker(Worker):
         self._ws_end_native(epoch)
         write_gzip(self._ws_root / "teardown.json.gz", {"epoch_id": epoch, "before": before, "after": after,
             "policy": "after_complete_cohort_only_wait_retained_device_work_then_natural_reap_and_empty_cache"})
+        if provider_enabled:
+            self._ws_capture_host_signals(fence)
         if self._ws_bridge.mlsys_torch_probe_write(str(self._ws_root / "torch-native-records.json").encode()) != 0:
             raise RuntimeError("Torch observer output failed")
         self._ws_hook.flush()
@@ -1028,6 +1202,7 @@ class WorkspaceWorker(Worker):
         if self._ws_closed_summary is not None:
             return deepcopy(self._ws_closed_summary)
         stop_status = int(self._ws_native.mlsys_probe_stop())
+        self._ws_capture_final_kfd_prefix(raw, stop_status)
         finalize_status = None
         errors = list(raw.get("capture_errors", []))
         if stop_status == 0:
@@ -1065,6 +1240,11 @@ class WorkspaceWorker(Worker):
         write_new(path, receipt)
         raw["natural_shutdown_receipt_file"] = str(path)
         raw["natural_shutdown_receipt_sha256"] = file_sha256(path)
+        if self._ws_plan.get("host_signal_provider") is not None:
+            after = self._ws_post_shutdown_signal_snapshot()
+            raw.setdefault("host_signal_evidence", {})["after_natural_shutdown_live"] = after
+            if after["status"] != "OBSERVED_REGISTRY_SNAPSHOT_ONLY":
+                raw["capture_errors"].append("Post-shutdown live-generation export did not prove success")
         if getattr(self, "_ws_native_finalization", "worker_shutdown") == "process_exit":
             # Diagnostic only: leave the real native observer active through
             # normal process teardown. No manual stop or SDK finalize occurs.

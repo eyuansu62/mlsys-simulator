@@ -14,6 +14,7 @@
 #include <atomic>
 #include <cerrno>
 #include <cinttypes>
+#include <cstddef>
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
@@ -31,6 +32,8 @@
 namespace {
 constexpr size_t kDomains = 9, kOps = 8192, kEvents = 4194304, kEpochs = 64;
 constexpr size_t kName = 192, kLabel = 256, kPath = 4096, kAgents = 64, kThreadOrigins = 256;
+constexpr size_t kHsaQueries = 8192;
+constexpr size_t kHsaHostRecords = 8192, kHsaHostAgents = 4;
 enum Flags : uint32_t {
     OtherApi = 0, Allocate = 1, Free = 2, Vmm = 4, IpcExternal = 8,
     PoolAsync = 16, HostManaged = 32, Lifecycle = 64,
@@ -80,12 +83,36 @@ struct Event {
     int64_t hip_attribute, hip_alloc_type, hip_handle_types, hip_location_type, hip_location_id;
     uint8_t hip_payload_kind;  // 1=event, 2=pool create, 3=pool attribute, 4=host registration
     bool hip_object_known, hip_value_known, hip_properties_known, hip_reserved_zero;
-    uint64_t hsa_signal_handle, hsa_signal_output, hsa_consumers[4];
+    bool hip_pointer_observed, hip_payload_observed;
+    uint64_t hsa_signal_handle, hsa_signal_output, hsa_consumers_address, hsa_consumers[4];
     int64_t hsa_initial_value;
     uint32_t hsa_num_consumers;
     uint8_t hsa_signal_kind;
     bool hsa_signal_known, hsa_consumers_observed;
+    uint32_t hsa_query_index;  // One-based index into the bounded sparse query tape.
+    uint32_t hsa_host_index;  // One-based index; host registration is not a query exemption.
 };
+struct HsaQuery {
+    uint64_t pointer, output, agent, signal, alloc_address, num_agents_address, accessible_address;
+    uint32_t input_size, returned_size, type, global_flags, alloc_flags, device_type, event_id;
+    uint64_t agent_base, host_base, bytes, owner;
+    uint32_t known;
+    uint8_t kind;  // 1=pointer info, 2=agent DEVICE, 3=signal event id.
+    bool registered, observed;
+};
+HsaQuery g_hsa_queries[kHsaQueries];
+size_t g_hsa_query_count = 0;
+uint64_t g_hsa_query_dropped = 0, g_hsa_query_read_errors = 0;
+struct HsaHostMemory {
+    uint64_t host_ptr, bytes, agents_address, pool, flags, output_address, agent_alias, agents[kHsaHostAgents];
+    int64_t num_agents;
+    uint8_t kind;  // 1=unlock, 2=lock, 3=lock_to_pool, 4=agents_allow_access (not a host-owner claim).
+    bool agents_observed, alias_observed, observed, agents_incomplete;
+};
+HsaHostMemory g_hsa_host[kHsaHostRecords];
+size_t g_hsa_host_count = 0;
+uint64_t g_hsa_host_dropped = 0, g_hsa_host_read_errors = 0, g_hsa_host_agent_incomplete = 0;
+uint64_t g_hip_host_count = 0, g_hip_host_read_errors = 0;
 struct Epoch {
     uint64_t id, begin_ns, end_ns, events, mutator_events, mutator_enters, unsupported_events, unsupported_enters, unknown_events;
     uint64_t dropped_at_begin, dropped_at_end, recursive_at_begin, recursive_at_end;
@@ -174,6 +201,14 @@ bool read_pointer_word(uint64_t address, uint64_t& value) {
     if (!address) return false;
     iovec local{&value, sizeof(value)}, remote{reinterpret_cast<void*>(uintptr_t(address)), sizeof(value)};
     return process_vm_readv(getpid(), &local, 1, &remote, 1, 0) == ssize_t(sizeof(value));
+}
+template <typename T> bool read_public_output(const T* address, T& value) {
+    if (!address) return false;
+    const int saved_errno = errno;
+    iovec local{&value, sizeof(value)}, remote{const_cast<T*>(address), sizeof(value)};
+    const bool observed = process_vm_readv(getpid(), &local, 1, &remote, 1, 0) == ssize_t(sizeof(value));
+    errno = saved_errno;
+    return observed;
 }
 bool module_for_address(uint64_t address, char* path, uint64_t& base) {
     Dl_info module{};
@@ -374,6 +409,10 @@ uint32_t classify(const char* name, size_t domain, uint8_t& status_type) {
         has(n, "hsa_amd_vmem_") || has(n, "hsa_amd_ipc_") ||
         has(n, "hsa_amd_svm_") || has(n, "hsa_ext_image_") ||
         is(n, "hsa_signal_create") || is(n, "hsa_signal_destroy"))) status_type = 2;
+    if ((domain == 2 && is(n, "hsa_agent_get_info")) ||
+        (domain == 3 && (is(n, "hsa_amd_pointer_info") || is(n, "hsa_amd_signal_get_event_id") ||
+                        is(n, "hsa_amd_agents_allow_access"))))
+        status_type = 2;  // Exact public status-returning queries; no arbitrary retval union decode.
     uint32_t f = 0;
     const bool ipc_api = (domain == 0 && std::strncmp(n, "hipipc", 6) == 0) ||
                          (domain == 3 && std::strncmp(n, "hsa_amd_ipc_", 12) == 0);
@@ -608,6 +647,20 @@ void capture_hip_control_payload(Event& event, const rocprofiler_callback_tracin
     } else if (is(name, "hipHostUnregister")) {
         event.hip_payload_kind = 10;
         event.hip_pointer = uint64_t(reinterpret_cast<uintptr_t>(data.args.hipHostUnregister.hostPtr));
+    } else if (is(name, "hipHostMalloc")) {
+        const auto& a = data.args.hipHostMalloc; event.hip_payload_kind = 11;
+        event.hip_output_address = uint64_t(reinterpret_cast<uintptr_t>(a.ptr));
+        event.hip_size = a.size; event.hip_flags = a.flags; event.hip_payload_observed = true;
+        if (success) {
+            void* pointer = nullptr;
+            event.hip_pointer_observed = read_public_output(a.ptr, pointer);
+            if (event.hip_pointer_observed) event.hip_pointer = uint64_t(reinterpret_cast<uintptr_t>(pointer));
+            else event.hip_payload_observed = false;
+        }
+    } else if (is(name, "hipHostFree")) {
+        event.hip_payload_kind = 12;
+        event.hip_pointer = uint64_t(reinterpret_cast<uintptr_t>(data.args.hipHostFree.ptr));
+        event.hip_pointer_observed = event.hip_payload_observed = true;
     }
 }
 void capture_hsa_signal_payload(Event& event, const rocprofiler_callback_tracing_hsa_api_data_t& data,
@@ -617,6 +670,7 @@ void capture_hsa_signal_payload(Event& event, const rocprofiler_callback_tracing
         const auto& a = data.args.hsa_signal_create;
         event.hsa_signal_kind = 1; event.hsa_initial_value = a.initial_value;
         event.hsa_num_consumers = a.num_consumers;
+        event.hsa_consumers_address = uint64_t(reinterpret_cast<uintptr_t>(a.consumers));
         event.hsa_signal_output = uint64_t(reinterpret_cast<uintptr_t>(a.signal));
         if (event.phase == ROCPROFILER_CALLBACK_PHASE_EXIT && event.status_type == 2 && event.status == 0) {
             if (a.signal) { event.hsa_signal_handle = a.signal->handle; event.hsa_signal_known = true; }
@@ -629,6 +683,117 @@ void capture_hsa_signal_payload(Event& event, const rocprofiler_callback_tracing
         event.hsa_signal_kind = 2; event.hsa_signal_handle = data.args.hsa_signal_destroy.signal.handle;
         event.hsa_signal_known = true;
     }
+}
+bool capture_hsa_query_payload(HsaQuery& query, const Event& event,
+                              const rocprofiler_callback_tracing_hsa_api_data_t& data, const char* name) {
+    const bool success = event.phase == ROCPROFILER_CALLBACK_PHASE_EXIT && event.status_type == 2 && event.status == 0;
+    query.observed = true;
+    if (is(name, "hsa_amd_pointer_info")) {
+        const auto& a = data.args.hsa_amd_pointer_info;
+        query.kind = 1; query.pointer = uint64_t(reinterpret_cast<uintptr_t>(a.ptr));
+        query.output = uint64_t(reinterpret_cast<uintptr_t>(a.info));
+        query.alloc_address = uint64_t(reinterpret_cast<uintptr_t>(a.alloc));
+        query.num_agents_address = uint64_t(reinterpret_cast<uintptr_t>(a.num_agents_accessible));
+        query.accessible_address = uint64_t(reinterpret_cast<uintptr_t>(a.accessible));
+        uint32_t size = 0;
+        if (event.phase == ROCPROFILER_CALLBACK_PHASE_ENTER) {
+            query.observed = a.info && read_public_output(&a.info->size, size);
+            if (query.observed) { query.input_size = size; query.known |= 1U; }
+        } else if (success) {
+            query.observed = a.info && read_public_output(&a.info->size, size);
+            if (query.observed) {
+                query.returned_size = size; query.known |= 2U;
+                // UNKNOWN defines only size and type. Never read any other
+                // output unless both the runtime's returned extent and type allow it.
+                auto field = [&](auto* source, auto& target, size_t offset, uint32_t bit) {
+                    if (offset <= size && sizeof(*source) <= size - offset) {
+                        if (read_public_output(source, target)) query.known |= bit;
+                        else query.observed = false;
+                    }
+                };
+                hsa_amd_pointer_type_t type{};
+                field(&a.info->type, type, offsetof(hsa_amd_pointer_info_t, type), 4U);
+                query.type = uint32_t(type);
+                if ((query.known & 4U) && type != HSA_EXT_POINTER_TYPE_UNKNOWN) {
+                    void* base = nullptr;
+                    field(&a.info->agentBaseAddress, base, offsetof(hsa_amd_pointer_info_t, agentBaseAddress), 8U);
+                    query.agent_base = uint64_t(reinterpret_cast<uintptr_t>(base)); base = nullptr;
+                    field(&a.info->hostBaseAddress, base, offsetof(hsa_amd_pointer_info_t, hostBaseAddress), 16U);
+                    query.host_base = uint64_t(reinterpret_cast<uintptr_t>(base));
+                    size_t bytes = 0;
+                    field(&a.info->sizeInBytes, bytes, offsetof(hsa_amd_pointer_info_t, sizeInBytes), 32U);
+                    query.bytes = uint64_t(bytes);
+                    hsa_agent_t owner{};
+                    field(&a.info->agentOwner, owner, offsetof(hsa_amd_pointer_info_t, agentOwner), 64U);
+                    query.owner = owner.handle;
+                    field(&a.info->global_flags, query.global_flags, offsetof(hsa_amd_pointer_info_t, global_flags), 128U);
+                    field(&a.info->registered, query.registered, offsetof(hsa_amd_pointer_info_t, registered), 256U);
+                    field(&a.info->alloc_flags, query.alloc_flags, offsetof(hsa_amd_pointer_info_t, alloc_flags), 512U);
+                }
+            }
+        }
+    } else if (is(name, "hsa_agent_get_info") && data.args.hsa_agent_get_info.attribute == HSA_AGENT_INFO_DEVICE) {
+        const auto& a = data.args.hsa_agent_get_info;
+        query.kind = 2; query.agent = a.agent.handle; query.output = uint64_t(reinterpret_cast<uintptr_t>(a.value));
+        if (success) {
+            hsa_device_type_t device{};
+            query.observed = read_public_output(static_cast<const hsa_device_type_t*>(a.value), device);
+            if (query.observed) { query.device_type = uint32_t(device); query.known |= 1U; }
+        }
+    }
+#if HSA_AMD_EXT_API_TABLE_STEP_VERSION >= 0x0D
+    else if (is(name, "hsa_amd_signal_get_event_id")) {
+        const auto& a = data.args.hsa_amd_signal_get_event_id;
+        query.kind = 3; query.signal = a.signal.handle; query.output = uint64_t(reinterpret_cast<uintptr_t>(a.event_id));
+        if (success) {
+            query.observed = read_public_output(a.event_id, query.event_id);
+            if (query.observed) query.known |= 1U;
+        }
+    }
+#endif
+    return query.kind != 0;
+}
+bool capture_hsa_host_memory_payload(HsaHostMemory& fact, const Event& event,
+                                    const rocprofiler_callback_tracing_hsa_api_data_t& data, const char* name) {
+    fact.observed = true;
+    if (is(name, "hsa_amd_memory_unlock")) {
+        fact.kind = 1; fact.host_ptr = uint64_t(reinterpret_cast<uintptr_t>(data.args.hsa_amd_memory_unlock.host_ptr));
+        return true;
+    }
+    void** output = nullptr;
+    const hsa_agent_t* agents = nullptr;
+    if (is(name, "hsa_amd_memory_lock")) {
+        const auto& a = data.args.hsa_amd_memory_lock;
+        fact.kind = 2; fact.host_ptr = uint64_t(reinterpret_cast<uintptr_t>(a.host_ptr)); fact.bytes = a.size;
+        agents = a.agents; fact.num_agents = a.num_agent; output = a.agent_ptr;
+    } else if (is(name, "hsa_amd_memory_lock_to_pool")) {
+        const auto& a = data.args.hsa_amd_memory_lock_to_pool;
+        fact.kind = 3; fact.host_ptr = uint64_t(reinterpret_cast<uintptr_t>(a.host_ptr)); fact.bytes = a.size;
+        agents = a.agents; fact.num_agents = a.num_agent; output = a.agent_ptr;
+        fact.pool = a.pool.handle; fact.flags = a.flags;
+    } else if (is(name, "hsa_amd_agents_allow_access")) {
+        const auto& a = data.args.hsa_amd_agents_allow_access;
+        fact.kind = 4; fact.host_ptr = uint64_t(reinterpret_cast<uintptr_t>(a.ptr));
+        agents = a.agents; fact.num_agents = a.num_agents;
+        fact.flags = uint64_t(reinterpret_cast<uintptr_t>(a.flags));  // Reserved pointer, not scalar flag bits.
+    } else return false;
+    fact.agents_address = uint64_t(reinterpret_cast<uintptr_t>(agents));
+    fact.output_address = uint64_t(reinterpret_cast<uintptr_t>(output));
+    if (fact.num_agents >= 0 && uint64_t(fact.num_agents) <= kHsaHostAgents && (!fact.num_agents || agents)) {
+        fact.agents_observed = true;
+        for (size_t i = 0; i < size_t(fact.num_agents); ++i) {
+            hsa_agent_t agent{};
+            if (!read_public_output(agents + i, agent)) { fact.agents_observed = false; fact.observed = false; break; }
+            fact.agents[i] = agent.handle;
+        }
+    } else fact.agents_incomplete = true;
+    if (fact.kind != 4 && event.phase == ROCPROFILER_CALLBACK_PHASE_EXIT && event.status_type == 2 && event.status == 0) {
+        void* alias = nullptr;
+        fact.alias_observed = read_public_output(output, alias);
+        if (fact.alias_observed) fact.agent_alias = uint64_t(reinterpret_cast<uintptr_t>(alias));
+        else fact.observed = false;
+    }
+    return true;
 }
 void callback(rocprofiler_callback_tracing_record_t record, rocprofiler_user_data_t* user_data, void*) {
     g_callbacks_inflight.fetch_add(1, std::memory_order_acq_rel);
@@ -701,9 +866,15 @@ void callback(rocprofiler_callback_tracing_record_t record, rocprofiler_user_dat
             event.hip_device_index = g_current_device_observed; event.hip_device_source_cid = g_current_device_source_cid;
         }
     }
-    if (di == 2 && op && record.payload) {
+    HsaQuery hsa_query{};
+    HsaHostMemory hsa_host{};
+    if ((di == 2 || di == 3) && op && record.payload) {
         const auto* p = static_cast<const rocprofiler_callback_tracing_hsa_api_data_t*>(record.payload);
-        if (p->size >= sizeof(*p)) capture_hsa_signal_payload(event, *p, op->name);
+        if (p->size >= sizeof(*p)) {
+            if (di == 2) capture_hsa_signal_payload(event, *p, op->name);
+            capture_hsa_query_payload(hsa_query, event, *p, op->name);
+            if (di == 3) capture_hsa_host_memory_payload(hsa_host, event, *p, op->name);
+        }
     }
     pthread_mutex_lock(&g_lock);
     if (g_stop_completed && timestamp > g_stop_end_ns) ++g_callbacks_after_stop;
@@ -743,7 +914,28 @@ void callback(rocprofiler_callback_tracing_record_t record, rocprofiler_user_dat
     }
     const bool retain = g_retain_all || (event.flags & kMutators) || g_active_epoch >= 0 || began_in_epoch ||
         (record.phase != ROCPROFILER_CALLBACK_PHASE_ENTER && record.phase != ROCPROFILER_CALLBACK_PHASE_EXIT);
-    if (retain) append_locked(event);
+    if (retain) {
+        if (event.hip_payload_kind == 11 || event.hip_payload_kind == 12) {
+            ++g_hip_host_count;
+            if (!event.hip_payload_observed) ++g_hip_host_read_errors;
+        }
+        if (hsa_query.kind) {
+            if (!hsa_query.observed) ++g_hsa_query_read_errors;
+            if (g_hsa_query_count < kHsaQueries) {
+                g_hsa_queries[g_hsa_query_count++] = hsa_query;
+                event.hsa_query_index = uint32_t(g_hsa_query_count);
+            } else ++g_hsa_query_dropped;
+        }
+        if (hsa_host.kind) {
+            if (!hsa_host.observed) ++g_hsa_host_read_errors;
+            if (hsa_host.agents_incomplete) ++g_hsa_host_agent_incomplete;
+            if (g_hsa_host_count < kHsaHostRecords) {
+                g_hsa_host[g_hsa_host_count++] = hsa_host;
+                event.hsa_host_index = uint32_t(g_hsa_host_count);
+            } else ++g_hsa_host_dropped;
+        }
+        append_locked(event);
+    }
     else { ++g_filtered; if (op) ++op->filtered; }
     pthread_mutex_unlock(&g_lock);
     g_in_callback = false;
@@ -805,7 +997,37 @@ int write_report(const char* path) {
         std::fputs(",\"name\":", f); json_text(f, a.name); std::fputs(",\"product_name\":", f); json_text(f, a.product_name);
         std::fprintf(f, ",\"node_id\":%u,\"gpu_id\":%" PRIu64 ",\"logical_node_id\":%d,\"logical_node_type_id\":%d}", a.node_id, a.gpu_id, a.logical_node_id, a.logical_node_type_id);
     }
-    std::fputs("]},\n\"stop_evidence\":{\"invoked\":", f);
+    std::fprintf(f, "]},\n\"hsa_query_storage\":{\"schema_version\":1,"
+        "\"method\":\"bounded_public_hsa_query_payloads_v1\",\"complete_public_query_inputs\":true,\"capacity\":%zu,\"retained_records\":%zu,"
+        "\"record_size_bytes\":%zu,\"storage_capacity_bytes\":%zu,\"dropped_records\":%" PRIu64 ",\"read_errors\":%" PRIu64 ","
+        "\"agent_info_device_attribute\":%u,\"cpu_device_type\":%u,\"pointer_type_hsa\":%u,\"pointer_type_locked\":%u,"
+        "\"pointer_info_struct_size\":%zu,\"pointer_info_fields\":{", kHsaQueries, g_hsa_query_count, sizeof(HsaQuery), sizeof(g_hsa_queries),
+        g_hsa_query_dropped, g_hsa_query_read_errors, unsigned(HSA_AGENT_INFO_DEVICE), unsigned(HSA_DEVICE_TYPE_CPU),
+        unsigned(HSA_EXT_POINTER_TYPE_HSA), unsigned(HSA_EXT_POINTER_TYPE_LOCKED), sizeof(hsa_amd_pointer_info_t));
+    bool first_query_field = true;
+    auto query_field = [&](const char* name, size_t offset, size_t bytes) {
+        if (!first_query_field) std::fputc(',', f);
+        first_query_field = false;
+        std::fprintf(f, "\"%s\":[%zu,%zu]", name, offset, bytes);
+    };
+#define MLSYS_QUERY_FIELD(member, key) query_field(key, offsetof(hsa_amd_pointer_info_t, member), sizeof(((hsa_amd_pointer_info_t*) nullptr)->member))
+    MLSYS_QUERY_FIELD(size, "returned_size"); MLSYS_QUERY_FIELD(type, "type");
+    MLSYS_QUERY_FIELD(agentBaseAddress, "agent_base_address"); MLSYS_QUERY_FIELD(hostBaseAddress, "host_base_address");
+    MLSYS_QUERY_FIELD(sizeInBytes, "size_bytes"); MLSYS_QUERY_FIELD(agentOwner, "owner_agent");
+    MLSYS_QUERY_FIELD(global_flags, "global_flags"); MLSYS_QUERY_FIELD(registered, "registered");
+    MLSYS_QUERY_FIELD(alloc_flags, "alloc_flags");
+#undef MLSYS_QUERY_FIELD
+    std::fprintf(f, "}},\n\"hsa_host_memory_storage\":{\"schema_version\":1,"
+        "\"method\":\"bounded_public_hsa_host_memory_payloads_v1\",\"capacity\":%zu,\"agent_capacity\":%zu,"
+        "\"supported_operations\":[\"hsa_amd_memory_unlock\",\"hsa_amd_memory_lock\",\"hsa_amd_memory_lock_to_pool\",\"hsa_amd_agents_allow_access\"],"
+        "\"retained_records\":%zu,\"record_size_bytes\":%zu,\"storage_capacity_bytes\":%zu,"
+        "\"dropped_records\":%" PRIu64 ",\"read_errors\":%" PRIu64 ",\"incomplete_agent_arrays\":%" PRIu64 ","
+        "\"system_page_size\":%ld},\n\"hip_host_memory_payloads\":{\"schema_version\":1,"
+        "\"method\":\"existing_native_event_storage_v1\",\"supported_operations\":[\"hipHostMalloc\",\"hipHostFree\"],"
+        "\"retained_records\":%" PRIu64 ",\"safe_read_errors\":%" PRIu64 ",\"uses_native_event_storage\":true},"
+        "\n\"stop_evidence\":{\"invoked\":", kHsaHostRecords, kHsaHostAgents,
+        g_hsa_host_count, sizeof(HsaHostMemory), sizeof(g_hsa_host), g_hsa_host_dropped,
+        g_hsa_host_read_errors, g_hsa_host_agent_incomplete, sysconf(_SC_PAGESIZE), g_hip_host_count, g_hip_host_read_errors);
     std::fputs(g_stop_invoked ? "true" : "false", f);
     std::fprintf(f, ",\"origin\":%d,\"actual_sdk_stop_calls\":%" PRIu64 ",\"rejected_requests\":%" PRIu64 ",\"begin_ns\":%" PRIu64 ",\"end_ns\":%" PRIu64 ",\"stop_result\":%d,\"drain_status\":%d,\"completed\":%s,\"observation_window_closed\":%s,\"callbacks_after_stop\":%" PRIu64 ",\"fini_skipped_second_stop\":%s,\"sdk_status_name\":",
         g_stop_origin, g_stop_attempts, g_stop_rejected, g_stop_begin_ns, g_stop_end_ns, g_stop_result, g_drain_status,
@@ -906,13 +1128,20 @@ int write_report(const char* path) {
                                e.hip_payload_kind == 3 ? "pool_attribute" : e.hip_payload_kind == 4 ? "host_registration" :
                                e.hip_payload_kind == 5 ? "device_query" : e.hip_payload_kind == 6 ? "device_set" :
                                e.hip_payload_kind == 7 ? "device_sync" : e.hip_payload_kind == 8 ? "stream_sync" :
-                               e.hip_payload_kind == 9 ? "pool_destroy" : "host_unregistration";
+                               e.hip_payload_kind == 9 ? "pool_destroy" : e.hip_payload_kind == 10 ? "host_unregistration" :
+                               e.hip_payload_kind == 11 ? "host_allocation" : "host_free";
             std::fputs(",\"raw_hip_control_payload\":{\"kind\":", f); json_text(f, kind);
             std::fputs(",\"object_handle\":", f);
             if (e.hip_object_known) std::fprintf(f, "%" PRIu64, e.hip_object); else std::fputs("null", f);
-            std::fprintf(f, ",\"output_address\":%" PRIu64 ",\"stream_handle\":%" PRIu64 ",\"pointer\":%" PRIu64 ","
-                           "\"size_bytes\":%" PRIu64 ",\"flags\":%" PRIu64,
-                         e.hip_output_address, e.hip_stream, e.hip_pointer, e.hip_size, e.hip_flags);
+            std::fprintf(f, ",\"output_address\":%" PRIu64 ",\"stream_handle\":%" PRIu64 ",\"pointer\":",
+                         e.hip_output_address, e.hip_stream);
+            if (e.hip_payload_kind != 11 || e.hip_pointer_observed) std::fprintf(f, "%" PRIu64, e.hip_pointer);
+            else std::fputs("null", f);
+            if (e.hip_payload_kind == 12) std::fputs(",\"size_bytes\":null,\"flags\":null", f);
+            else std::fprintf(f, ",\"size_bytes\":%" PRIu64 ",\"flags\":%" PRIu64, e.hip_size, e.hip_flags);
+            if (e.hip_payload_kind == 11 || e.hip_payload_kind == 12)
+                std::fprintf(f, ",\"pointer_observed\":%s,\"payload_observed\":%s",
+                    e.hip_pointer_observed ? "true" : "false", e.hip_payload_observed ? "true" : "false");
             std::fputs(",\"device_index\":", f);
             if (e.hip_device_index >= 0) std::fprintf(f, "%" PRId64, e.hip_device_index); else std::fputs("null", f);
             std::fprintf(f, ",\"device_source_cid\":%" PRIu64, e.hip_device_source_cid);
@@ -933,15 +1162,77 @@ int write_report(const char* path) {
             json_text(f, e.hsa_signal_kind == 1 ? "create" : "destroy");
             std::fputs(",\"signal_handle\":", f);
             if (e.hsa_signal_known) std::fprintf(f, "%" PRIu64, e.hsa_signal_handle); else std::fputs("null", f);
-            std::fprintf(f, ",\"output_address\":%" PRIu64 ",\"initial_value\":%" PRId64 ",\"num_consumers\":%u,"
+            std::fprintf(f, ",\"output_address\":%" PRIu64 ",\"initial_value\":%" PRId64 ",\"num_consumers\":%u,\"consumers_address\":%" PRIu64 ","
                            "\"consumers_observed\":%s,\"consumer_agents\":[",
-                         e.hsa_signal_output, e.hsa_initial_value, e.hsa_num_consumers,
+                         e.hsa_signal_output, e.hsa_initial_value, e.hsa_num_consumers, e.hsa_consumers_address,
                          e.hsa_consumers_observed ? "true" : "false");
             if (e.hsa_consumers_observed) for (size_t j = 0; j < e.hsa_num_consumers; ++j) {
                 if (j) std::fputc(',', f);
                 std::fprintf(f, "%" PRIu64, e.hsa_consumers[j]);
             }
             std::fputs("]}", f);
+        }
+        if (e.hsa_host_index && e.hsa_host_index <= g_hsa_host_count) {
+            const auto& h = g_hsa_host[e.hsa_host_index - 1];
+            const bool lock = h.kind == 2 || h.kind == 3;
+            const bool agent_list = lock || h.kind == 4;
+            std::fputs(",\"raw_hsa_host_memory_payload\":{\"operation\":", f);
+            json_text(f, h.kind == 1 ? "unlock" : h.kind == 2 ? "lock" : h.kind == 3 ? "lock_to_pool" : "allow_access");
+            std::fprintf(f, ",\"%s\":%" PRIu64 ",\"payload_observed\":%s,\"size_bytes\":",
+                h.kind == 4 ? "ptr" : "host_ptr", h.host_ptr, h.observed ? "true" : "false");
+            if (lock) std::fprintf(f, "%" PRIu64, h.bytes); else std::fputs("null", f);
+            std::fputs(",\"agents_address\":", f);
+            if (agent_list) std::fprintf(f, "%" PRIu64, h.agents_address); else std::fputs("null", f);
+            std::fputs(",\"num_agents\":", f);
+            if (agent_list) std::fprintf(f, "%" PRId64, h.num_agents); else std::fputs("null", f);
+            std::fputs(",\"agents_observed\":", f);
+            if (agent_list) std::fputs(h.agents_observed ? "true" : "false", f); else std::fputs("null", f);
+            std::fputs(",\"agent_handles\":", f);
+            if (agent_list && h.agents_observed) {
+                std::fputc('[', f);
+                for (size_t j = 0; j < size_t(h.num_agents); ++j)
+                    std::fprintf(f, "%s%" PRIu64, j ? "," : "", h.agents[j]);
+                std::fputc(']', f);
+            } else std::fputs("null", f);
+            std::fputs(",\"pool_handle\":", f);
+            if (h.kind == 3) std::fprintf(f, "%" PRIu64, h.pool); else std::fputs("null", f);
+            std::fputs(",\"flags\":", f);
+            if (h.kind == 3) std::fprintf(f, "%" PRIu64, h.flags); else std::fputs("null", f);
+            std::fputs(",\"agent_ptr_output_address\":", f);
+            if (lock) std::fprintf(f, "%" PRIu64, h.output_address); else std::fputs("null", f);
+            std::fputs(",\"agent_alias\":", f);
+            if (h.alias_observed) std::fprintf(f, "%" PRIu64, h.agent_alias); else std::fputs("null", f);
+            if (h.kind == 4) std::fprintf(f, ",\"flags_address\":%" PRIu64 ",\"flags_values\":null,\"flags_observed\":%s",
+                h.flags, h.flags == 0 ? "true" : "false");
+            std::fputc('}', f);
+        }
+        if (e.hsa_query_index && e.hsa_query_index <= g_hsa_query_count) {
+            const auto& q = g_hsa_queries[e.hsa_query_index - 1];
+            auto value = [&](const char* key, uint32_t bit, uint64_t number) {
+                std::fprintf(f, ",\"%s\":", key);
+                if (q.known & bit) std::fprintf(f, "%" PRIu64, number); else std::fputs("null", f);
+            };
+            if (q.kind == 1) {
+                std::fprintf(f, ",\"raw_hsa_pointer_info_payload\":{\"pointer_address\":%" PRIu64 ",\"info_address\":%" PRIu64
+                    ",\"alloc_address\":%" PRIu64 ",\"num_agents_address\":%" PRIu64 ",\"accessible_address\":%" PRIu64,
+                    q.pointer, q.output, q.alloc_address, q.num_agents_address, q.accessible_address);
+                value("input_size", 1U, q.input_size); value("returned_size", 2U, q.returned_size);
+                value("type", 4U, q.type); value("agent_base_address", 8U, q.agent_base);
+                value("host_base_address", 16U, q.host_base); value("size_bytes", 32U, q.bytes);
+                value("owner_agent", 64U, q.owner); value("global_flags", 128U, q.global_flags);
+                std::fputs(",\"registered\":", f);
+                if (q.known & 256U) std::fputs(q.registered ? "true" : "false", f); else std::fputs("null", f);
+                value("alloc_flags", 512U, q.alloc_flags);
+            } else if (q.kind == 2) {
+                std::fprintf(f, ",\"raw_hsa_agent_info_payload\":{\"agent_handle\":%" PRIu64 ",\"attribute\":%u,\"output_address\":%" PRIu64,
+                    q.agent, unsigned(HSA_AGENT_INFO_DEVICE), q.output);
+                value("device_type", 1U, q.device_type);
+            } else {
+                std::fprintf(f, ",\"raw_hsa_signal_event_payload\":{\"signal_handle\":%" PRIu64 ",\"output_address\":%" PRIu64,
+                    q.signal, q.output);
+                value("event_id", 1U, q.event_id);
+            }
+            std::fprintf(f, ",\"payload_observed\":%s}", q.observed ? "true" : "false");
         }
         std::fputc('}', f);
     }
@@ -1096,6 +1387,20 @@ int mlsys_probe_end(uint64_t epoch) {
 }
 extern "C" __attribute__((visibility("default")))
 int mlsys_probe_write(const char* path) { return write_report(path); }
+
+extern "C" __attribute__((visibility("default")))
+uint64_t mlsys_probe_cursor() {
+    // The last committed tape sequence, never an attempted callback guess.
+    // An API may remain open on another thread; only an in-flight callback
+    // makes this scalar snapshot uncertain. The final drain audits API closure.
+    pthread_mutex_lock(&g_lock);
+    const bool certain = g_ready && !g_stop_invoked && !g_finalized && g_bounds_valid &&
+        !g_metadata_truncated && !g_dropped && !g_recursive.load() && !g_missing_user_data &&
+        !g_callbacks_inflight.load(std::memory_order_acquire) && g_count == g_attempted;
+    const uint64_t cursor = certain ? uint64_t(g_count) : UINT64_MAX;
+    pthread_mutex_unlock(&g_lock);
+    return cursor;
+}
 
 extern "C" __attribute__((visibility("default")))
 int mlsys_probe_stop() { return stop_observation_window(true); }

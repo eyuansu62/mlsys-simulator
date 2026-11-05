@@ -1,5 +1,32 @@
 # Changelog
 
+## 1.14.0 — 2026-11-05
+
+### Added
+
+- Optional source-bound public HSA signal backing capture, including actual
+  pointer-information extents, CPU preferred-owner queries, hardware event IDs,
+  ordinary-signal controls and stable generation/cursor evidence.
+- Passive Linux x86-64 KFD event-page observation and independent replay of
+  original event creation, GTT allocation, GPU/render-fd acquisition and mapping
+  generations. Unknown requests, lost records and unsupported bindings remain
+  partial; queried available memory is never substituted for Workspace.
+- A standalone ordinary-signal namespace control and hash-bound cold-control
+  artifacts shared as source evidence, independently of train/repeat acquisition.
+
+### Evidence boundaries
+
+- PP2 completed formal training and a frozen independent Runtime repeat:
+  48 records per cohort, 16 stage-specific shapes, full record/rank/shape
+  coverage, zero byte error and no underprediction. All attribution and
+  fixed-budget gates passed independently before validation.
+- A live logical signal is not relabeled as destroyed. CPU ABI regions and
+  driver GTT event pages are reported separately; they do not establish a
+  physical zero-VRAM result, complete private CPU-object size or host-memory peak.
+- Every original GPU backing, pool, communication, PP transport and scratch
+  obligation remains subject to independent attribution and budget checks.
+  Memory-instrumented timings are diagnostic and do not fit a latency Profile.
+
 ## 1.13.0 — 2026-11-05
 
 Workspace acquisition now observes each real Worker iteration and separates

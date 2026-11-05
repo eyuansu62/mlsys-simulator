@@ -19,6 +19,7 @@ import inspect
 import io
 import json
 from pathlib import Path
+import struct
 from typing import Any
 
 from mlsys_sim.config import experiment_from_dict
@@ -85,6 +86,15 @@ class Inputs:
         if actual != expected:
             raise ValueError("Executed source/binary SHA mismatch: " + supplied)
 
+    def shared_alias_file(self, supplied: Any, expected: Any) -> Path:
+        """Verify a loader/compiler spelling and its actual resolved file bytes."""
+        if not isinstance(supplied, str) or not Path(supplied).is_absolute():
+            raise ValueError("Actual loaded/source alias must be an absolute path")
+        resolved = Path(supplied).resolve(strict=True)
+        self.shared_file(str(resolved), expected)
+        self.shared[supplied] = self.shared[str(resolved)]
+        return resolved
+
     def read(self, path: Path, *, capture: bool = True) -> Any:
         if path.is_symlink() or not path.is_file():
             raise ValueError("Missing or symlinked raw evidence: " + str(path))
@@ -134,20 +144,24 @@ def _constructor_source(path: Path, qualified: str) -> str:
     """Use AST/tokenization to read a known method; never import producer code."""
     constructor = "vllm.distributed.device_communicators.pynccl.PyNcclCommunicator.__init__"
     shutdown = "vllm.v1.executor.multiproc_executor.WorkerProc.shutdown"
+    worker_prefix = "worker_workspace_capture.WorkspaceWorker."
+    worker_methods = {worker_prefix + name for name in
+                      ("_ws_capture_host_signals", "mlsys_workspace_close", "_ws_capture_final_kfd_prefix")}
+    host_capture = "hsa_signal_backing_capture.capture_hsa_signal_backings"
     pg_prefix = "torch.distributed.distributed_c10d."
     pg_functions = {pg_prefix + name for name in ("all_gather_into_tensor", "isend", "irecv")}
-    if qualified not in {constructor, shutdown} and qualified not in pg_functions:
+    if qualified not in {constructor, shutdown, host_capture} | worker_methods | pg_functions:
         raise ValueError("Unknown communication constructor entrypoint")
     text = path.read_text()
     tree = ast.parse(text)
-    if qualified in {constructor, shutdown}:
+    if qualified in {constructor, shutdown} | worker_methods:
         class_name, method_name = qualified.split(".")[-2:]
         classes = [node for node in tree.body if isinstance(node, ast.ClassDef) and node.name == class_name]
         methods = [node for cls in classes for node in cls.body
                    if isinstance(node, ast.FunctionDef) and node.name == method_name]
     else:
         methods = [node for node in tree.body if isinstance(node, ast.FunctionDef)
-                   and node.name == qualified.removeprefix(pg_prefix)]
+                   and node.name == qualified.rsplit(".", 1)[-1]]
     if len(methods) != 1:
         raise ValueError("Pinned communicator constructor is not unique in its actual source")
     method = methods[0]
@@ -163,6 +177,346 @@ def _verify_callable_source(source: dict, inputs: Inputs) -> None:
         raise ValueError("Actual communication function body SHA differs")
 
 
+def _kfd_source_gate(plan: dict, worker: dict, evidence: dict, inputs: Inputs) -> None:
+    """Authenticate passive/cold-control files without interpreting ID namespaces."""
+    def same(actual: Any, expected: Any, label: str) -> None:
+        if _json(actual) != _json(expected):
+            raise ValueError("KFD evidence differs: " + label)
+
+    def raw(ref: Any, *, shared: bool = False, json_value: bool = True) -> Any:
+        if not isinstance(ref, dict):
+            raise ValueError("KFD original artifact reference is missing")
+        path = Path(ref["path"]) if shared else inputs.path(ref["path"])
+        if not path.is_absolute() or path.is_symlink() or not path.is_file():
+            raise ValueError("KFD original artifact must be an actual absolute regular file")
+        same(path.stat().st_size, _integer(ref.get("size_bytes"), "KFD artifact bytes", 1), "artifact bytes")
+        if path.stat().st_size > _MAX_INPUT_BYTES:
+            raise ValueError("KFD original artifact exceeds the bounded input size")
+        if json_value:
+            value = inputs.read(path, capture=not shared)
+        else:
+            inputs.raw[str(path.resolve())] = _sha(path)
+            if not shared:
+                inputs.capture[str(path.resolve())] = inputs.raw[str(path.resolve())]
+            value = None  # Preserve control JSONL as bytes, never synthesize a JSON report.
+        same(inputs.raw[str(path.resolve())], ref["sha256"], "original artifact SHA")
+        return value
+
+    def source(binding: Any, report: dict, *, primary: bool) -> None:
+        if not isinstance(binding, dict) or not isinstance(binding.get("artifacts"), dict):
+            raise ValueError("KFD actual source artifacts are missing")
+        names = ("probe_source", "native_probe_source", "probe_library", "hsa_runtime", "libc", "kfd_header", "drm_header")
+        paths = {}
+        for name in names:
+            row = binding["artifacts"][name]
+            same(row["sha256"], binding[name + "_sha256"], "source artifact " + name)
+            path = inputs.shared_alias_file(row["path"], row["sha256"])
+            for alias in ("loaded_path", "realpath"):
+                if alias in row:
+                    inputs.shared_alias_file(row[alias], row["sha256"])
+            same(path.stat().st_size, _integer(row.get("size_bytes"), "KFD source artifact bytes", 1), "source bytes")
+            paths[name] = path
+        same(binding.get("abi"), report.get("abi"), "original compiled ABI object")
+        inputs.shared_alias_file(report["compiled_source_path"], binding["probe_source_sha256"])
+        if primary:
+            same(binding["probe_library_sha256"], plan["native_probe_library_sha256"], "actual combined Native/KFD DSO")
+            inputs.shared_alias_file(plan["native_probe_library"], binding["probe_library_sha256"])
+            same(binding["hsa_runtime_sha256"], plan["host_signal_provider"]["rocr_sha256"], "actual queried HSA Runtime")
+        modules = report.get("libc_bindings")
+        if not isinstance(modules, dict) or not modules:
+            raise ValueError("KFD actual libc function bindings are missing")
+        observed = False
+        for row in modules.values():
+            if row.get("address") is None:
+                continue  # Untouched symbols are not actively resolved for an audit.
+            _integer(row.get("address"), "KFD actual libc function address", 1)
+            _integer(row.get("module_base"), "KFD actual libc module base", 1)
+            same(row.get("dladdr_success"), True, "actual resolved libc module")
+            inputs.shared_alias_file(row["module_path"], binding["libc_sha256"])
+            observed = True
+        if not observed:
+            raise ValueError("KFD tape has no actual resolved libc binding")
+        build = raw(binding.get("build_receipt_artifact"), shared=True)
+        if type(build.get("returncode")) is not int or build["returncode"] != 0:
+            raise ValueError("KFD combined observer build did not actually succeed")
+        same(build.get("binary_sha256"), binding["probe_library_sha256"], "actual built DSO bytes")
+        hashes = build.get("sources_sha256")
+        if not isinstance(hashes, dict):
+            raise ValueError("KFD combined observer build source hashes are missing")
+        for name in ("probe_source", "native_probe_source"):
+            expected = binding[name + "_sha256"]
+            if hashes.get(str(paths[name])) != expected and hashes.get(paths[name].name) != expected:
+                raise ValueError("KFD combined build source differs: " + name)
+        observations = binding.get("system_observation_artifacts")
+        if observations is None and not primary:
+            return  # Older independently captured cold metadata remains a shared source binding.
+        if not isinstance(observations, list) or not observations:
+            raise ValueError("KFD current kernel/sysfs byte observations are missing")
+        files: dict[str, bytes] = {}
+        unames = []
+        for row in observations:
+            # Kernel/header/topology facts can have identical bytes in a fresh
+            # Runtime; retain their hashes without treating them as model tape reuse.
+            doc = raw(row.get("snapshot_artifact"), shared=True)
+            same(doc.get("schema_version"), 1, "system observation schema")
+            if row.get("source") == "os.uname":
+                same(doc.get("kind"), "actual_uname_result", "uname observation kind")
+                unames.append(doc)
+                continue
+            same(doc.get("kind"), "actual_system_file_bytes", "system-file observation kind")
+            name = row.get("original_path")
+            if not isinstance(name, str) or not Path(name).is_absolute() or name in files:
+                raise ValueError("KFD original system-file path is missing or repeated")
+            same(doc.get("original_path"), name, "original system-file identity")
+            data = bytes.fromhex(doc["contents_hex"])
+            for value in (row, doc):
+                same(_integer(value.get("contents_size_bytes"), "Observed system-file bytes"), len(data), "system-file length")
+                same(value.get("contents_sha256"), hashlib.sha256(data).hexdigest(), "system-file bytes SHA")
+            files[name] = data
+        if len(unames) != 1:
+            raise ValueError("KFD actual uname observation is missing or ambiguous")
+        same(unames[0].get("release"), binding.get("kernel_release"), "actual kernel release")
+        notes = [data for name, data in files.items() if name.endswith("/module/amdgpu/notes/.note.gnu.build-id")]
+        if len(notes) != 1:
+            raise ValueError("KFD actual amdgpu build note is missing or ambiguous")
+        note, offset, ids = notes[0], 0, []
+        while offset < len(note):
+            if len(note) - offset < 12:
+                raise ValueError("KFD actual module ELF note is truncated")
+            namesz, descsz, kind = struct.unpack_from("<III", note, offset)
+            begin = offset + 12
+            desc = begin + ((namesz + 3) & ~3)
+            end = desc + ((descsz + 3) & ~3)
+            if end > len(note):
+                raise ValueError("KFD actual module ELF note exceeds its bytes")
+            if note[begin:begin + namesz].rstrip(b"\0") == b"GNU" and kind == 3:
+                if descsz != 20:
+                    raise ValueError("KFD actual module build ID has unsupported extent")
+                ids.append(note[desc:desc + descsz].hex())
+            offset = end
+        same(ids, [binding.get("amdgpu_module_build_id")], "actual amdgpu module build ID")
+        devices = []
+        for name in sorted(files):
+            if "/class/kfd/kfd/topology/nodes/" not in name or not name.endswith("/gpu_id"):
+                continue
+            gpu_id = int(files[name].decode().strip())
+            if not gpu_id:
+                continue
+            properties = dict(line.split(" ", 1) for line in files[str(Path(name).with_name("properties"))].decode().splitlines())
+            minor = int(properties["drm_render_minor"])
+            prefix = name.split("/class/kfd/", 1)[0] + "/class/drm/renderD" + str(minor)
+            major, actual_minor = map(int, files[prefix + "/dev"].decode().strip().split(":"))
+            same(actual_minor, minor, "actual render-node minor")
+            uevent = dict(line.split("=", 1) for line in files[prefix + "/device/uevent"].decode().splitlines() if "=" in line)
+            devices.append({"gpu_id": gpu_id, "rdev_major": major, "rdev_minor": minor,
+                            "pci_bus_id": uevent["PCI_SLOT_NAME"].lower()})
+        same(devices, binding.get("device_nodes"), "actual kernel GPU/render topology")
+
+    original = worker["host_signal_evidence"]["capture"].get("kfd_event_evidence")
+    final_keys = {"final_report_artifact", "final_snapshot_observation"}
+    diagnostic_only = original is None and set(evidence) <= final_keys
+    if not diagnostic_only:
+        if (type(evidence.get("schema_version")) is not int or evidence["schema_version"] != 1
+                or evidence.get("kind") != "passive_kfd_event_evidence" or not isinstance(original, dict)):
+            raise ValueError("KFD final evidence lacks its original query capture refs")
+        same({key: value for key, value in evidence.items() if key not in final_keys}, original,
+             "original passive query evidence")
+    report = raw(evidence.get("final_report_artifact"))
+    same(report.get("pid"), worker["process_id"], "worker final passive-tape process")
+    observation = evidence.get("final_snapshot_observation")
+    if not isinstance(observation, dict):
+        raise ValueError("KFD final prefix lacks its actual source-bound export observation")
+    for key, expected in {"process_id": worker["process_id"], "thread_id": worker["runtime_shutdown"]["thread_id"],
+        "native_stop_returncode": worker["native_sdk_stop_status"], "write_returncode": 0, "prefix_only": True,
+        "method": "passive_KFD_registry_prefix_after_natural_shutdown_and_successful_SDK_stop",
+        "complete_workspace": False, "hardware_validated": False}.items():
+        same(observation.get(key), expected, "actual final-prefix observation " + key)
+    src = observation["source"]
+    same(src.get("qualified_name"), "worker_workspace_capture.WorkspaceWorker._ws_capture_final_kfd_prefix", "export method")
+    same(src.get("source_reference"), plan["worker_source"], "export method file")
+    same(src.get("file_sha256"), plan["worker_source_sha256"], "export method file SHA")
+    _verify_callable_source(src, inputs)
+    if diagnostic_only:
+        return  # N/A/event-zero must still pass the independent actual signal replay.
+    for key in ("report_artifact", "pre_query_report_artifact", "post_query_report_artifact"):
+        before = raw(evidence.get(key))
+        same(before.get("pid"), worker["process_id"], "worker query-prefix process")
+        same(before.get("abi"), report.get("abi"), "query/final compiled ABI")
+        inputs.shared_alias_file(before["compiled_source_path"], evidence["source_binding"]["probe_source_sha256"])
+    source(evidence.get("source_binding"), report, primary=True)
+    control = evidence.get("namespace_control")
+    if not isinstance(control, dict):
+        raise ValueError("KFD independent cold namespace control is missing")
+    same(raw(evidence.get("namespace_control_artifact"), shared=True), control, "original cold manifest")
+    config = plan["host_signal_provider"]
+    same(evidence["namespace_control_artifact"]["sha256"], config.get("namespace_control_sha256"), "planned cold manifest")
+    inputs.shared_alias_file(config["namespace_control_path"], config["namespace_control_sha256"])
+    for key, expected in {"schema_version": 1, "kind": "cold_hsa_kfd_namespace_control_manifest"}.items():
+        same(control.get(key), expected, "cold manifest " + key)
+    native = raw(control.get("native_report"), shared=True)
+    cold = raw(control.get("kfd_report"), shared=True)
+    raw(control.get("control_jsonl"), shared=True, json_value=False)
+    raw(control.get("build_receipt"), shared=True)
+    same(native.get("pid"), cold.get("pid"), "cold Native/KFD process")
+    source(control.get("source_binding"), cold, primary=False)
+    # CID, KFD call ID, slot index, GPU ID and HSA agent identities stay in
+    # their original namespaces. Only the independent replay may join them.
+
+
+def _host_signal_source_gate(plan: dict, worker: dict, inputs: Inputs, *, inference_thread: int) -> None:
+    """Authenticate optional raw query artifacts; resource ownership stays independent."""
+    config, evidence = plan.get("host_signal_provider"), worker.get("host_signal_evidence")
+    if config is None and evidence is None:
+        return
+    if (not isinstance(config, dict) or not isinstance(evidence, dict) or plan.get("mode") != "pp2"
+            or plan.get("native_finalization", "worker_shutdown") != "worker_shutdown"):
+        raise ValueError("Host signal evidence requires its actual planned PP2 worker-shutdown provider")
+
+    def same(actual: Any, expected: Any, label: str) -> None:
+        if _json(actual) != _json(expected):
+            raise ValueError("Host signal evidence differs: " + label)
+
+    def artifact(value: Any, *, raw: bool = False, embedded: Any = None, size_key: str = "size_bytes") -> Path:
+        if not isinstance(value, dict):
+            raise ValueError("Host signal evidence artifact is missing")
+        if raw:
+            path = inputs.path(value["path"])
+            loaded = inputs.read(path)
+            same(inputs.raw[str(path.resolve())], value["sha256"], "raw artifact SHA")
+            same(loaded, embedded, "raw artifact contents")
+        else:
+            path = inputs.shared_alias_file(value["path"], value["sha256"])
+        same(path.stat().st_size, _integer(value.get(size_key), "Host signal artifact bytes", 1), "artifact size")
+        return path
+
+    pid, device = worker["process_id"], worker["logical_device_index"]
+    for key, expected in {"schema_version": 1, "kind": "public_hsa_signal_backing_worker_evidence",
+        "process_id": pid, "thread_id": inference_thread, "complete_workspace": False,
+        "hardware_validated": False}.items():
+        same(evidence.get(key), expected, "worker envelope " + key)
+    sidecar = inputs.read(inputs.path(worker["startup_snapshot"]).with_name("host-signal-worker-evidence.json"))
+    extensions = {"after_natural_shutdown_live", "kfd_event_evidence"}
+    same({key: value for key, value in sidecar.items() if key not in extensions},
+         {key: value for key, value in evidence.items() if key not in extensions},
+         "original pre-shutdown worker envelope")
+    if "kfd_event_evidence" in sidecar:
+        current = evidence.get("kfd_event_evidence")
+        if not isinstance(current, dict):
+            raise ValueError("Host signal original KFD extension is missing")
+        same(sidecar["kfd_event_evidence"], {key: value for key, value in current.items()
+             if key not in {"final_report_artifact", "final_snapshot_observation"}}, "original KFD extension")
+    capture = evidence.get("capture")
+    if not isinstance(capture, dict):
+        raise ValueError("Host signal evidence lacks its original public capture")
+    artifact(evidence.get("capture_artifact"), raw=True, embedded=capture, size_key="bytes")
+    for key in ("process_id", "thread_id", "source_scope", "source_fence"):
+        same(capture.get(key), evidence.get(key), "capture/envelope " + key)
+    scope, fence = evidence.get("source_scope"), evidence.get("source_fence")
+    if not isinstance(scope, dict) or not isinstance(fence, dict):
+        raise ValueError("Host signal source scope/fence is missing")
+    epochs = sorted({row["native_epoch_id"] for row in worker["records"] if row["cohort"] == "formal"})
+    for key, expected in {"kind": "post_formal_pre_natural_shutdown_public_signal_queries",
+        "session_id": plan["session_id"], "process_id": pid, "thread_id": inference_thread,
+        "target_device_index": device, "native_clock": "CLOCK_MONOTONIC_RAW", "formal_native_epochs": epochs,
+        "worker_source": worker["source_bindings"],
+        "query_started_monotonic_raw_ns": evidence.get("query_started_monotonic_raw_ns")}.items():
+        same(scope.get(key), expected, "actual source scope " + key)
+    for key, expected in {"method": "existing_post_cohort_last_target_device_synchronize", "process_id": pid,
+        "thread_id": inference_thread, "target_device_index": device, "native_clock": "CLOCK_MONOTONIC_RAW",
+        "native_epoch_id": 9001}.items():
+        same(fence.get(key), expected, "actual source fence " + key)
+    for value, name in ((scope, "_ws_capture_host_signals"), (fence, "mlsys_workspace_close")):
+        source = value["source"]
+        same(source.get("qualified_name"), "worker_workspace_capture.WorkspaceWorker." + name, "worker method")
+        same(source.get("source_reference"), plan["worker_source"], "worker method file")
+        same(source.get("file_sha256"), plan["worker_source_sha256"], "worker method file SHA")
+        _verify_callable_source(source, inputs)
+
+    # These are original windows, not correlations or ownership claims. The
+    # synchronization auditor joins them to unique typed SDK calls/context.
+    for value, prefix in ((fence, ""), (evidence, "query_"), (capture, "capture_")):
+        start = _integer(value.get(prefix + "started_monotonic_raw_ns"), "Host query RAW start", 1)
+        end = _integer(value.get(prefix + "ended_monotonic_raw_ns"), "Host query RAW end", 1)
+        if start > end:
+            raise ValueError("Host signal RAW window is reversed")
+    for value in (fence, evidence):
+        before = _integer(value.get("native_cursor_before"), "Host query before cursor")
+        after = _integer(value.get("native_cursor_after"), "Host query after cursor")
+        if before > after:
+            raise ValueError("Host signal cursor window is reversed")
+    for phase in ("before", "after"):
+        artifact(capture.get(phase + "_live_artifact"), raw=True, embedded=capture.get(phase + "_live"))
+    post = evidence.get("after_natural_shutdown_live")
+    if not isinstance(post, dict):
+        raise ValueError("Host signal evidence lacks the actual post-shutdown registry artifact")
+    for key, expected in {"kind": "post_natural_shutdown_observed_signal_generations", "process_id": pid,
+        "thread_id": worker["runtime_shutdown"]["thread_id"], "new_signal_queries_performed": False}.items():
+        same(post.get(key), expected, "post-shutdown registry " + key)
+    artifact(post, raw=True, embedded=post.get("observed_live"), size_key="bytes")
+
+    for name in ("provider", "rocr", "abi_header"):
+        inputs.shared_alias_file(config[name + "_path"], config[name + "_sha256"])
+    artifact(capture.get("provider"))
+    same(capture["provider"]["sha256"], config["provider_sha256"], "planned provider bytes")
+    def table(key: str) -> list[dict]:
+        rows = capture.get(key)
+        if not isinstance(rows, list) or not rows or not all(isinstance(row, dict) for row in rows):
+            raise ValueError("Host signal source/header/runtime artifact table is missing")
+        for row in rows:
+            artifact(row)
+        return rows
+
+    sources, headers, libraries = (table(key) for key in ("sources", "abi_headers", "runtime_dsos"))
+    helper = [row for row in sources if Path(row["path"]).name == "hsa_signal_backing_capture.py"]
+    cpp = [row for row in sources if Path(row["path"]).name == "hsa_signal_backing_probe.cpp"]
+    if len(helper) != 1 or len(cpp) != 1:
+        raise ValueError("Host signal helper and sibling CPP source are not unique")
+    binding = capture["source_binding"]
+    same(binding.get("qualified_name"), "hsa_signal_backing_capture.capture_hsa_signal_backings", "capture function")
+    same(_constructor_source(Path(helper[0]["path"]), binding["qualified_name"]), binding.get("source_sha256"),
+         "actual capture function body SHA")
+    required_headers = {"amd_hsa_signal.h", "hsa.h", "hsa_ext_amd.h", "amd_hsa_common.h", "amd_hsa_queue.h"}
+    names = [Path(row["path"]).name for row in headers]
+    if not required_headers <= set(names) or any(names.count(name) != 1 for name in required_headers):
+        raise ValueError("Host signal public ABI headers are missing or ambiguous")
+    same(next(row["sha256"] for row in headers if Path(row["path"]).name == "amd_hsa_signal.h"),
+         config["abi_header_sha256"], "planned ABI header bytes")
+    module_hashes: dict[str, str] = {}
+    for row in libraries:
+        for path in (row["path"], row["loaded_path"]):
+            inputs.shared_alias_file(path, row["sha256"])
+            if path in module_hashes and module_hashes[path] != row["sha256"]:
+                raise ValueError("Host signal runtime alias has conflicting bytes")
+            module_hashes[path] = row["sha256"]
+    if config["rocr_sha256"] not in module_hashes.values():
+        raise ValueError("Host signal actual configured ROCr bytes are absent")
+    init = capture.get("initialization")
+    if init is not None or capture.get("compiler_source") is not None:
+        if not isinstance(init, dict):
+            raise ValueError("Host signal provider initialization is missing")
+        compiled = capture["compiler_source"]
+        artifact(compiled)
+        same(compiled["sha256"], cpp[0]["sha256"], "actual compiled CPP versus sibling source bytes")
+        inputs.shared_alias_file(init["compiled_source_path"], compiled["sha256"])
+        bindings = init.get("api_bindings")
+        if not isinstance(bindings, dict) or not bindings:
+            raise ValueError("Host signal actual API module bindings are missing")
+        for name, row in bindings.items():
+            same(row.get("symbol_name"), name, "resolved public API name")
+            same(row.get("dladdr_success"), True, "resolved public API module")
+            _integer(row.get("address"), "Public API function address", 1)
+            _integer(row.get("module_base"), "Public API module base", 1)
+            if row.get("module_path") not in module_hashes:
+                raise ValueError("Host signal public API module lacks its actual DSO artifact")
+    elif capture.get("records") or capture.get("ordinary_signal_control") is not None:
+        raise ValueError("Host signal queried records lack their actual compiled provider source")
+    kfd = evidence.get("kfd_event_evidence")
+    if kfd is not None:
+        if not isinstance(kfd, dict):
+            raise ValueError("KFD worker evidence is malformed")
+        _kfd_source_gate(plan, worker, kfd, inputs)
+
+
 def _communication_source_gate(binding: dict, worker: dict, plan: dict, agent: int, inputs: Inputs) -> None:
     if binding.get("driver_source_reference") != plan["worker_source"] or binding.get("driver_source_sha256") != plan["worker_source_sha256"]:
         raise ValueError("Communication driver source is not the actual Workspace Worker")
@@ -174,6 +528,9 @@ def _communication_source_gate(binding: dict, worker: dict, plan: dict, agent: i
     if ("natural_shutdown_evidence" in binding
             and _json(binding["natural_shutdown_evidence"]) != _json(worker.get("runtime_shutdown"))):
         raise ValueError("Communication natural shutdown evidence differs from actual Worker receipt")
+    if ("host_signal_evidence" in binding
+            and _json(binding["host_signal_evidence"]) != _json(worker.get("host_signal_evidence"))):
+        raise ValueError("Communication host signal evidence differs from actual Worker envelope")
     ctors = {row["epoch_id"]: row for row in worker.get("communicator_constructors", [])}
     pg_scopes = {row["epoch_id"]: row for row in worker.get("communication_prewarm", [])}
     for row in binding.get("initialization_epochs", []):
@@ -396,6 +753,12 @@ def _assemble(base: Path, receipt_path: Path, out: Path, bindings_path: Path | N
             raise ValueError("Actual native GPU agent mapping is missing or ambiguous")
         agent = _integer(agents[0].get("handle"), "Native GPU agent", 1)
         communication = comm.get(str(pid))
+        _host_signal_source_gate(plan, worker, inputs, inference_thread=inference_thread)
+        if worker.get("host_signal_evidence") is not None and communication is not None:
+            if ("host_signal_evidence" in communication
+                    and _json(communication["host_signal_evidence"]) != _json(worker["host_signal_evidence"])):
+                raise ValueError("Communication host signal evidence differs from actual Worker envelope")
+            communication = {**communication, "host_signal_evidence": deepcopy(worker["host_signal_evidence"])}
         if experiment.strategy.tensor_parallel_size * experiment.strategy.pipeline_parallel_size > 1:
             if communication is None:
                 issues.append({"code": "COMMUNICATION_BINDING_MISSING", "global_rank": global_rank})

@@ -1,6 +1,6 @@
 # Python API
 
-Install distribution `mlsys-simulator` and import `mlsys_sim`. Version 1.13 exposes the
+Install distribution `mlsys-simulator` and import `mlsys_sim`. Version 1.14 exposes the
 simulation, profile, calibration and comparison functions through this package,
 with optional hardware collection and evidence-acceptance commands;
 `mlsys_sim.__version__` is the software version. JSON schema and Profile version
@@ -709,6 +709,14 @@ per-rank prefill and decode iterations. `assemble_stage_workspace.py` independen
 audits source/Runtime/rank, Torch, native and PP transport evidence before
 emitting a canonical dataset. A raw process exit or component success is not
 complete attribution.
+
+The optional PP2 `--host-signal-provider`, `--host-signal-rocr` and
+`--host-signal-abi-header` arguments enable public HSA backing observations at
+the existing synchronized CPU boundary. Hardware events additionally require
+`--host-signal-namespace-control` and independent passive KFD evidence. Source,
+ABI, actual libraries, generations and raw lifecycle prefixes are checked before
+admission; CPU/GTT observations do not replace GPU backing or budget checks.
+See the [synchronization evidence contract](pp2-synchronization-evidence.md).
 
 These sources are outside the normal package import path, require existing
 matching native tools, and add no required pip dependency. Their current raw

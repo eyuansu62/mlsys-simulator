@@ -189,6 +189,198 @@ class MetadataTests(unittest.TestCase):
 
 
 class ProtocolTests(unittest.TestCase):
+    def test_optional_host_signal_files_are_all_required_hashed_and_not_process_exit(self):
+        self.assertIsNone(LAUNCHER.host_signal_configuration(None, None, None,
+            mode="single", finalization="worker_shutdown"))
+        with tempfile.TemporaryDirectory() as temporary:
+            paths = [Path(temporary) / name for name in ("provider.so", "rocr.so", "abi.h")]
+            for index, path in enumerate(paths):
+                path.write_bytes(bytes([index + 1]))
+            config = LAUNCHER.host_signal_configuration(*paths, mode="pp2", finalization="worker_shutdown")
+            for label, path in zip(("provider", "rocr", "abi_header"), paths):
+                self.assertEqual(config[label + "_path"], str(path.resolve()))
+                self.assertEqual(config[label + "_sha256"], hashlib.sha256(path.read_bytes()).hexdigest())
+            namespace = Path(temporary) / "cold-control.json"
+            namespace.write_text("{}\n")
+            bound = LAUNCHER.host_signal_configuration(*paths, mode="pp2", finalization="worker_shutdown",
+                                                       namespace_control=namespace)
+            self.assertEqual(bound["namespace_control_path"], str(namespace.resolve()))
+            self.assertEqual(bound["namespace_control_sha256"], hashlib.sha256(namespace.read_bytes()).hexdigest())
+            with self.assertRaises(ValueError):
+                LAUNCHER.host_signal_configuration(None, None, None, mode="pp2", finalization="worker_shutdown",
+                                                   namespace_control=namespace)
+            for values, mode, policy in (([paths[0], None, None], "pp2", "worker_shutdown"),
+                                        (paths, "single", "worker_shutdown"),
+                                        (paths, "pp2", "process_exit")):
+                with self.subTest(mode=mode, policy=policy), self.assertRaises(ValueError):
+                    LAUNCHER.host_signal_configuration(*values, mode=mode, finalization=policy)
+
+    def test_no_provider_leaves_old_capture_path_without_loading_new_interfaces(self):
+        instance = object.__new__(WORKER.WorkspaceWorker)
+        instance._ws_plan = {}
+        with patch.dict(sys.modules, {"hsa_signal_backing_capture": None}):
+            instance._ws_capture_host_signals({})
+        self.assertFalse(hasattr(instance, "_ws_host_signal_evidence"))
+
+    def test_readonly_provider_uses_formal_epochs_preserves_nonzero_event_id_and_partial(self):
+        for status in ("CAPTURED", "NO_LIVE_FORMAL_TARGETS", "PARTIAL", "EXCEPTION"):
+            with self.subTest(status=status), tempfile.TemporaryDirectory() as temporary:
+                root = Path(temporary)
+                paths = [root / name for name in ("provider.so", "rocr.so", "abi.h")]
+                for path in paths:
+                    path.write_bytes(b"CPU fixture never loaded")
+                config = LAUNCHER.host_signal_configuration(*paths, mode="pp2", finalization="worker_shutdown")
+                namespace = root / "cold-control.json"
+                if status == "CAPTURED":
+                    namespace.write_text("{}\n")
+                    config = LAUNCHER.host_signal_configuration(*paths, mode="pp2", finalization="worker_shutdown",
+                                                               namespace_control=namespace)
+                instance = object.__new__(WORKER.WorkspaceWorker)
+                instance._ws_root = root
+                instance._ws_plan = {"host_signal_provider": config, "mode": "pp2", "session_id": "fixture"}
+                instance._ws_native_finalization = "worker_shutdown"
+                instance._ws_native_active = None
+                instance._ws_torch_active = None
+                instance._ws_errors = []
+                instance._ws_sources = {"worker_source_reference": __file__}
+                instance._ws_records = [{"cohort": "warmup", "native_epoch_id": None},
+                                         {"cohort": "formal", "native_epoch_id": 10009}]
+                instance._ws_native = object()
+                instance._ws_native_cursor = lambda: 42
+                instance.device = types.SimpleNamespace(index=1)
+                module = types.ModuleType("hsa_signal_backing_capture")
+                seen = []
+
+                def capture(**kwargs):
+                    seen.append(kwargs)
+                    self.assertIsNone(instance._ws_native_active)
+                    self.assertIsNone(instance._ws_torch_active)
+                    self.assertEqual(kwargs["target_epochs"], [10009])
+                    if status == "CAPTURED":
+                        self.assertEqual(kwargs["namespace_control"], namespace.resolve())
+                    else:
+                        self.assertNotIn("namespace_control", kwargs)
+                    if status == "EXCEPTION":
+                        raise RuntimeError("actual provider failure")
+                    kwargs["output_dir"].mkdir()
+                    result = {"status": status, "issues": [{"code": "kept"}] if status == "PARTIAL" else [],
+                              "records": [] if status == "NO_LIVE_FORMAL_TARGETS" else [{"event_id": 7}]}
+                    if status == "CAPTURED":
+                        result["kfd_event_evidence"] = {"schema_version": 1,
+                            "kind": "passive_kfd_event_evidence", "report_artifact": {"path": "fixture-post.json",
+                            "sha256": "a" * 64, "size_bytes": 1}}
+                    (kwargs["output_dir"] / "capture.json").write_text(json.dumps(result))
+                    return result
+
+                module.capture_hsa_signal_backings = capture
+                fence = {"native_epoch_id": 9001, "target_device_index": 1}
+                with patch.dict(sys.modules, {"hsa_signal_backing_capture": module,
+                                              "workspace_stage_session": LAUNCHER}):
+                    instance._ws_capture_host_signals(fence)
+                self.assertEqual(len(seen), 1)
+                evidence = instance._ws_host_signal_evidence
+                self.assertFalse(evidence["complete_workspace"])
+                self.assertEqual(evidence["source_fence"], fence)
+                self.assertTrue((root / "host-signal-worker-evidence.json").is_file())
+                if status == "EXCEPTION":
+                    self.assertEqual(evidence["status"], "PROVIDER_EXCEPTION")
+                    self.assertTrue(instance._ws_errors)
+                else:
+                    self.assertEqual(evidence["capture"]["records"],
+                                     [] if status == "NO_LIVE_FORMAL_TARGETS" else [{"event_id": 7}])
+                    self.assertEqual(evidence["capture_artifact"]["sha256"], hashlib.sha256(
+                        (root / "host-signal-evidence/capture.json").read_bytes()).hexdigest())
+                    self.assertEqual(bool(instance._ws_errors), status == "PARTIAL")
+                    if status == "CAPTURED":
+                        self.assertEqual(evidence["kfd_event_evidence"], evidence["capture"]["kfd_event_evidence"])
+
+    def test_final_kfd_snapshot_follows_real_stop_precedes_fini_and_preserves_query_artifact(self):
+        for outcome in ("success", "missing", "write_failure", "stop_failure"):
+            with self.subTest(outcome=outcome), tempfile.TemporaryDirectory() as temporary:
+                calls = []
+                root = Path(temporary)
+
+                class Call:
+                    def __init__(self, name):
+                        self.name = name
+
+                    def __call__(self, *args):
+                        calls.append(self.name)
+                        if self.name == "stop":
+                            return 17 if outcome == "stop_failure" else 0
+                        if self.name == "cursor":
+                            return 7
+                        if self.name == "write":
+                            Path(args[0].decode()).write_text(json.dumps({"kind": "passive_kfd_event_api_tape",
+                                "pid": 42, "events": [], "write_complete": True}))
+                            return 23 if outcome == "write_failure" else 0
+                        return 0
+
+                native = types.SimpleNamespace(mlsys_probe_stop=Call("stop"), mlsys_probe_finalize=Call("finalize"))
+                if outcome != "missing":
+                    native.mlsys_kfd_probe_cursor = Call("cursor")
+                    native.mlsys_kfd_probe_write = Call("write")
+                instance = object.__new__(WORKER.WorkspaceWorker)
+                instance._ws_root = root
+                instance._ws_plan = {"host_signal_provider": {}}
+                instance._ws_native = native
+                instance._ws_closed_summary = None
+                instance._ws_records = []
+                instance._ws_placement = {"stage_index": 1, "tp_rank": 0}
+                post = {"path": "actual-post-query.json", "sha256": "a" * 64, "size_bytes": 5}
+                original_kernel = {"schema_version": 1, "kind": "passive_kfd_event_evidence",
+                                   "report_artifact": deepcopy(post), "post_query_report_artifact": deepcopy(post)}
+                raw = {"capture_errors": [], "complete_workspace": False, "hardware_validated": False,
+                       "host_signal_evidence": {"kfd_event_evidence": deepcopy(original_kernel)}}
+                result = instance._ws_finalize_cpu_payload(raw)
+                final = json.loads((root / "session.json").read_text())
+                evidence = final["host_signal_evidence"]["kfd_event_evidence"]
+                self.assertEqual(evidence["report_artifact"], post)
+                self.assertEqual(evidence["post_query_report_artifact"], post)
+                observation = evidence["final_snapshot_observation"]
+                self.assertTrue(observation["prefix_only"])
+                if outcome == "stop_failure":
+                    self.assertEqual(calls, ["stop"])
+                    self.assertEqual(observation["native_stop_returncode"], 17)
+                    self.assertNotIn("final_report_artifact", evidence)
+                    self.assertFalse(result["capture_closed"])
+                else:
+                    self.assertEqual(calls[-1], "finalize")
+                    self.assertEqual(observation["native_stop_returncode"], 0)
+                    if outcome == "missing":
+                        self.assertEqual(observation["status"], "KFD_PREFIX_EXCEPTION")
+                        self.assertTrue(final["capture_errors"])
+                    else:
+                        self.assertLess(calls.index("stop"), calls.index("write"))
+                        self.assertLess(calls.index("write"), calls.index("finalize"))
+                        artifact = evidence["final_report_artifact"]
+                        self.assertEqual(artifact["sha256"], hashlib.sha256(Path(artifact["path"]).read_bytes()).hexdigest())
+                        self.assertEqual(observation["write_returncode"], 23 if outcome == "write_failure" else 0)
+                        self.assertEqual(bool(final["capture_errors"]), outcome == "write_failure")
+
+    def test_post_shutdown_signal_snapshot_only_exports_registry_and_preserves_real_code(self):
+        for code in (0, 17):
+            with self.subTest(code=code), tempfile.TemporaryDirectory() as temporary:
+                calls = []
+
+                class Export:
+                    def __call__(self, path):
+                        calls.append("registry-only")
+                        Path(path.decode()).write_text(json.dumps({"pid": 42, "generations": []}))
+                        return code
+
+                instance = object.__new__(WORKER.WorkspaceWorker)
+                instance._ws_root = Path(temporary)
+                instance._ws_native = types.SimpleNamespace(mlsys_probe_write_live_signals=Export())
+                with patch.dict(sys.modules, {"hsa_signal_backing_capture": None}):
+                    result = instance._ws_post_shutdown_signal_snapshot()
+                self.assertEqual(calls, ["registry-only"])
+                self.assertEqual(result["export_returncode"], code)
+                self.assertFalse(result["new_signal_queries_performed"])
+                self.assertEqual(result["observed_live"], {"pid": 42, "generations": []})
+                self.assertEqual(result["status"], "OBSERVED_REGISTRY_SNAPSHOT_ONLY" if code == 0
+                                 else "EXPORT_NOT_PROVEN_SUCCESSFUL")
+
     def test_process_exit_policy_is_only_one_pp2_pilot_and_default_policy_stays_available(self):
         self.assertEqual(LAUNCHER.validate_native_finalization("pp2", "pilot", 1, "process_exit"), "process_exit")
         for mode, cohort, repeats in (("single", "pilot", 1), ("tp2", "pilot", 1),

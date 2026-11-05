@@ -21,6 +21,304 @@ DOMAIN_NAMES = [
 DOMAIN_NAMES_V2 = DOMAIN_NAMES + ["RCCL_API"]
 
 
+def _hip_host_memory_failures(data, opmap):
+    table = data.get("hip_host_memory_payloads")
+    names = {"hipHostMalloc": "host_allocation", "hipHostFree": "host_free"}
+    rows = [row for row in data.get("events", []) if isinstance(row.get("raw_hip_control_payload"), dict)
+        and row["raw_hip_control_payload"].get("kind") in names.values()]
+    if table is None:
+        return ["hip_host_memory_metadata_missing"] if rows else []
+    if (not isinstance(table, dict) or type(table.get("schema_version")) is not int or table["schema_version"] != 1
+            or table.get("method") != "existing_native_event_storage_v1" or table.get("uses_native_event_storage") is not True
+            or table.get("supported_operations") != list(names) or type(table.get("retained_records")) is not int
+            or table["retained_records"] != len(rows)):
+        return ["hip_host_memory_metadata_invalid"]
+    failures = []
+    if type(table.get("safe_read_errors")) is not int or table["safe_read_errors"] != 0:
+        failures.append("hip_host_memory_safe_read_errors_not_zero")
+
+    def integer(value):
+        return type(value) is int and 0 <= value < 2**64
+
+    pending: dict[tuple, dict] = {}
+    for row in data.get("events", []):
+        name = opmap.get((row.get("domain"), row.get("op")), {}).get("name")
+        payload = row.get("raw_hip_control_payload")
+        if name not in names and (not isinstance(payload, dict) or payload.get("kind") not in names.values()):
+            continue
+        if (row.get("domain") != 0 or not isinstance(payload, dict) or payload.get("kind") != names.get(name)
+                or payload.get("payload_observed") is not True):
+            failures.append("hip_host_memory_raw_payload_missing_or_invalid")
+            continue
+        call_key = (row.get("domain"), row.get("op"), row.get("cid"), row.get("tid"))
+        fields = ("kind", "output_address", "size_bytes", "flags") if name == "hipHostMalloc" else (
+            "kind", "pointer", "pointer_observed", "output_address", "size_bytes", "flags")
+        if row.get("phase") == 1:
+            if call_key in pending:
+                failures.append("hip_host_memory_duplicate_enter")
+            pending[call_key] = payload
+        elif row.get("phase") == 2:
+            before = pending.pop(call_key, None)
+            if not isinstance(before, dict) or any(before.get(k) != payload.get(k) for k in fields):
+                failures.append("hip_host_memory_input_pair_mismatch")
+            if row.get("status_type") != 1 or type(row.get("status")) is not int:
+                failures.append("hip_host_memory_typed_status_missing")
+        else:
+            failures.append("hip_host_memory_phase_invalid")
+        if name == "hipHostFree":
+            if (not integer(payload.get("pointer")) or payload.get("pointer_observed") is not True
+                    or payload.get("output_address") != 0 or payload.get("size_bytes") is not None or payload.get("flags") is not None):
+                failures.append("hip_host_memory_free_input_missing_or_invented")
+            continue
+        if (not integer(payload.get("output_address")) or not integer(payload.get("size_bytes"))
+                or not integer(payload.get("flags")) or payload["flags"] >= 2**32):
+            failures.append("hip_host_memory_allocation_inputs_missing")
+        success = row.get("phase") == 2 and row.get("status_type") == 1 and row.get("status") == 0
+        if success:
+            if (not integer(payload.get("pointer")) or payload.get("pointer_observed") is not True
+                    or payload.get("output_address") == 0):
+                failures.append("hip_host_memory_successful_output_not_observed")
+            elif integer(payload.get("size_bytes")) and payload["pointer"] + payload["size_bytes"] > 2**64:
+                failures.append("hip_host_memory_allocation_extent_overflow")
+        elif payload.get("pointer") is not None or payload.get("pointer_observed") is not False:
+            failures.append("hip_host_memory_unproven_output_pointer")
+    if pending:
+        failures.append("hip_host_memory_unclosed_calls")
+    return failures
+
+
+def _hsa_host_memory_failures(data, opmap):
+    table = data.get("hsa_host_memory_storage")
+    rows = [row for row in data.get("events", []) if "raw_hsa_host_memory_payload" in row]
+    if table is None:
+        return ["hsa_host_memory_storage_missing"] if rows else []
+    failures = []
+
+    def integer(value, minimum=0):
+        return type(value) is int and minimum <= value < 2**64
+
+    if (not isinstance(table, dict) or type(table.get("schema_version")) is not int or table["schema_version"] != 1
+            or table.get("method") != "bounded_public_hsa_host_memory_payloads_v1"
+            or type(table.get("capacity")) is not int or table["capacity"] != 8192
+            or type(table.get("agent_capacity")) is not int or table["agent_capacity"] != 4
+            or type(table.get("retained_records")) is not int or table["retained_records"] != len(rows) or len(rows) > 8192
+            or not integer(table.get("record_size_bytes"), 1)
+            or not integer(table.get("storage_capacity_bytes"), 1)
+            or table.get("storage_capacity_bytes") != 8192 * table.get("record_size_bytes", 0)):
+        return ["hsa_host_memory_storage_metadata_invalid"]
+    for key in ("dropped_records", "read_errors", "incomplete_agent_arrays"):
+        if type(table.get(key)) is not int or table[key] != 0:
+            failures.append("hsa_host_memory_" + key + "_not_zero")
+    page: Any = table.get("system_page_size")
+    if not integer(page, 1) or page & (page - 1):
+        failures.append("hsa_host_memory_actual_page_size_invalid")
+    operations = {"hsa_amd_memory_unlock": "unlock", "hsa_amd_memory_lock": "lock",
+        "hsa_amd_memory_lock_to_pool": "lock_to_pool"}
+    supported = table.get("supported_operations")
+    if supported is not None:
+        operations["hsa_amd_agents_allow_access"] = "allow_access"
+        if supported != list(operations):
+            failures.append("hsa_host_memory_supported_operations_invalid")
+    inputs = ("operation", "host_ptr", "size_bytes", "agents_address", "num_agents", "agent_handles",
+        "agents_observed", "pool_handle", "flags", "agent_ptr_output_address")
+    pending: dict[tuple, dict] = {}
+    for row in data.get("events", []):
+        name = opmap.get((row.get("domain"), row.get("op")), {}).get("name")
+        payload = row.get("raw_hsa_host_memory_payload")
+        allow_access = name == "hsa_amd_agents_allow_access"
+        if name not in operations and payload is None:
+            continue
+        if (row.get("domain") != 3 or name not in operations or not isinstance(payload, dict)
+                or payload.get("operation") != operations.get(name) or payload.get("payload_observed") is not True
+                or not integer(payload.get("ptr" if allow_access else "host_ptr"))):
+            failures.append("hsa_host_memory_raw_payload_missing_or_invalid")
+            continue
+        call_key = (row.get("domain"), row.get("op"), row.get("cid"), row.get("tid"))
+        if row.get("phase") == 1:
+            if call_key in pending:
+                failures.append("hsa_host_memory_duplicate_enter")
+            pending[call_key] = payload
+        elif row.get("phase") == 2:
+            before = pending.pop(call_key, None)
+            paired_fields = inputs + (("ptr", "flags_address", "flags_values", "flags_observed") if allow_access else ())
+            if not isinstance(before, dict) or any(before.get(k) != payload.get(k) for k in paired_fields):
+                failures.append("hsa_host_memory_input_pair_mismatch")
+            if row.get("status_type") != 2 or type(row.get("status")) is not int:
+                failures.append("hsa_host_memory_typed_status_missing")
+        else:
+            failures.append("hsa_host_memory_phase_invalid")
+        success = row.get("phase") == 2 and row.get("status_type") == 2 and row.get("status") == 0
+        if name == "hsa_amd_memory_unlock":
+            if any(payload.get(k) is not None for k in inputs[2:] + ("agent_alias",)):
+                failures.append("hsa_host_memory_unlock_has_invented_extent_or_alias")
+            continue
+        count, handles = payload.get("num_agents"), payload.get("agent_handles")
+        if allow_access:
+            if (not integer(payload.get("agents_address")) or type(count) is not int or not 0 <= count <= 4
+                    or payload.get("agents_observed") is not True or not isinstance(handles, list) or len(handles) != count
+                    or not all(integer(handle) for handle in handles) or count > 0 and payload["agents_address"] == 0
+                    or payload.get("flags_address") != 0 or type(payload.get("flags_address")) is not int
+                    or payload.get("flags_values") is not None or payload.get("flags_observed") is not True
+                    or any(payload.get(key) is not None for key in ("size_bytes", "host_ptr", "pool_handle", "flags", "agent_ptr_output_address", "agent_alias"))):
+                failures.append("hsa_host_memory_allow_access_inputs_incomplete_or_unsupported")
+            continue
+        if (not integer(payload.get("size_bytes")) or not integer(payload.get("agents_address"))
+                or type(count) is not int or not 0 <= count <= 4 or payload.get("agents_observed") is not True
+                or not isinstance(handles, list) or len(handles) != count or not all(integer(h) for h in handles)
+                or count > 0 and payload["agents_address"] == 0
+                or not integer(payload.get("agent_ptr_output_address"))):
+            failures.append("hsa_host_memory_lock_inputs_incomplete")
+        if name == "hsa_amd_memory_lock_to_pool":
+            if not integer(payload.get("pool_handle")) or not integer(payload.get("flags")):
+                failures.append("hsa_host_memory_lock_pool_inputs_missing")
+        elif payload.get("pool_handle") is not None or payload.get("flags") is not None:
+            failures.append("hsa_host_memory_lock_has_invented_pool_inputs")
+        alias = payload.get("agent_alias")
+        if success:
+            if (not integer(alias, 1) or not integer(payload.get("host_ptr"), 1)
+                    or not integer(payload.get("size_bytes"), 1) or not integer(payload.get("agent_ptr_output_address"), 1)
+                    or payload["host_ptr"] + payload["size_bytes"] > 2**64
+                    or integer(alias) and integer(payload.get("size_bytes")) and alias + payload["size_bytes"] > 2**64):
+                failures.append("hsa_host_memory_successful_alias_or_extent_invalid")
+        elif alias is not None:
+            failures.append("hsa_host_memory_unproven_output_alias")
+    if pending:
+        failures.append("hsa_host_memory_unclosed_calls")
+    return failures
+
+
+def _hsa_query_failures(data, opmap):
+    """Validate sparse public outputs without inferring signal or allocation ownership."""
+    table = data.get("hsa_query_storage")
+    keys = {"raw_hsa_pointer_info_payload": (3, "hsa_amd_pointer_info"),
+        "raw_hsa_agent_info_payload": (2, "hsa_agent_get_info"),
+        "raw_hsa_signal_event_payload": (3, "hsa_amd_signal_get_event_id")}
+    rows = [(row, key) for row in data.get("events", []) for key in keys if key in row]
+    if table is None:
+        return ["hsa_query_storage_missing"] if rows else []  # Preserve old raw protocol behavior.
+    failures = []
+    def integer(value, minimum=0):
+        return type(value) is int and minimum <= value <= 2**64 - 1
+    if (not isinstance(table, dict) or type(table.get("schema_version")) is not int or table.get("schema_version") != 1
+            or table.get("method") != "bounded_public_hsa_query_payloads_v1"
+            or type(table.get("capacity")) is not int or table.get("capacity") != 8192
+            or type(table.get("retained_records")) is not int or table.get("retained_records") != len(rows) or len(rows) > 8192
+            or not integer(table.get("record_size_bytes"), 1)
+            or not integer(table.get("storage_capacity_bytes"), 1)
+            or table.get("storage_capacity_bytes") != 8192 * table.get("record_size_bytes", 0)):
+        return ["hsa_query_storage_metadata_invalid"]
+    for name in ("dropped_records", "read_errors"):
+        if type(table.get(name)) is not int or table[name] != 0:
+            failures.append("hsa_query_" + name + "_not_zero")
+    if (not all(integer(table.get(k)) for k in ("agent_info_device_attribute", "cpu_device_type",
+            "pointer_type_hsa", "pointer_type_locked")) or table.get("pointer_type_hsa") == table.get("pointer_type_locked")
+            or table.get("pointer_type_hsa") == 0 or table.get("pointer_type_locked") == 0):
+        failures.append("hsa_query_public_enum_metadata_invalid")
+    complete_inputs = table.get("complete_public_query_inputs", False)
+    if type(complete_inputs) is not bool:
+        failures.append("hsa_query_input_contract_flag_invalid")
+    signal_inputs: dict[tuple, tuple] = {}
+    for row in data.get("events", []):
+        name = opmap.get((row.get("domain"), row.get("op")), {}).get("name")
+        expected = {"hsa_amd_pointer_info": "raw_hsa_pointer_info_payload",
+            "hsa_amd_signal_get_event_id": "raw_hsa_signal_event_payload"}.get(name)
+        if expected and expected not in row:
+            failures.append("hsa_query_required_payload_missing")
+        if complete_inputs and name == "hsa_signal_create":
+            payload = row.get("raw_hsa_signal_payload")
+            if (not isinstance(payload, dict) or not integer(payload.get("consumers_address"))
+                    or not integer(payload.get("num_consumers")) or payload["num_consumers"] >= 2**32
+                    or payload["num_consumers"] > 0 and payload["consumers_address"] == 0):
+                failures.append("hsa_query_signal_consumer_input_missing")
+                continue
+            signal_key = (row.get("domain"), row.get("op"), row.get("cid"), row.get("tid"))
+            values = (payload["consumers_address"], payload["num_consumers"], payload.get("initial_value"), payload.get("output_address"))
+            if row.get("phase") == 1:
+                signal_inputs[signal_key] = values
+            elif row.get("phase") == 2 and signal_inputs.pop(signal_key, None) != values:
+                failures.append("hsa_query_signal_consumer_input_pair_mismatch")
+    if signal_inputs:
+        failures.append("hsa_query_signal_consumer_input_unclosed")
+    fields = table.get("pointer_info_fields")
+    required = {"returned_size", "type", "agent_base_address", "host_base_address", "size_bytes",
+        "owner_agent", "global_flags", "registered", "alloc_flags"}
+    size: Any = table.get("pointer_info_struct_size")
+    if (not integer(size, 1) or not isinstance(fields, dict) or set(fields) != required
+            or any(not isinstance(span, list) or len(span) != 2
+                   or not integer(span[0]) or not integer(span[1], 1) or sum(span) > size
+                   for span in fields.values())
+            or fields.get("returned_size") != [0, 4] or fields.get("type") != [4, 4]):
+        return failures + ["hsa_query_pointer_info_layout_invalid"]
+    spans = sorted(fields.values())
+    if any(left[0] + left[1] > right[0] for left, right in zip(spans, spans[1:])):
+        return failures + ["hsa_query_pointer_info_layout_invalid"]
+    pending: dict[tuple, dict] = {}
+    for row, key in rows:
+        payload = row[key]
+        domain, name = keys[key]
+        if (row.get("domain") != domain
+                or opmap.get((row.get("domain"), row.get("op")), {}).get("name") != name
+                or not isinstance(payload, dict) or payload.get("payload_observed") is not True):
+            failures.append("hsa_query_raw_payload_invalid")
+            continue
+        if row.get("phase") == 2 and row.get("status_type") != 2:
+            failures.append("hsa_query_typed_status_missing")
+        success = row.get("phase") == 2 and row.get("status_type") == 2 and row.get("status") == 0
+        call = (domain, row.get("op"), row.get("cid"), row.get("tid"))
+        before = pending.get(call)
+        if row.get("phase") == 1:
+            pending[call] = payload
+        elif row.get("phase") == 2:
+            pending.pop(call, None)
+        else:
+            failures.append("hsa_query_phase_invalid")
+        if key == "raw_hsa_pointer_info_payload":
+            pointer_inputs: tuple[str, ...] = ("pointer_address", "info_address")
+            extra_inputs = ("alloc_address", "num_agents_address", "accessible_address")
+            if complete_inputs or any(k in payload for k in extra_inputs):
+                pointer_inputs += extra_inputs
+            if not all(integer(payload.get(k)) for k in pointer_inputs):
+                failures.append("hsa_query_input_address_invalid")
+            if row.get("phase") == 1:
+                if not integer(payload.get("input_size")) or any(payload.get(k) is not None for k in required):
+                    failures.append("hsa_query_pointer_enter_output_not_null")
+                continue
+            if (not isinstance(before, dict) or any(before.get(k) != payload.get(k)
+                    for k in pointer_inputs) or payload.get("input_size") is not None):
+                failures.append("hsa_query_pointer_pair_mismatch")
+            returned: Any = payload.get("returned_size")
+            if not success:
+                if any(payload.get(k) is not None for k in required):
+                    failures.append("hsa_query_failed_output_not_null")
+                continue
+            if (not integer(returned, 4) or returned > size
+                    or isinstance(before, dict) and (not integer(before.get("input_size"))
+                        or returned > before["input_size"])):
+                failures.append("hsa_query_returned_extent_invalid")
+                continue
+            for field, (offset, width) in fields.items():
+                value = payload.get(field)
+                allowed = field == "returned_size" or offset + width <= returned and (
+                    field == "type" or payload.get("type") not in (None, 0))
+                valid = type(value) is bool if field == "registered" else integer(value)
+                if (allowed and not valid) or (not allowed and value is not None):
+                    failures.append("hsa_query_output_outside_returned_contract")
+        else:
+            inputs = ("agent_handle", "attribute", "output_address") if domain == 2 else ("signal_handle", "output_address")
+            field = "device_type" if domain == 2 else "event_id"
+            if (not all(integer(payload.get(k)) for k in inputs)
+                    or domain == 2 and payload.get("attribute") != table.get("agent_info_device_attribute")
+                    or (success and not integer(payload.get(field)))
+                    or (not success and payload.get(field) is not None)):
+                failures.append("hsa_query_public_scalar_output_invalid")
+            if row.get("phase") == 2 and (not isinstance(before, dict)
+                    or any(before.get(k) != payload.get(k) for k in inputs)):
+                failures.append("hsa_query_scalar_pair_mismatch")
+    if pending:
+        failures.append("hsa_query_unclosed_payload_call")
+    return failures
+
+
 def analyze(data):
     failures = []
     if data.get("kind") != "native_allocation_api_diagnostic" or data.get("schema_version") != 1:
@@ -262,6 +560,9 @@ def analyze(data):
         else:
             invalid_events.append(event)
     unclosed = [event for stack in open_calls.values() for event in stack]
+    failures.extend(_hsa_query_failures(data, opmap))
+    failures.extend(_hsa_host_memory_failures(data, opmap))
+    failures.extend(_hip_host_memory_failures(data, opmap))
     rccl_evidence = {
         "required_by_protocol": protocol_version == 2,
         "configured_domain_present": "RCCL_API" in names,

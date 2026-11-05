@@ -12,6 +12,12 @@ exact-Workspace repeat evaluator. Raw acquisition support and complete
 attribution are separate: every selected rank and storage lifetime still needs
 the proofs below before calibration is allowed.
 
+Version 1.14 adds public HSA signal-region and passive KFD event-page evidence
+for PP2. Positive CPU/GTT observations can describe a live logical resource
+without inventing a destroy or allocation birth. Source/ABI, namespace,
+generation, mapping and completion-fence checks remain mandatory; see the
+[synchronization evidence contract](pp2-synchronization-evidence.md).
+
 The dependency-free CPU core does not collect GPU timings by substitution.
 Live collection needs the supported installed HIP stack and a user Runtime
 adapter. CPU-injected evidence remains `test_fixture`, and successful software

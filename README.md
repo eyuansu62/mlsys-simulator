@@ -15,7 +15,8 @@ collection adapters instrument an installed Runtime separately from simulation.
 [Native PP communication calibration](docs/native-pp-communication.md) ·
 [Workspace and capacity validation](docs/workspace-and-capacity.md) · [Contributing](CONTRIBUTING.md)
 
-**Version 1.13 software scope:** Worker-level Prefill/Decode Workspace acquisition
+**Version 1.14 software scope:** Public HSA/driver GTT synchronization-resource
+evidence and Worker-level Prefill/Decode Workspace acquisition
 for the pinned single/TP2/PP2 layouts, provenance-checked independent exact
 Workspace repeats, independent exact per-rank Workspace Profiles,
 Runtime-owned scratch attribution and fresh-Runtime capacity/OOM-bracket
@@ -60,9 +61,17 @@ including six Decode contexts, with 24 formal observations per cohort, complete
 coverage and zero byte underprediction. Multicard component evidence is admitted
 only after every attribution gate closes. TP2 also completed training and a
 frozen independent repeat, with 24 records/48 rank observations per cohort,
-full exact-shape coverage and zero byte error; PP2 remains partial. See the
+full exact-shape coverage and zero byte error. PP2 subsequently completed the
+same workflow in 1.14: 48 records per cohort and 16 stage-specific shapes,
+full coverage and zero byte error. See the
 [Worker Workspace validation record](docs/workspace-stage-validation.md) for
 completed results and retained gaps.
+
+Version 1.14 adds source-bound CPU signal-body and passive KFD event-page
+observations for PP2. Surviving handles retain their actual logical lifetime;
+CPU regions and driver GTT capacity are reported separately, while all GPU
+backing and fixed-budget audits remain required. See the
+[synchronization evidence contract](docs/pp2-synchronization-evidence.md).
 
 ## Install from a checkout
 

@@ -6,7 +6,7 @@ Changes to this import surface and the versioned data contracts are recorded
 in the changelog. Calibration provenance and hardware validation are separate.
 """
 
-__version__ = "1.13.0"
+__version__ = "1.14.0"
 
 from .config import experiment_from_dict, load_experiment, validate_experiment
 from .engine import SimulationResult, simulate

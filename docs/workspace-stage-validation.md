@@ -71,7 +71,36 @@ call. Thread names, generic shutdown labels and epoch tags alone were
 insufficient; this rule did not assign new allocations or relax PP resource
 checks.
 
-## PP2 diagnostic status
+## PP2 completed attribution and calibration
+
+Version 1.14's source-bound HSA and passive KFD evidence completed the PP2
+formal training attribution: 48 canonical records and rank observations across
+16 stage-specific Prefill/Decode shapes. Native, synchronization, Torch, PP
+transport, source/domain and fixed-budget audits all passed with no issues.
+The public Workspace calibration CLI fitted this complete training acquisition.
+The Profile was frozen at `2026-11-05T11:41:52.680458+00:00` with SHA256
+`93850258993ff25bd3998c3d18c31ff256dd42779f888a78db9206935dee45fe`,
+before a separate Runtime repeat was started. That repeat independently passed
+complete attribution with 48 records and rank observations. The public
+`validate --workspace-repeats` path reported record, rank and retained-shape
+coverage of 1 across all 16 stage-specific shapes, zero underpredictions,
+maximum underprediction of zero bytes and maximum absolute error of zero bytes.
+The original frozen Profile bytes stayed unchanged. This establishes the
+retained exact requested-storage domain only, without latency, unseen-shape,
+physical-capacity or general hardware-acceptance claims.
+
+The ordinary public `simulate` CLI also consumed the frozen PP2 Profile for two
+nonempty 16/32-token requests, each generating four outputs. Both stages used
+`workspace_source=workspace_profile`, with a 1,572,868-byte Workspace peak each,
+and the original frozen Profile SHA stayed unchanged. This checks normal
+Profile consumption; analytical timing is not a serving-accuracy measurement.
+
+The new evidence does not pretend that surviving HSA handles were destroyed.
+Actual public CPU regions, original KFD GTT allocations, event/mapping
+generations, stream ownership and unrelated host cleanup ranges are replayed
+independently. See the [synchronization evidence contract](pp2-synchronization-evidence.md).
+
+## Retained earlier PP2 diagnostics
 
 Actual TP2 and PP2 worker acquisitions retained rank/stage, prepared-batch,
 return, Torch-generation and native callback evidence. Independent component
@@ -79,7 +108,8 @@ replay closed 80 earlier formal Torch epochs, including both PP transport
 ledgers. Candidate decode peaks were 920,844 bytes for single/TP2 and PP2's final
 stage, and 49,156 bytes for PP2's first stage. These earlier component numbers
 alone do not constitute complete attribution. TP2 subsequently completed the
-separate formal workflow above; PP2 remains partial.
+separate formal workflow above. These earlier PP2 captures remain partial under
+their own recorded evidence; new observations are not backfilled into them.
 
 A later PP2 diagnostic kept the native SDK window open until the original
 `WorkerProc.shutdown` returned. Both owned workers exited normally, and the
@@ -89,7 +119,7 @@ unknown. The raw acquisition and the independent audits are preserved.
 Its independent Torch replay also closed all 16 formal candidate epochs, and
 both PP transport-generation ledgers passed again.
 
-PP2 attribution remains partial while any native API purpose, backing or
+PP2 attribution remains partial whenever any native API purpose, backing or
 synchronization-resource lifetime is unproved. In particular, a successful
 Worker shutdown does not prove an opaque HSA signal generation's ownership or
 final lifetime. A generation without a matched later destroy is not paired with an earlier destroy
@@ -110,7 +140,7 @@ generations: zero of eight on the sender and zero of sixteen on the receiver.
 Other destructor records did not match those generations and were not reused
 as closure evidence.
 
-This PP result identifies missing ownership/lifetime evidence for opaque
+This earlier PP result identifies missing ownership/lifetime evidence for opaque
 synchronization resources. It does not establish a GPU-memory leak, an OOM
 condition or a Workspace byte count. Passed Torch/PP transport and individual
 native backing proofs remain separate from complete PP Workspace calibration.

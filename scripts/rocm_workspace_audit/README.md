@@ -410,3 +410,71 @@ binding, fresh process receipts and independently frozen validation. See the
 [live evidence record](../../docs/workspace-live-validation.md) for their
 separate scopes. Neither raw exit 0, a positive control, nor a component status
 changes the overall hardware-acceptance flag.
+
+## PP2 HSA signal and KFD backing evidence
+
+Version 1.14 adds an optional PP2 source-evidence path. A surviving signal is
+not relabeled as destroyed. Its public ABI body must have affirmative CPU
+preferred-owner/range evidence; nonzero hardware event IDs additionally need
+the original KFD event, GTT allocation and mapping generations. See the
+[evidence contract](../../docs/pp2-synchronization-evidence.md).
+
+On the supported Linux x86-64 host, compile the Native and passive KFD sources
+into the same preload DSO. Use the actual installed SDK paths and preserve the
+exact input sources, compiler dependency file and build receipt:
+
+```sh
+g++ -std=c++17 -D__HIP_PLATFORM_AMD__ -shared -fPIC -O2 \
+  -Wall -Wextra -Werror -pthread -MD -MF "$BUILD_ROOT/combined.d" \
+  -isystem "$ROCM_SDK_PREFIX/include" \
+  "$SCRIPT_ROOT/native_probe.cpp" "$SCRIPT_ROOT/kfd_event_probe.cpp" \
+  -L"$ROCM_SDK_PREFIX/lib" -Wl,-rpath,"$ROCM_SDK_PREFIX/lib" \
+  -lrocprofiler-sdk -ldl -o "$COMBINED_SO"
+g++ -std=c++17 -shared -fPIC -O2 -Wall -Wextra -Werror \
+  -isystem "$ROCM_SDK_PREFIX/include" \
+  "$SCRIPT_ROOT/hsa_signal_backing_probe.cpp" -ldl -o "$PROVIDER_SO"
+g++ -std=c++17 -O2 -Wall -Wextra -Werror \
+  -isystem "$ROCM_SDK_PREFIX/include" \
+  "$SCRIPT_ROOT/hsa_signal_namespace_control.cpp" \
+  -L"$ROCR_LIBRARY_DIR" -Wl,-rpath,"$ROCR_LIBRARY_DIR" \
+  -l:libhsa-runtime64.so.1 -ldl -o "$CONTROL_BIN"
+mkdir "$CONTROL_ROOT"
+LD_PRELOAD="$COMBINED_SO" ROCP_TOOL_LIBRARIES="$COMBINED_SO" \
+  MLSYS_NATIVE_PROBE_OUT="$CONTROL_ROOT/native-%p.json" \
+  MLSYS_NATIVE_PROBE_RETAIN_ALL=1 \
+  "$CONTROL_BIN" "$CONTROL_ROOT" "$PROVIDER_SO" "$LOADED_ROCR_SO" 32
+```
+
+The control holds a bounded set of its own ordinary signals, samples each twice
+and destroys only those signals. Preserve `control.jsonl`, `kfd.json` and the
+actual final Native file. A zero process return is not a substitute for replay.
+
+The caller's cold-control manifest has kind
+`cold_hsa_kfd_namespace_control_manifest` and schema version 1. It references the
+original `native_report`, `kfd_report`, `control_jsonl` and `build_receipt` with
+`path`, `sha256` and `size_bytes`; its actual `create_cid`, `event_query_cid` and
+`kfd_create_event_call_id` must identify a causally nested creation and getter.
+`target_epochs` contains the original control epoch. The `source_binding`
+contains the original compiled ABI, kernel/module identity, device/render/PCI
+facts and seven actual artifacts: `probe_source`, `native_probe_source`,
+`probe_library`, `hsa_runtime`, `libc`, `kfd_header` and `drm_header`. Record the
+build receipt there too. Derive locators from raw events; never copy example IDs
+or fill in missing observations. Preserve raw sysfs bytes in environment
+snapshots, measuring their actual read length instead of virtual `stat` size.
+
+Add these arguments to a new PP2 Worker acquisition:
+
+```sh
+--host-signal-provider "$PROVIDER_SO" \
+--host-signal-rocr "$LOADED_ROCR_SO" \
+--host-signal-abi-header "$ROCM_SDK_PREFIX/include/hsa/amd_hsa_signal.h" \
+--host-signal-namespace-control "$NAMESPACE_MANIFEST"
+```
+
+The first three paths must be provided together. This integration supports PP2
+with the default `worker_shutdown` finalization. It retains original formal
+execution and GPU fences; queries run at the existing synchronized CPU boundary
+before natural shutdown. The final KFD prefix follows actual successful SDK
+stop. Cold-control/source/environment facts are shared evidence; each Worker's
+actual Native, Torch, PP and KFD captures still require independent acquisition
+identities and full replay. Missing or unknown proof remains partial.

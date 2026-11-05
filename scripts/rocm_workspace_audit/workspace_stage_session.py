@@ -46,6 +46,37 @@ def validate_native_finalization(mode: str, cohort: str, repeats: int, policy: s
     return policy
 
 
+def host_signal_configuration(provider: Path | None, rocr: Path | None, header: Path | None,
+                              *, mode: str, finalization: str,
+                              namespace_control: Path | None = None) -> dict[str, Any] | None:
+    values = (provider, rocr, header)
+    if all(value is None for value in values):
+        if namespace_control is not None:
+            raise ValueError("A host-signal namespace control requires all three provider inputs")
+        return None
+    if any(value is None for value in values):
+        raise ValueError("Host-signal capture requires provider, ROCr library and ABI header paths together")
+    if mode != "pp2" or finalization != "worker_shutdown":
+        raise ValueError("Host-signal provider is restricted to PP2 worker_shutdown observation")
+    result: dict[str, Any] = {}
+    for label, value in zip(("provider", "rocr", "abi_header"), values):
+        assert value is not None
+        path = value.resolve(strict=True)
+        if not path.is_file():
+            raise ValueError("Actual host-signal provider input is not a file: " + str(path))
+        result[label + "_path"] = str(path)
+        with path.open("rb") as stream:
+            result[label + "_sha256"] = hashlib.file_digest(stream, "sha256").hexdigest()
+    if namespace_control is not None:
+        path = namespace_control.resolve(strict=True)
+        if not path.is_file():
+            raise ValueError("The actual namespace-control manifest is not a file")
+        result["namespace_control_path"] = str(path)
+        with path.open("rb") as stream:
+            result["namespace_control_sha256"] = hashlib.file_digest(stream, "sha256").hexdigest()
+    return result
+
+
 def read_native_header(path: Path) -> dict[str, Any]:
     """Read actual top-level metadata before the huge event table, not a trace verdict."""
     with path.open(encoding="utf-8") as stream:
@@ -189,6 +220,9 @@ def prepare(args: Any) -> dict[str, Any]:
     budget = native_event_budget(args.native_max_events)
     grace = shutdown_grace(args.shutdown_grace_s)
     finalization = validate_native_finalization(args.mode, args.cohort, args.repeats, args.native_finalization)
+    signal_provider = host_signal_configuration(args.host_signal_provider, args.host_signal_rocr,
+        args.host_signal_abi_header, mode=args.mode, finalization=finalization,
+        namespace_control=args.host_signal_namespace_control)
     model = Path(args.model).resolve()
     if not model.is_dir():
         raise ValueError("Model must be an existing local directory; no network model resolution")
@@ -212,6 +246,8 @@ def prepare(args: Any) -> dict[str, Any]:
         "native_finalization": finalization,
         "expected_formal_records_per_rank": 8 * args.repeats,
         "formal_only_output": False, "hardware_validated": False}
+    if signal_provider is not None:
+        plan["host_signal_provider"] = signal_provider
     for name in ("native_probe_library", "torch_probe_library"):
         path = Path(plan[name])
         if not path.is_file():
@@ -414,6 +450,14 @@ def main(argv: list[str] | None = None) -> int:
                         help="Bound original MP cleanup/file publication grace5..120 seconds")
     parser.add_argument("--native-finalization", choices=("worker_shutdown", "process_exit"),
                         default="worker_shutdown", help="process_exit is restricted to one PP2 pilot diagnostic")
+    parser.add_argument("--host-signal-provider", type=Path,
+                        help="Optional prebuilt read-only signal-backing provider DSO")
+    parser.add_argument("--host-signal-rocr", type=Path,
+                        help="Actual mapped ROCr library required with the signal provider")
+    parser.add_argument("--host-signal-abi-header", type=Path,
+                        help="Actual pinned signal ABI header required with the provider")
+    parser.add_argument("--host-signal-namespace-control", type=Path,
+                        help="Optional immutable cold KFD namespace-control manifest; requires all provider inputs")
     try:
         return supervise(prepare(parser.parse_args(supplied)))
     except Exception as exc:

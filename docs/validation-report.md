@@ -1,8 +1,32 @@
-# V1.13.0 软件与限定真机验证记录
+# V1.14.0 软件与限定真机验证记录
 
 日期：2026-11-05  
 环境：Python 3.14.3，macOS，CPU 执行  
-版本：1.13.0
+版本：1.14.0
+
+## 1.14 同步资源采集与自动检查
+
+新增公开 HSA signal body 查询、被动 KFD 事件页采样和独立 CPU/GTT 生命周期审核。
+原先缺少销毁记录的逻辑 handle 保留原状；只有实际 CPU owner、完整 ABI 范围和
+硬件 event 的 GTT allocation／render-fd／mapping 代际正证齐全才可准入。
+CPU region 的 allocation 出生与最终 free 未知时明确为 null，不填造新代际，
+也不据此声称物理显存零成本。完整 GPU backing、Scratch、通信和 PP transport
+原门禁均保留。具体范围见[同步资源证据合同](pp2-synchronization-evidence.md)。
+
+本地全套1212项CPU回归通过，4项因环境条件跳过；其中两项loopback HTTP检查
+另行补跑通过，实际C++ provider ABI及路径formatter在Linux对照执行通过。
+Ruff检查通过，mypy对54个源文件检查通过。独立审查发现的FREE／DESTROY
+input-only参数一致性缺口已修复，原两反例均回放为PARTIAL且不生成proof。
+最终跨Python CI结果以对应提交的GitHub Actions记录为准。
+
+本轮PP2已完成正式Workspace闭环：训练与冻结后新Runtime重复各48条canonical记录、
+48条rank观测、16种stage精确形状，均完整归因且无issue。公开
+`validate --workspace-repeats` 的记录/rank/保留形状覆盖率均100%，最大绝对字节误差0、
+最大低估0、低估次数0。Profile于2026-11-05 11:41:52.680458 UTC冻结，SHA256
+`93850258993ff25bd3998c3d18c31ff256dd42779f888a78db9206935dee45fe`，
+独立采样与验证后原始字节保持不变。旧partial/diagnostic试采保持原样，未补写新字段。
+结论只覆盖当前BF16 eager MRv1、PP2、单序列、512-token上限、256MiB KV的
+retained exact requested-storage域；不授予通用容量/时延/策略精度或hardware PASS。
 
 ## 1.13 Decode 与多卡 Workspace
 

@@ -277,7 +277,8 @@ def _communication_binding(binding, epochs, formal_ids, lt_id, mapping, problems
             "loaded_rccl": deepcopy(loaded), "pg_calls": defaultdict(list),
             "pg_group_calls": defaultdict(list), "verified_pg_epochs": set(), "pg_group_ends": [],
             "stdthread_control": deepcopy(binding.get("stdthread_control")),
-            "natural_shutdown_evidence": deepcopy(binding.get("natural_shutdown_evidence"))}
+            "natural_shutdown_evidence": deepcopy(binding.get("natural_shutdown_evidence")),
+            "host_signal_evidence": deepcopy(binding.get("host_signal_evidence"))}
 
 
 def _ancestor_call(child, ancestor_cid, call_pairs):
@@ -803,6 +804,8 @@ def _synchronization_proofs(data, ids, communication, opmap, call_pairs, result,
     options = {}
     if communication.get("natural_shutdown_evidence") is not None:
         options["natural_shutdown_evidence"] = communication["natural_shutdown_evidence"]
+    if communication.get("host_signal_evidence") is not None:
+        options["host_signal_evidence"] = communication["host_signal_evidence"]
     audit = module.audit_synchronization_resources(data, target_epochs=ids,
         device_index=communication["rank"]["logical_device_index"], **options)
     result["synchronization_resource_audit"] = audit

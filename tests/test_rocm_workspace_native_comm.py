@@ -498,6 +498,341 @@ class NativeCommunicationBackingTests(unittest.TestCase):
                     self.assertTrue(result["host_registration_cleanup_audit"][-1]["explained_host_registration_cleanup"])
 
 
+class PublicHsaQueryEvidenceTests(unittest.TestCase):
+    @staticmethod
+    def fixture():
+        f = Fixture()
+        f.op(3, 7, "hsa_amd_pointer_info", 512, 2)
+        f.op(2, 7, "hsa_agent_get_info", 512, 2)
+        f.op(3, 8, "hsa_amd_signal_get_event_id", 0, 2)
+        pointer = f.call(3, 7, 620, 625, epoch=0)
+        owner = f.call(2, 7, 630, 635, epoch=0)
+        event = f.call(3, 8, 640, 645, epoch=0)
+        fields = dict(returned_size=[0, 4], type=[4, 4], agent_base_address=[8, 8],
+            host_base_address=[16, 8], size_bytes=[24, 8], owner_agent=[40, 8],
+            global_flags=[48, 4], registered=[52, 1], alloc_flags=[56, 4])
+        for row in f.events:
+            exited = row["phase"] == 2
+            if row["cid"] == pointer:
+                payload = dict(pointer_address=0x8010, info_address=0xD000, input_size=None if exited else 64,
+                    payload_observed=True, **dict.fromkeys(fields))
+                if exited:
+                    payload.update(returned_size=64, type=1, agent_base_address=0x8000,
+                        host_base_address=0x8000, size_bytes=64, owner_agent=999,
+                        global_flags=1, registered=True, alloc_flags=16)
+                row["raw_hsa_pointer_info_payload"] = payload
+            elif row["cid"] == owner:
+                row["raw_hsa_agent_info_payload"] = dict(agent_handle=999, attribute=17,
+                    output_address=0xD100, device_type=0 if exited else None, payload_observed=True)
+            elif row["cid"] == event:
+                row["raw_hsa_signal_event_payload"] = dict(signal_handle=0x8010, output_address=0xD200,
+                    event_id=0 if exited else None, payload_observed=True)
+        f.native["hsa_query_storage"] = dict(schema_version=1, method="bounded_public_hsa_query_payloads_v1",
+            capacity=8192, retained_records=6, record_size_bytes=112, storage_capacity_bytes=8192 * 112,
+            dropped_records=0, read_errors=0, agent_info_device_attribute=17, cpu_device_type=0,
+            pointer_type_hsa=1, pointer_type_locked=2, pointer_info_struct_size=64, pointer_info_fields=fields)
+        return f, pointer, owner, event
+
+    def test_public_query_outputs_remain_diagnostic_without_cross_api_agent_identity_inference(self):
+        f, _, _, _ = self.fixture()
+        data = f.finish()
+        before = deepcopy(data)
+        result = analyze(data)
+        self.assertEqual(result["global_failures"], [])
+        self.assertEqual(data, before)
+        self.assertFalse(result["complete_workspace"])
+        self.assertFalse(result["hardware_validated"])
+        # Runtime hsa_agent_t=999 is intentionally not any SDK inventory ID.
+        backing = audit_native_backing(data, f.snapshots, device_to_agent={0: 1}, ctor_binding=f.binding)
+        self.assertEqual(backing["status"], "NATIVE_BACKING_CHECKS_PASSED", backing["issues"])
+        self.assertFalse(backing["complete_workspace"])
+
+    def test_complete_public_inputs_capture_null_optional_addresses_and_consumer_pointer(self):
+        for broken in (None, "missing_optional", "optional_changed", "missing_consumers", "consumer_changed", "null_consumers"):
+            f, pointer, _, _ = self.fixture()
+            f.native["hsa_query_storage"]["complete_public_query_inputs"] = True
+            for row in f.events:
+                if row["cid"] == pointer:
+                    row["raw_hsa_pointer_info_payload"].update(alloc_address=0, num_agents_address=0, accessible_address=0)
+                    if broken == "missing_optional":
+                        row["raw_hsa_pointer_info_payload"].pop("alloc_address")
+                    elif broken == "optional_changed" and row["phase"] == 2:
+                        row["raw_hsa_pointer_info_payload"]["accessible_address"] = 0xF000
+                if row["domain"] == 2 and row["op"] == 0:
+                    row["raw_hsa_signal_payload"] = dict(output_address=0xD900,
+                        initial_value=0, num_consumers=1, consumers_address=0xD800)
+                    if broken == "missing_consumers":
+                        row["raw_hsa_signal_payload"].pop("consumers_address")
+                    elif broken == "consumer_changed" and row["phase"] == 2:
+                        row["raw_hsa_signal_payload"]["consumers_address"] += 8
+                    elif broken == "null_consumers":
+                        row["raw_hsa_signal_payload"]["consumers_address"] = 0
+            failures = analyze(f.finish())["global_failures"]
+            with self.subTest(broken=broken):
+                if broken:
+                    self.assertTrue(any(key.startswith("hsa_query_") for key in failures), failures)
+                else:
+                    self.assertEqual(failures, [])
+
+    def test_unknown_truncated_and_failed_outputs_never_read_undefined_fields(self):
+        for mode in ("unknown", "truncated", "failed"):
+            f, cid, _, _ = self.fixture()
+            row = next(r for r in f.events if r["cid"] == cid and r["phase"] == 2)
+            payload = row["raw_hsa_pointer_info_payload"]
+            if mode == "unknown":
+                payload.update(dict.fromkeys(f.native["hsa_query_storage"]["pointer_info_fields"]))
+                payload.update(returned_size=64, type=0)
+            elif mode == "truncated":
+                payload.update(returned_size=48, global_flags=None, registered=None, alloc_flags=None)
+            else:
+                row["status"] = 4097
+                payload.update(dict.fromkeys(f.native["hsa_query_storage"]["pointer_info_fields"]))
+            with self.subTest(mode=mode):
+                self.assertEqual(analyze(f.finish())["global_failures"], [])
+                payload["alloc_flags"] = 16
+                self.assertIn("hsa_query_output_outside_returned_contract" if mode != "failed"
+                    else "hsa_query_failed_output_not_null", analyze(f.finish())["global_failures"])
+
+    def test_query_loss_bad_abi_mutated_pairs_and_untyped_outputs_fail_closed(self):
+        for mode in ("drop", "read", "count", "layout", "missing", "untyped", "extent", "pair", "pending"):
+            f, cid, _, event = self.fixture()
+            table = f.native["hsa_query_storage"]
+            row = next(r for r in f.events if r["cid"] == cid and r["phase"] == 2)
+            if mode == "drop":
+                table["dropped_records"] = 1
+            elif mode == "read":
+                table["read_errors"] = 1
+            elif mode == "count":
+                table["retained_records"] = 5
+            elif mode == "layout":
+                table["pointer_info_fields"]["owner_agent"] = [63, 8]
+            elif mode == "missing":
+                row.pop("raw_hsa_pointer_info_payload")
+                table["retained_records"] = 5
+            elif mode == "untyped":
+                row.update(status_type=0, status=None)
+            elif mode == "extent":
+                row["raw_hsa_pointer_info_payload"]["returned_size"] = 65
+            elif mode == "pair":
+                row["raw_hsa_pointer_info_payload"]["pointer_address"] += 1
+            else:
+                row = next(r for r in f.events if r["cid"] == event and r["phase"] == 2)
+                row["status"] = 1  # Failed query cannot disclose a stale event id.
+            with self.subTest(mode=mode):
+                self.assertTrue(any(k.startswith("hsa_query_") for k in analyze(f.finish())["global_failures"]))
+
+
+class HsaHostMemoryPayloadTests(unittest.TestCase):
+    @staticmethod
+    def fixture():
+        f = Fixture()
+        cids = []
+        for op, name, start in ((7, "hsa_amd_memory_lock", 610), (8, "hsa_amd_memory_unlock", 620),
+                (9, "hsa_amd_memory_lock_to_pool", 630)):
+            f.op(3, op, name, 32, 2)
+            cid = f.call(3, op, start, start + 5, epoch=0)
+            cids.append(cid)
+            for row in f.events:
+                if row["cid"] != cid:
+                    continue
+                unlock = op == 8
+                row["raw_hsa_host_memory_payload"] = dict(operation="unlock" if unlock else "lock" if op == 7 else "lock_to_pool",
+                    host_ptr=0x700000, payload_observed=True, size_bytes=None if unlock else 4097,
+                    agents_address=None if unlock else 0xD000, num_agents=None if unlock else 1,
+                    agent_handles=None if unlock else [0xA001], agents_observed=None if unlock else True,
+                    pool_handle=0xA100 if op == 9 else None, flags=0 if op == 9 else None,
+                    agent_ptr_output_address=None if unlock else 0xD100,
+                    agent_alias=0x900000 if not unlock and row["phase"] == 2 else None)
+        f.native["hsa_host_memory_storage"] = dict(schema_version=1,
+            method="bounded_public_hsa_host_memory_payloads_v1", capacity=8192, agent_capacity=4,
+            retained_records=6, record_size_bytes=104, storage_capacity_bytes=8192 * 104,
+            dropped_records=0, read_errors=0, incomplete_agent_arrays=0, system_page_size=4096)
+        return f, cids
+
+    def test_actual_host_and_distinct_device_alias_inputs_remain_diagnostic_and_immutable(self):
+        f, _ = self.fixture()
+        data = f.finish()
+        before = deepcopy(data)
+        result = analyze(data)
+        self.assertEqual(result["global_failures"], [])
+        self.assertEqual(data, before)
+        self.assertFalse(result["complete_workspace"])
+        self.assertFalse(result["hardware_validated"])
+
+    def test_host_pointer_status_extent_arrays_and_output_observation_fail_closed(self):
+        for mode in ("changed_unlock", "missing_unlock", "untyped_unlock", "invented_unlock_size",
+                "failed_lock_alias", "enter_alias", "array_truncated", "array_changed", "safe_read_failed", "range_overflow"):
+            f, cids = self.fixture()
+            for row in f.events:
+                payload = row.get("raw_hsa_host_memory_payload")
+                if payload is None:
+                    continue
+                if row["cid"] == cids[1] and row["phase"] == 2:
+                    if mode == "changed_unlock":
+                        payload["host_ptr"] += 4096
+                    elif mode == "missing_unlock":
+                        row.pop("raw_hsa_host_memory_payload")
+                    elif mode == "untyped_unlock":
+                        row.update(status_type=0, status=None)
+                    elif mode == "invented_unlock_size":
+                        payload["size_bytes"] = 4096
+                if row["cid"] == cids[0]:
+                    if mode == "failed_lock_alias" and row["phase"] == 2:
+                        row["status"] = 4097
+                    elif mode == "enter_alias" and row["phase"] == 1:
+                        payload["agent_alias"] = 0x900000
+                    elif mode == "array_truncated":
+                        payload.update(num_agents=5, agent_handles=[1, 2, 3, 4])
+                    elif mode == "array_changed" and row["phase"] == 2:
+                        payload["agent_handles"][0] += 1
+                    elif mode == "safe_read_failed":
+                        payload["payload_observed"] = False
+                    elif mode == "range_overflow":
+                        payload["host_ptr"] = 2**64 - 1
+            with self.subTest(mode=mode):
+                self.assertTrue(any(key.startswith("hsa_host_memory_") for key in analyze(f.finish())["global_failures"]))
+
+    def test_sparse_budget_page_size_and_failed_output_are_explicit(self):
+        for mode in ("drop", "read", "array", "count", "missing_table", "page_zero", "page_not_power_two"):
+            f, _ = self.fixture()
+            table = f.native["hsa_host_memory_storage"]
+            if mode in ("drop", "read", "array"):
+                table[{"drop": "dropped_records", "read": "read_errors", "array": "incomplete_agent_arrays"}[mode]] = 1
+            elif mode == "count":
+                table["retained_records"] -= 1
+            elif mode == "missing_table":
+                f.native.pop("hsa_host_memory_storage")
+            else:
+                table["system_page_size"] = 0 if mode == "page_zero" else 6000
+            with self.subTest(mode=mode):
+                self.assertTrue(any(key.startswith("hsa_host_memory_") for key in analyze(f.finish())["global_failures"]))
+        f, cids = self.fixture()
+        for row in f.events:
+            if row["cid"] == cids[0] and row["phase"] == 2:
+                row.update(status=4097)
+                row["raw_hsa_host_memory_payload"]["agent_alias"] = None
+        self.assertEqual(analyze(f.finish())["global_failures"], [])
+
+    def test_agents_allow_access_retains_exact_pointer_agents_and_reserved_null_flags(self):
+        for mode in (None, "pointer_changed", "array_changed", "array_truncated", "flags_pointer", "flags_scalar",
+                "status_untyped", "missing_pointer", "safe_read"):
+            f, _ = self.fixture()
+            f.native["hsa_host_memory_storage"]["supported_operations"] = ["hsa_amd_memory_unlock",
+                "hsa_amd_memory_lock", "hsa_amd_memory_lock_to_pool", "hsa_amd_agents_allow_access"]
+            f.native["hsa_host_memory_storage"]["retained_records"] += 2
+            f.op(3, 10, "hsa_amd_agents_allow_access", 0, 2)
+            cid = f.call(3, 10, 640, 645, epoch=0)
+            for row in f.events:
+                if row["cid"] != cid:
+                    continue
+                payload = dict(operation="allow_access", ptr=0x700000, payload_observed=True,
+                    size_bytes=None, agents_address=0xD000, num_agents=1, agents_observed=True,
+                    agent_handles=[0xA001], pool_handle=None, flags=None, agent_ptr_output_address=None,
+                    agent_alias=None, flags_address=0, flags_values=None, flags_observed=True)
+                row["raw_hsa_host_memory_payload"] = payload
+                if mode == "pointer_changed" and row["phase"] == 2:
+                    payload["ptr"] += 4096
+                elif mode == "array_changed" and row["phase"] == 2:
+                    payload["agent_handles"][0] += 1
+                elif mode == "array_truncated":
+                    payload.update(num_agents=5, agent_handles=[1, 2, 3, 4])
+                elif mode == "flags_pointer":
+                    payload.update(flags_address=0xD200, flags_observed=False)
+                elif mode == "flags_scalar":
+                    payload["flags_values"] = 0
+                elif mode == "status_untyped" and row["phase"] == 2:
+                    row.update(status_type=0, status=None)
+                elif mode == "missing_pointer":
+                    payload.pop("ptr")
+                elif mode == "safe_read":
+                    payload["payload_observed"] = False
+            with self.subTest(mode=mode):
+                failures = analyze(f.finish())["global_failures"]
+                if mode:
+                    self.assertTrue(any(code.startswith("hsa_host_memory_") for code in failures))
+                else:
+                    self.assertEqual(failures, [])
+
+
+class HipHostMemoryPayloadTests(unittest.TestCase):
+    @staticmethod
+    def fixture():
+        f = Fixture()
+        f.op(0, 7, "hipHostMalloc", 33, 1)
+        f.op(0, 8, "hipHostFree", 34, 1)
+        allocate = f.call(0, 7, 610, 615, epoch=0)
+        free = f.call(0, 8, 620, 625, epoch=0)
+        for row in f.events:
+            if row["cid"] == allocate:
+                row["raw_hip_control_payload"] = dict(kind="host_allocation", output_address=0xD000,
+                    pointer=0x700000 if row["phase"] == 2 else None, size_bytes=8193, flags=3,
+                    pointer_observed=row["phase"] == 2, payload_observed=True)
+            elif row["cid"] == free:
+                row["raw_hip_control_payload"] = dict(kind="host_free", output_address=0,
+                    pointer=0x700000, size_bytes=None, flags=None, pointer_observed=True, payload_observed=True)
+        f.native["hip_host_memory_payloads"] = dict(schema_version=1, method="existing_native_event_storage_v1",
+            supported_operations=["hipHostMalloc", "hipHostFree"], retained_records=4,
+            safe_read_errors=0, uses_native_event_storage=True)
+        return f, allocate, free
+
+    def test_actual_parent_pointer_and_requested_extent_keep_original_flags_without_ownership_inference(self):
+        f, _, _ = self.fixture()
+        data = f.finish()
+        before = deepcopy(data)
+        result = analyze(data)
+        self.assertEqual(result["global_failures"], [])
+        self.assertEqual(data, before)
+        self.assertFalse(result["complete_workspace"])
+        self.assertFalse(result["hardware_validated"])
+
+    def test_changed_inputs_missing_parent_pointer_failed_output_and_bad_extents_fail_closed(self):
+        for mode in ("missing_free", "changed_free", "free_extent", "untyped", "malloc_size_changed",
+                "malloc_flags_changed", "stale_failed_output", "enter_output", "safe_read", "overflow"):
+            f, allocate, free = self.fixture()
+            for row in f.events:
+                payload = row.get("raw_hip_control_payload")
+                if payload is None:
+                    continue
+                if row["cid"] == free and row["phase"] == 2:
+                    if mode == "missing_free":
+                        payload.pop("pointer")
+                    elif mode == "changed_free":
+                        payload["pointer"] += 4096
+                    elif mode == "free_extent":
+                        payload["size_bytes"] = 0
+                    elif mode == "untyped":
+                        row.update(status_type=0, status=None)
+                if row["cid"] == allocate:
+                    if mode == "enter_output" and row["phase"] == 1:
+                        payload.update(pointer=0x700000, pointer_observed=True)
+                    elif row["phase"] == 2:
+                        if mode == "malloc_size_changed":
+                            payload["size_bytes"] += 1
+                        elif mode == "malloc_flags_changed":
+                            payload["flags"] += 1
+                        elif mode == "stale_failed_output":
+                            row["status"] = 1
+                        elif mode == "safe_read":
+                            payload["payload_observed"] = False
+                        elif mode == "overflow":
+                            payload["pointer"] = 2**64 - 1
+            with self.subTest(mode=mode):
+                self.assertTrue(any(key.startswith("hip_host_memory_") for key in analyze(f.finish())["global_failures"]))
+
+    def test_budget_counters_are_explicit_and_failed_allocations_do_not_disclose_unproven_output(self):
+        f, allocate, _ = self.fixture()
+        for row in f.events:
+            if row["cid"] == allocate and row["phase"] == 2:
+                row["status"] = 1
+                row["raw_hip_control_payload"].update(pointer=None, pointer_observed=False)
+        self.assertEqual(analyze(f.finish())["global_failures"], [])
+        for key, value in (("safe_read_errors", 1), ("retained_records", 3), ("uses_native_event_storage", False)):
+            bad = deepcopy(f)
+            bad.native["hip_host_memory_payloads"][key] = value
+            with self.subTest(key=key):
+                self.assertTrue(any(code.startswith("hip_host_memory_") for code in analyze(bad.finish())["global_failures"]))
+
+
 class NativeOutputPathFormatterTests(unittest.TestCase):
     @unittest.skipUnless(os.name == "posix" and shutil.which("c++"), "Optional native formatter needs a C++ compiler")
     def test_actual_formatter_only_accepts_bounded_literal_or_pid_paths(self):
