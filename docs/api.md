@@ -1,6 +1,6 @@
 # Python API
 
-Install distribution `mlsys-simulator` and import `mlsys_sim`. Version 1.12 exposes the
+Install distribution `mlsys-simulator` and import `mlsys_sim`. Version 1.13 exposes the
 simulation, profile, calibration and comparison functions through this package,
 with optional hardware collection and evidence-acceptance commands;
 `mlsys_sim.__version__` is the software version. JSON schema and Profile version
@@ -644,10 +644,41 @@ of using a fallback. Stage timing and fixed allocations retain their identities.
 
 The `mlsys_sim.workspace` module provides `load_workspace_dataset`,
 `load_workspace_profile`, `validate_workspace_dataset`,
-`validate_workspace_profile`, `calibrate_workspace` and `WorkspaceModel`.
+`validate_workspace_profile`, `calibrate_workspace`, `validate_workspace_repeats`
+and `WorkspaceModel`. `validate_workspace_repeats` is also a package-level export.
 Calibration reduces repeats by per-rank maximum. Each canonical record must
 contain complete exclusive Runtime ownership, including non-Torch scratch; a
 passive manager observer supplies partial raw evidence instead.
+
+`validate_workspace_repeats(profile, training_dataset, repeat_dataset, *,
+allow_test_fixture=False)` evaluates a frozen Profile using a separate
+acquisition. It checks the exact training canonical SHA and recomputes its fit,
+then requires distinct acquisition sessions, capture hashes, record IDs and
+group IDs. Training acquisition facts are copied into the fitted Profile only
+when explicitly present; legacy fitting without them retains its old output,
+but cannot supply the facts required for this repeat evaluator.
+
+The evaluator accepts only retained exact phase/stage/query/context/member-role
+shapes. It preserves every TP-rank value, reports record and rank coverage,
+retained-shape coverage, byte errors and underprediction, and treats an observed
+zero as a valid value. Missing TP ranks fail dataset validation; missing shapes
+remain out of domain. `summary.underprediction_count` counts underestimated
+rank cells; `underpredicted_record_count` counts affected records. It does not
+interpolate, extrapolate, fit on repeat rows,
+prove process freshness from a session label, or assert hardware acceptance.
+`hardware_validated=false`, `unseen_shape_generalization=false` and no online SLA
+remain explicit. The corresponding CLI is:
+
+```bash
+mlsys-sim validate --workspace-repeats \
+  --training-dataset runs/workspace-fit/dataset.json \
+  --profile runs/workspace-fit/profile.json \
+  --dataset workspace-repeat.json --out runs/workspace-repeat-validation
+```
+
+Use the fit's canonical `dataset.json`, rather than a differently normalized
+input file. The output snapshots training, repeat and Profile inputs and their
+hashes. Split and extrapolation options are not applicable.
 
 `collect --kind memory-capacity` runs or imports a fresh-Runtime axis sweep,
 and `validate --memory-capacity --dataset ...` assesses complete configuration
@@ -670,12 +701,23 @@ allocator OOM evidence; other failures remain censored or distinct. The existing
 [live capacity limits](capacity-live-validation.md).
 
 Optional source tools in `scripts/rocm_workspace_audit` join installed Torch
-allocator, native SDK backing and Runtime-owner evidence for a narrowly pinned
-single-card Workspace acquisition. They are outside the normal package import
-path and require existing matching native tools. Individual component success
-does not imply complete Workspace; only the final merger may emit canonical
-records after every attribution gate passes. See the
-[live Workspace domain](workspace-live-validation.md) and tool README.
+allocator, native SDK backing and Runtime-owner evidence. The legacy single-card
+prefill driver remains separate from the new `workspace_stage_session.py`
+supervisor and `worker_workspace_capture.WorkspaceWorker`. The latter uses the
+pinned Worker's real execute/sample boundaries for single/TP2/PP2 and records
+per-rank prefill and decode iterations. `assemble_stage_workspace.py` independently
+audits source/Runtime/rank, Torch, native and PP transport evidence before
+emitting a canonical dataset. A raw process exit or component success is not
+complete attribution.
+
+These sources are outside the normal package import path, require existing
+matching native tools, and add no required pip dependency. Their current raw
+domain is Qwen3-1.7B BF16, synchronous eager MRv1, seq1/512-token limits, fixed
+256MiB KV and no cache/chunk/mixed/swap. Memory-capture stage durations are
+diagnostic and must not become new latency calibration rows. See the
+[Worker workflow](workspace-and-capacity.md#collect-worker-level-prefill-and-decode),
+[live Workspace domain](workspace-live-validation.md) and tool README for
+separate software and actual evidence limits.
 
 `mlsys_sim.workspace_capture` provides `WorkspaceRecorder`, `collect_workspace`
 and `PinnedVllmWorkspaceObserver`. The recorder receives explicit storage

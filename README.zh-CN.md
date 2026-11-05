@@ -3,7 +3,9 @@
 [English](README.md) · [Python API](docs/api.md) · [校准](docs/calibration.md) ·
 [验证规范](docs/validation-protocol.md) · [系统规范](docs/specification.md) · [PP 与 CPU swap](docs/pipeline-and-swap.md) · [Prefix Cache 与分块预填充](docs/prefix-cache-and-chunking.md) · [混合批处理](docs/mixed-batching.md) · [多副本路由](docs/multi-replica.md) · [ROCm 采集](docs/rocm-collection.md) · [Qwen3 与 vLLM 内部 hook](docs/qwen3-and-vllm-hooks.md) · [原生 PP 采样与 Profile](docs/native-pp-capture.md) · [原生 PP 通信微基准与校准](docs/native-pp-communication.md) · [Workspace 与容量验证](docs/workspace-and-capacity.md)
 
-1.12 版增加真实 KV 池容量适配器、精确形状的独立采集重复验证和限定域完整 Workspace 审计；保留显式 P2P Simple-only 策略与实际阈值／Runtime 指纹绑定，保留小消息 lookup、训练拐点保护和分尺寸独立留出报告；保留逐 rank Workspace Profile、完整 Runtime scratch 归因契约与全新 Runtime 容量／OOM 区间验证。已有能力包括原生 PP 通信微基准与 Profile、Qwen3／vLLM 内部采集、多副本调度、TP/PP、缓存、分块、混合批处理、CPU swap、校准和验证。用户提供的 AMD/NVIDIA 参考包用于格式适配与审计；原始包及 prompt/output 全文不随库分发，现有覆盖不代表通用硬件准确率。仓库为[私有仓库](https://github.com/eyuansu62/mlsys-simulator)，许可证待选择，尚未发布 PyPI。
+1.13 版增加逐 Worker 的 Prefill／Decode Workspace 原始采集、限定 single／TP2／PP2 的逐 rank 归因工具、独立 Workspace 重复验证，以及原生 PP 发送张量跨迭代保留的预算。保留真实 KV 池容量适配器、严格 Profile 身份、小消息通信校准和已有 TP／PP、缓存、分块、混合批处理、CPU swap、多副本调度。用户提供的 AMD/NVIDIA 参考包用于格式适配与审计；原始包及 prompt/output 全文不随库分发，现有覆盖不代表通用硬件准确率。仓库为[私有仓库](https://github.com/eyuansu62/mlsys-simulator)，许可证待选择，尚未发布 PyPI。
+
+单卡本轮训练与冻结后独立 Runtime 验证各覆盖24条正式观测、8种精确形状，包含6种 Decode context，覆盖率100%、字节低估0。TP2也完成完整训练及冻结后独立验证，每个cohort各24条记录/48条rank观测，精确形状全覆盖、字节误差0；PP2仍为partial。已完成范围和保留缺口见[Worker Workspace 验证记录](docs/workspace-stage-validation.md)。
 
 ## 安装和运行
 
@@ -135,6 +137,10 @@ mlsys-sim simulate --experiment examples/v1_8/native-pp-serving.fixture.json \
 ## Workspace 归因与容量／OOM 验证
 
 Workspace 校准只接收完整的 Runtime-owned allocation ledger：按实际底层 storage 去重 alias，等释放完成才扣除占用，逐 rank 区分真实零和未知。独立 Workspace Profile 只替换动态 Workspace 预算，不改变阶段耗时或重复计固定储备；显式选择后按精确形状查询，不插值、不解析回退。默认 vLLM WorkspaceManager 观察器只提供部分 managed scratch 信息，不能自动代表所有 temporary Workspace。
+
+可选的 `scripts/rocm_workspace_audit/workspace_stage_session.py` 通过真实 GPUWorker 边界采集 single／TP2／PP2，每个 prompt 自然生成四个 Token，保留逐 iteration 的实际 phase、query 和 context。正式网格为 Prefill16／32 及 Decode context16–18／32–34；三次重复时每 rank 有24行。当前原始采集只限 BF16、同步 eager MRv1、单 active sequence、固定256MiB KV、无 cache／chunk／mixed／swap。采集进程正常退出不等于完整归因；只有所有原生、Torch、PP 生命周期和身份门禁闭合，才允许校准。强插桩的阶段耗时仅作诊断，不用于新的时延 Profile。
+
+冻结训练 Profile 后，使用 `validate --workspace-repeats --training-dataset fit/dataset.json --profile ... --dataset ...` 检查新采集的逐 rank 覆盖和低估。训练 canonical SHA、实际采集 session／capture／record／group 必须独立；它不拟合重复数据，也不自动授予硬件 PASS。已有缓存、swap、混批和多副本的兼容性由 CPU 组合回归检查，不能把本采集域的 Profile 复用到未测身份或形状。详见[Worker 采集与重复验证](docs/workspace-and-capacity.md#collect-worker-level-prefill-and-decode)。
 
 容量扫描为每个候选点和重复实验建立全新 Runtime／进程，区分 typed device OOM、逻辑 KV 准入拒绝、超时及其他错误，并与整个有效配置的模拟结果比较。报告只给有证据的相邻成功→OOM 区间和分辨率；不稳定、非单调或删失结果不能推成一个精确通用阈值。适配器集成契约、fixture 示例和证据边界见[专门说明](docs/workspace-and-capacity.md)。
 

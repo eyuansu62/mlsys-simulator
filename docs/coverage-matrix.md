@@ -1,6 +1,6 @@
-# Version 1.12 capability matrix
+# Version 1.13 capability matrix
 
-This table describes the version 1.12 software scope. Available fixture demonstrations
+This table describes the version 1.13 software scope. Available fixture demonstrations
 and unit tests do not establish AMD hardware accuracy. User-supplied reference
 packages are external evidence with their own timing and model-coverage limits.
 
@@ -30,6 +30,8 @@ packages are external evidence with their own timing and model-coverage limits.
 | Independent exact-stage repeats | Implemented | Frozen training SHA/fit/provenance, distinct acquisition session/capture/record/group evidence and retained exact shapes only; separate from unseen-shape holdout and hardware acceptance |
 | Online run/candidate comparison | Implemented | Matching contracts, per-metric/request errors, SLA agreement, ties and candidate ordering |
 | Independent Workspace Profiles | Implemented | Complete Runtime ownership, exact per-rank repeated maxima including observed zero; selected missing shapes fail without fallback |
+| Independent Workspace repeats | Implemented | Frozen training SHA and exact-rank-max replay, separate acquisition identities, record/rank/retained-shape coverage and byte underprediction; no automatic fitting on repeat data |
+| Worker Workspace acquisition | Implemented optional adapter | Source-pinned single/TP2/PP2 Prefill/Decode capture, actual prepared shapes, Torch generations, native communication ancestry and PP retention; full attribution requires every component gate |
 | Partial managed-scratch observation | Implemented observer | Existing pinned vLLM WorkspaceManager capacity stays raw/partial; it does not prove complete dynamic Workspace |
 | Legacy stage Workspace consumption | Implemented | Without an explicit Workspace Profile, supported stage observations or labeled analytical assumptions |
 | Capacity/OOM collection and validation | Implemented adapter/workflow | Fresh Runtime/process per point/repeat, typed OOM and applied-axis/configuration evidence; pinned native vLLM single-GPU KV factory; unstable/nonmonotonic/censored outcomes and observed brackets |
@@ -119,3 +121,24 @@ See the [Workspace](workspace-live-validation.md),
 has no native CPU KV-swap path for an end-to-end eviction/restore comparison.
 Only two physical GPUs are available; full TP2×PP2 and its receiving AllGather
 path require a different hardware cohort.
+
+## Scoped live Workspace evidence added in 1.13
+
+Single-card Qwen3-1.7B BF16 eager MRv1 completed training and a frozen independent
+Runtime repeat: 24 formal observations per cohort, eight exact shapes including
+six Decode contexts, full record/rank/shape coverage, zero byte error and no
+underprediction. TP2 independently completed the same train/frozen-repeat
+workflow: 24 records and 48 rank observations per cohort, eight exact shapes,
+full record/rank/shape coverage, zero byte error and no underprediction.
+PP2 acquisitions have real per-rank component evidence, but their partial
+Native/synchronization attribution cannot produce a canonical Workspace dataset
+or a calibration result. The PP process-exit
+diagnostic preserved actual unsuccessful SDK stop codes and unresolved formal
+signal generations.
+
+A separate PP2 stress observation justified the synchronous sender budget's
+two-output-pair minimum. It is not a Workspace training record. Cache, swap and
+mixed execution remain software composition checks outside this measured domain.
+See [Worker Workspace validation](workspace-stage-validation.md) for exact scope,
+frozen Profile lineage and promotion gates. No result grants general hardware
+acceptance.

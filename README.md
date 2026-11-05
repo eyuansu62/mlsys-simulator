@@ -15,7 +15,9 @@ collection adapters instrument an installed Runtime separately from simulation.
 [Native PP communication calibration](docs/native-pp-communication.md) ·
 [Workspace and capacity validation](docs/workspace-and-capacity.md) · [Contributing](CONTRIBUTING.md)
 
-**Version 1.12 software scope:** independent exact per-rank Workspace Profiles,
+**Version 1.13 software scope:** Worker-level Prefill/Decode Workspace acquisition
+for the pinned single/TP2/PP2 layouts, provenance-checked independent exact
+Workspace repeats, independent exact per-rank Workspace Profiles,
 Runtime-owned scratch attribution and fresh-Runtime capacity/OOM-bracket
 validation; independent native PP P2P/AllGather microbenchmarks and
 placement-specific communication Profiles, native vLLM PP
@@ -31,7 +33,7 @@ library. Their coverage does not establish general hardware accuracy. The
 repository is [private](https://github.com/eyuansu62/mlsys-simulator), the license
 is pending selection, and no package has been published to PyPI.
 
-The latest limited live validation adds complete requested-storage Workspace
+The 1.12 limited live validation added complete requested-storage Workspace
 attribution at two single-card prefill shapes, fresh-process physical KV-pool
 success/OOM endpoints on both AMD cards, TP2 unseen-shape stage validation and
 native PP2 independent exact-shape repeats. See the [Workspace](docs/workspace-live-validation.md),
@@ -42,6 +44,25 @@ independent physical replicas also passed limited
 chunking additionally met narrow p50 targets in three independent conditional
 repeats each; mixed accuracy retains an explicit coverage gap. These results do not establish general
 memory accuracy, online SLA, CPU swap or four-card TP2×PP2 accuracy.
+
+The optional 1.13 Worker-based collector records real prefill and decode
+iterations on each rank, including native PP buffer lifetimes. A raw acquisition
+that exits successfully still needs complete Torch, native, transport and
+observed-domain audits before it can be calibrated. The current raw collection
+domain is BF16, synchronous eager MRv1, one active sequence, fixed 256MiB KV,
+without cache/chunk/mixed/swap; CPU combination tests establish software
+compatibility with those policies separately. See the
+[Workspace workflow](docs/workspace-and-capacity.md#collect-worker-level-prefill-and-decode)
+for the exact domain and independent-repeat commands. Instrumented stage
+durations from these memory captures are diagnostic, not new latency Profiles.
+The scoped single-card train/frozen-repeat pair covers eight exact shapes,
+including six Decode contexts, with 24 formal observations per cohort, complete
+coverage and zero byte underprediction. Multicard component evidence is admitted
+only after every attribution gate closes. TP2 also completed training and a
+frozen independent repeat, with 24 records/48 rank observations per cohort,
+full exact-shape coverage and zero byte error; PP2 remains partial. See the
+[Worker Workspace validation record](docs/workspace-stage-validation.md) for
+completed results and retained gaps.
 
 ## Install from a checkout
 
@@ -270,6 +291,12 @@ mlsys-sim predict --experiment examples/v1_9/native-pp-workspace.fixture.json \
 This example combines hand-calculated Workspace/communication Profiles with
 synthetic stage time. See [Workspace and capacity validation](docs/workspace-and-capacity.md)
 for adapter contracts, fixture workflows and evidence limits.
+
+After freezing a complete Workspace fit, evaluate a new acquisition with
+`validate --workspace-repeats --training-dataset fit/dataset.json --profile ...
+--dataset ...`. The report keeps each TP rank, shape coverage and
+underprediction separate. It does not refit, interpolate, or grant a hardware
+acceptance verdict.
 
 ## Use the Python API
 

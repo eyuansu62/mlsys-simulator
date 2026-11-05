@@ -1,10 +1,16 @@
 # Workspace attribution and capacity validation
 
-Version 1.9 separates dynamic Workspace attribution from stage timing and
-validates capacity evidence against a complete effective experiment. The two
+Dynamic Workspace attribution and capacity validation have been separate
+workflows since version 1.9. Capacity validation uses a complete effective
+experiment. The two
 workflows share memory identities, but answer different questions: Workspace
 records identify owned dynamic allocations; a capacity sweep records whether a
 fresh Runtime can execute each candidate workload/configuration.
+
+Version 1.13 adds Worker-level prefill/decode acquisition and an independent
+exact-Workspace repeat evaluator. Raw acquisition support and complete
+attribution are separate: every selected rank and storage lifetime still needs
+the proofs below before calibration is allowed.
 
 The dependency-free CPU core does not collect GPU timings by substitution.
 Live collection needs the supported installed HIP stack and a user Runtime
@@ -146,6 +152,140 @@ assert recorder.seal() == [
 
 The live Workspace CLI has no raw-ledger importer and no CPU timing fallback.
 CPU injection is a library test surface and retains fixture source.
+
+## Collect Worker-level Prefill and Decode
+
+The optional `scripts/rocm_workspace_audit/workspace_stage_session.py` supervisor
+uses a pinned `WorkspaceWorker` subclass, preserving the real MRv1 model runner.
+Its layouts are `single` (TP1×PP1), `tp2` (TP2×PP1) and `pp2` (TP1×PP2); these
+are separate identities and acquisitions. Two physical GPUs do not establish
+TP2×PP2 or a larger replica topology.
+
+The current raw acquisition domain is Qwen3-1.7B BF16, synchronous eager MRv1,
+one active sequence, FIFO, max model/batched token counts of 512, block size 16
+and a fixed 256MiB KV budget. Cache, chunking, mixed batches, CPU swap/offload, graphs and
+async execution are excluded from this collector's domain. The experiment must
+declare the actual ordered devices, effective model/PP endpoint identity and
+matching software/configuration; unsupported or missing facts are rejected.
+The model is an existing local directory, not a network download.
+
+Each prompt of length 16 or 32 naturally generates four greedy outputs. The
+prepared batch supplies the real phase, query, context and sampling boundary:
+one prefill at context 0, followed by decode query 1 at contexts 16/17/18 or
+32/33/34. With `--repeats 3`, each rank has 24 formal iterations, including 18
+decode iterations. Warmup remains in the raw capture with explicit cohort
+labels. It is not inferred from request names or removed from the originals.
+
+Build the matching optional SDK/Torch probes and install the matching simulator
+wheel first; see the [tool instructions](../scripts/rocm_workspace_audit/README.md).
+Run each layout with its own complete actual experiment and new output paths:
+
+```bash
+SCRIPT_ROOT=/app/work/mlsys-simulator/scripts/rocm_workspace_audit
+python "$SCRIPT_ROOT/workspace_stage_session.py" \
+  --mode single --experiment /app/work/single.actual.json \
+  --cohort train --repeats 3 --out /app/work/ws-single-train
+```
+
+Use `--mode tp2` or `--mode pp2` with the corresponding actual experiment for
+the other layouts. PP2 requires `vllm_native` transport with a physical-token
+bound covering the actual 512-token persistent input targets. Visibility is
+selected before child GPU imports, and per-worker SDK output uses a PID
+template; actual PID, stage, TP rank and logical-to-physical device facts must
+match. The parent supervisor does not create a CUDA/HIP context for timing.
+
+`--native-max-events` is an explicit SDK retention budget: default 1,048,576,
+with a supported upper bound of 4,194,304 when the compiled probe supports it.
+Choose it before acquisition. A larger bound does not repair a saturated or
+truncated trace, and no slow or unsupported rows may be discarded to fit it.
+
+The outer execution supervisor must preserve the actual return code and
+receipt, source/DSO/header/library hashes, logs and normal process exit. After
+exit, assemble the unmodified raw evidence:
+
+```bash
+python "$SCRIPT_ROOT/assemble_stage_workspace.py" \
+  --session /app/work/ws-single-train \
+  --receipt /app/work/ws-single-train-receipt.json \
+  --out /app/work/ws-single-train-assembled
+```
+
+The receipt must come from that actual execution, not an expected success.
+Multi-card communication needs real per-rank constructor, library, communicator
+and backing evidence through `--communication-bindings`; a declaration of
+ownership does not supply that proof. The assembler independently checks the
+native events and recorded source/Runtime facts. Unknown communicator backing,
+proxy-thread causality, incomplete finalization, open API calls or dropped
+events keep the result partial. An assembler command that writes a report can
+exit normally while attribution is partial: inspect `attribution_complete` and
+the issues. Only a complete report emits canonical `dataset.json` for fitting.
+
+The Worker boundary includes receive allocation, the real runner, and the
+sender's original handoff. PP output tensors can survive into the next
+iteration through the group's self-retention queue. Their storage generations,
+pending releases and natural reap are recorded; the observer must not pre-read
+lazy receives or wait/reap early to make them disappear. A separate final
+teardown drain can prove eventual closure, but is excluded from formal peaks.
+PP buffers and fixed communicator storage stay in their own budgets, rather
+than becoming dynamic Workspace. Shape/rank-complete Torch evidence alone is
+still insufficient without native backing and ownership closure.
+
+These snapshots, synchronization points and native callbacks materially
+instrument execution. Exported stage durations are diagnostic; do not use them
+to fit a new stage-latency Profile. A complete Workspace dataset deliberately
+contains no duration. Actual hardware results and their supported domains belong
+in the [live validation record](workspace-live-validation.md), rather than being
+inferred from raw process exit or CPU fixtures.
+
+## Validate a frozen Workspace Profile independently
+
+Fit only a complete training dataset and freeze its Profile bytes before
+starting the independent acquisition:
+
+```bash
+mlsys-sim calibrate --workspace \
+  --dataset /app/work/ws-single-train-assembled/dataset.json \
+  --profile-version workspace-single-v1 --out /app/work/ws-single-fit
+```
+
+Then run a fresh Runtime with the same supported layout/configuration,
+`--cohort repeat`, and a new output directory. Audit it independently before
+evaluation; do not fit on the repeat or backfill missing facts into it.
+
+```bash
+mlsys-sim validate --workspace-repeats \
+  --training-dataset /app/work/ws-single-fit/dataset.json \
+  --profile /app/work/ws-single-fit/profile.json \
+  --dataset /app/work/ws-single-repeat-assembled/dataset.json \
+  --out /app/work/ws-single-repeat-validation
+```
+
+Use the fit's exact canonical training snapshot. The API
+`validate_workspace_repeats(profile, training_dataset, repeat_dataset, *,
+allow_test_fixture=False)` checks its SHA, recomputes the retained per-rank fit,
+and verifies identity, attribution and fitting provenance. Explicit acquisition
+notes must supply session, clock domain and sorted raw capture hashes; reused
+session/capture/record/group evidence is rejected. Shared source and binary
+hashes remain distinct from raw capture hashes and do not make independent
+acquisitions into reused observations.
+
+The report preserves each stage and TP rank. It gives record coverage, rank
+coverage, retained-shape coverage, absolute byte error and byte underprediction.
+Its underprediction count is per rank cell; the number of affected records is
+reported separately.
+Observed zero is valid; a missing rank is invalid data and a missing shape is
+out of domain. Evaluation is exact-only: no interpolation, extrapolation or
+automatic split is performed. It is independent repetition within retained
+shapes, not unseen-shape generalization or automatic hardware acceptance.
+Fixtures require explicit opt-in and remain fixtures; hardware status stays
+false and there is no online SLA verdict.
+
+The existing simulator can consume matching Workspace Profiles with TP/PP,
+Prefix Cache, chunking, CPU swap and mixed batches, as checked by CPU combination
+regressions. That software compatibility does not extend this measured
+collector domain. Each selected Profile still needs its actual Runtime identity
+and exact queried shapes/member roles; enabling another policy cannot authorize
+reuse of unmeasured Workspace bounds.
 
 ## Select Workspace independently
 

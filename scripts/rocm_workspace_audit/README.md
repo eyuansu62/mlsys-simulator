@@ -1,22 +1,24 @@
 # Pinned ROCm Workspace audit tools
 
-These are optional public source tools for a narrowly defined Workspace
-acquisition and independent storage audits, outside the ordinary simulator
-import path. The current acquisition driver and merger add stricter observed
-domain gates; they are not semantically equivalent to the historical versions.
-Native probe and Torch bridge bytes are retained, while the public HIP control
-has later metadata changes. The lineage below distinguishes those sources.
+These are optional public source tools for pinned Workspace acquisition and
+independent storage audits, outside the ordinary simulator import path.
+Version 1.13 adds Worker-level prefill/decode collection, rank placement and
+native PP lease auditing. The legacy single-card prefill driver remains a
+separate interface. Source and native observer changes require new acquisition
+receipts; current sources are not byte-equivalent to the historical tools.
 The package adds no pip dependency or compiled extension. Build shared objects
 locally with the already installed matching Torch/HIP/rocprofiler SDK; no `.so`
 or GPU executable is distributed.
 
-The supported acquisition is **Qwen3-1.7B BF16, TP1/PP1, MRv1, synchronous eager,
-one Prefill request of 16 or 32 tokens with context 0 and one greedy output**.
-The driver fixes max model/batched tokens to 512, max sequences to 1, KV to
-256 MiB, seed to 0, and disables Prefix Cache, Chunked Prefill, mixed execution,
-async scheduling and custom AllReduce. Use one explicitly bound visible GPU and
-an experiment matching this domain. These sources are not a general adapter for
-arbitrary models, layouts, devices or online policies.
+The Worker raw collector supports **Qwen3-1.7B BF16, single (TP1×PP1),
+TP2×PP1 or TP1×PP2, synchronous eager MRv1**, with one active sequence and
+four greedy outputs for each 16/32-token prompt. It fixes model/batch-token
+limits to 512, KV to 256MiB, block size to 16 and seed to 0; cache, chunking,
+mixed execution, swap/offload, async execution, graphs and custom AllReduce are
+disabled. The legacy driver instead captures single-card prefill with one
+output. Neither interface is a general adapter for arbitrary models, layouts,
+devices or online policies. Raw success does not establish complete attribution
+for a supported mode.
 
 The build binding is:
 
@@ -28,23 +30,28 @@ The build binding is:
 
 Record the actual wheel, Runtime, SDK headers/libraries, compiler, GPU identity,
 source and built-artifact hashes for every run. A matching version string alone
-does not authenticate the binary. Models must already exist at the read-only
-container path `/app/models/Qwen3-1.7B`; the driver does not accept another
-model path or download models.
+does not authenticate the binary. Models must already exist locally; the Worker
+launcher defaults to the read-only container path `/app/models/Qwen3-1.7B` and
+can receive another existing directory through `--model`. It downloads nothing.
 
 ## Files and completion boundary
 
 | File | Role |
 | --- | --- |
-| `native_probe.cpp` | Bounded SDK API/normalized-memory/private-scratch observation; protocol v2 includes nine domains and RCCL binding |
-| `torch_allocator_probe.cpp` | Installed Torch allocator observer with thread, epoch and real action ordering |
+| `native_probe.cpp` | Bounded nine-domain SDK API/memory/scratch observation, typed RCCL calls, PID output and explicit stop/finalization evidence |
+| `torch_allocator_probe.cpp` | Installed Torch allocator observer with thread, epoch, action order and read-only committed-event cursor |
 | `device_heap_controls.hip` | Separate device-heap and compiled-private-scratch positive controls |
-| `workspace_capture_session.py` | One fresh acquisition, full Torch history, entry/exit owners and returned-output witnesses |
+| `workspace_stage_session.py` | Bounded fresh single/TP2/PP2 supervisor; raw warmup and formal iterations, without fitting or acceptance |
+| `worker_workspace_capture.py` | Real GPUWorker execute/sample observation, actual communication prewarm and PP handoff/retention/teardown |
+| `workspace_stage_domain.py` | Actual prepared-batch, source/Runtime/rank/layout and supported-shape checks |
+| `workspace_transport_audit.py` | Full transport-generation replay, retained PP ownership, overlap and release completion |
+| `assemble_stage_workspace.py` | Independent Worker/Torch/native/PP combination; canonical data only after every gate closes |
+| `workspace_capture_session.py` | Legacy single-card prefill acquisition |
 | `analyze_native_probe.py` | SDK setup, pairing, bounds, loss, stop/finalize and optional correlation-scope diagnostics |
-| `workspace_torch_audit.py` | Requested-storage generation/lifetime and fixed-owner audit |
-| `native_backing_audit.py` | Successful native backing, exact Torch segment matching, controlled LT constructor and scratch reserve audit |
-| `assemble_workspace.py` | Final combination, observed-domain/source/process/output/budget checks and conditional canonical dataset |
-| `workspace_domain.py` | Shared strict declared/observed software, device, parallelism, Runtime configuration and hash checks |
+| `workspace_torch_audit.py` | Requested-storage generation/lifetime and exact TP-shard/PP-layer owner checks |
+| `native_backing_audit.py` | Successful backing, exact Torch matching, controlled LT/communicator provenance and separate fixed budgets |
+| `assemble_workspace.py` | Legacy prefill merger, with strict observed-domain/source/process/output/budget checks |
+| `workspace_domain.py` | Legacy declared/observed software, device and Runtime domain checks |
 | `native_probe_controls_v2.py` | Optional executable SDK/RCCL positive control; importing it performs real HIP work |
 | `_native_probe_fixture.py` | Integer/dictionary CPU fixture builders used by repository tests; no real trace |
 
@@ -64,8 +71,9 @@ serving-accuracy result or physical OOM threshold.
 Mount a writable task directory at `/app/work`, keep the downloaded model mount
 at `/app/models`, and make the checkout or sdist sources available below
 `/app/work/mlsys-simulator`. The installed simulator wheel must match these
-sources. The acquisition expects the two DSOs at exactly
-`/app/work/native_probe.so` and `/app/work/torch_allocator_probe.so`.
+sources. The Worker launcher defaults to `/app/work/native_probe.so` and
+`/app/work/torch_allocator_probe.so`; its probe-path options can select separately
+built actual DSOs. The legacy driver expects those exact default paths.
 
 Resolve `SDK_ROOT` from the installed SDK prefix containing `include/` and
 `lib/`. The packaged layout used by this domain places it under
@@ -78,24 +86,32 @@ SCRIPT_ROOT=/app/work/mlsys-simulator/scripts/rocm_workspace_audit
 TORCH_ROOT="$(python -c 'from pathlib import Path; import torch; print(Path(torch.__file__).parent)')"
 # Set SDK_ROOT to the verified installed SDK prefix before these commands.
 
-g++ -std=c++17 -D__HIP_PLATFORM_AMD__ -shared -fPIC -O2 -Wall -Wextra -pthread \
-  -I"$SDK_ROOT/include" "$SCRIPT_ROOT/native_probe.cpp" \
-  -L"$SDK_ROOT/lib" -Wl,-rpath,"$SDK_ROOT/lib" -lrocprofiler-sdk \
+g++ -std=c++17 -D__HIP_PLATFORM_AMD__ -shared -fPIC -O2 -Wall -Wextra -Werror -pthread \
+  -isystem "$SDK_ROOT/include" "$SCRIPT_ROOT/native_probe.cpp" \
+  -L"$SDK_ROOT/lib" -Wl,-rpath,"$SDK_ROOT/lib" -lrocprofiler-sdk -ldl \
   -o /app/work/native_probe.so
 
 g++ -std=c++17 -shared -fPIC -O2 -Wall -Wextra -Werror \
   -D_GLIBCXX_USE_CXX11_ABI=1 -D__HIP_PLATFORM_AMD__ \
-  -I"$TORCH_ROOT/include" -I"$SDK_ROOT/include" \
+  -isystem "$TORCH_ROOT/include" -isystem "$SDK_ROOT/include" \
   "$SCRIPT_ROOT/torch_allocator_probe.cpp" -L"$TORCH_ROOT/lib" \
   -Wl,-rpath,"$TORCH_ROOT/lib" -lc10_hip -lc10 -ltorch_hip \
   -o /app/work/torch_allocator_probe.so
 ```
 
 Preserve compiler commands, return codes and output, plus source/header/library
-and DSO hashes. The Torch hook has no detach operation: load once and retain its
+and DSO hashes. Vendor headers are system includes so their warnings do not
+disable `-Werror` on the project's own code. The native thread-source observer
+uses standard Linux `libdl` through `-ldl`; this adds no pip dependency.
+The Torch hook has no detach operation: load once and retain its
 CDLL until process exit. It performs no callback-side Torch/HIP call, lock or
 Python I/O. Its owner token names an observed inference-thread epoch, not a
 semantic allocation owner.
+
+`mlsys_torch_probe_cursor()` reads a stable committed event prefix without
+changing epochs, allocating or synchronizing HIP. `UINT64_MAX` is uncertainty,
+not a valid sequence. Transport observations bind real Tensor storage and
+generation to this cursor; they never infer an owner from a reused address alone.
 
 For the separate positive controls, compile two programs so one experiment does
 not register the other's control kernel. Choose the actual target architecture
@@ -127,6 +143,7 @@ guessed binaries. If Torch has not mapped RCCL, provide that exact path:
 ```sh
 # Set RCCL_LIBRARY_PATH to the verified installed librccl.so file.
 CONTROL_ROOT="$(mktemp -d /app/work/native-controls.XXXXXX)"
+LD_PRELOAD=/app/work/native_probe.so \
 ROCP_TOOL_LIBRARIES=/app/work/native_probe.so \
 MLSYS_NATIVE_PROBE_OUT="$CONTROL_ROOT/native-final.json" \
 MLSYS_NATIVE_PROBE_RETAIN_ALL=1 MLSYS_NATIVE_PROBE_MAX_EVENTS=262144 \
@@ -148,7 +165,126 @@ do not discard it to manufacture an overall zero-mutator verdict. Query failure
 is recorded as a failed control and exits unsuccessfully. This program always
 retains `complete_workspace=false` and `hardware_validated=false`.
 
-## Acquire one session, then audit after normal exit
+## Acquire Worker-level Prefill and Decode
+
+Use `workspace_stage_session.py` for new single/TP2/PP2 acquisitions. It runs
+one owned child process group, selects visibility before GPU imports, installs
+the real Worker subclass and enforces a timeout/log bound. It does not fit,
+retry, or grant a hardware verdict. Every output directory must be new.
+
+```sh
+python "$SCRIPT_ROOT/workspace_stage_session.py" \
+  --mode single --experiment /app/work/single.actual.json \
+  --cohort train --repeats 3 --native-max-events 2097152 \
+  --out /app/work/workspace-single-train
+```
+
+Use `tp2` or `pp2` with the corresponding complete actual experiment. Default
+visibility is physical 1 for `single` and `0,1` for the two-card modes; an explicit
+`--visible-devices` is recorded and must agree with actual worker/device facts.
+PP2 needs the native transport and a bound covering the actual 512-token persistent
+input-copy targets. Effective PP endpoint weight identity must match the loaded
+model; no cross-device tied-storage alias is invented.
+
+Each 16/32-token prompt naturally generates four outputs: prefill at context 0,
+then decode query 1 at contexts 16/17/18 or 32/33/34. Three repeats give 24 formal
+iterations per rank, including 18 decode iterations. All raw warmup and formal
+iterations retain explicit cohort and actual prepared-batch metadata. Epoch,
+PID, stage and TP rank bind them; opaque request names do not identify cohorts.
+The native clocks are `CLOCK_MONOTONIC_RAW`; prepared-stage/parent clocks are
+`CLOCK_MONOTONIC`. Do not subtract or directly filter across those clock domains.
+
+The launcher sets `LD_PRELOAD`, `ROCP_TOOL_LIBRARIES` and per-process
+`MLSYS_NATIVE_PROBE_OUT=.../native-%p.json`. Only literal `%p` is expanded by the
+native probe; other percent formats and path overflow are rejected. Parent and
+worker SDK files remain separate and are joined by actual worker PIDs, never by
+filename order. The SDK event budget defaults to 1,048,576 and can be explicitly
+set up to 4,194,304; the command above shows a 2,097,152-event acquisition budget.
+Record the chosen value before training and repeat. A larger bound does not
+repair a previously saturated trace or authorize dropping observations.
+
+The original Worker execute boundary covers receive allocation, model work and
+send handoff. Final-stage sampling supplies its actual CPU-only output witness.
+PP sender output can remain live after Worker return through
+`_pending_isends`; full storage generations, pending frees and natural reap must
+remain visible. Only integer descriptors are retained by the observer. It must
+not consume lazy receive tensors, wait early, reap early, or keep extra Tensor
+references to manufacture lifetime closure. A final explicit drain/empty-cache
+step is a separate teardown epoch and is excluded from formal peaks.
+
+A dedicated fresh TP1×PP2 retention stress ran two 511-token prompts with one
+output each. Full transport-generation replay, including pending releases,
+observed 8,372,224 sender bytes: the previous and current full output pairs
+overlapped. At a 512-token bound and one model wave, the old 4,194,304-byte sender
+reservation was too small; `max(inflight, 2)` reserves 8,388,608 bytes and covered
+the observation with 16,384 bytes remaining. The receiver's dynamic transport
+peak was 4,186,112 bytes, separate from 4,194,304 bytes of persistent input-copy
+targets. These are fixed-cohort transport observations, not Workspace training
+rows or proof of complete native attribution. They do not establish a universal
+bound for other workloads or async execution.
+
+Preserve the real outer execution return code, timing, source/binary hashes and
+receipt. After normal exit:
+
+```sh
+python "$SCRIPT_ROOT/assemble_stage_workspace.py" \
+  --session /app/work/workspace-single-train \
+  --receipt /app/work/workspace-single-train-receipt.json \
+  --out /app/work/workspace-single-train-assembled
+```
+
+Multi-card modes additionally require actual per-rank communicator bindings
+through `--communication-bindings`. Initialization/source/library/handle/rank,
+native allocation, and communication-thread evidence are independently checked;
+an ownership label or a component's success string is insufficient. Fixed
+communication backing and PP buffers have separate budgets. Unknown allocation,
+unsupported mutation, missing rank or unclosed lifetime keeps attribution
+partial. A normally returned assembler can have written a partial report:
+inspect `attribution_complete` and issues. Only complete output gets canonical
+`dataset.json` for `calibrate --workspace`.
+
+Freeze that Profile before starting a fresh `--cohort repeat` acquisition with
+the same supported identity. Audit the repeat independently and use
+`validate --workspace-repeats --training-dataset fit/dataset.json --profile ...
+--dataset ...`; see the [full workflow](../../docs/workspace-and-capacity.md#validate-a-frozen-workspace-profile-independently).
+Exact shape/rank coverage and byte underprediction are evaluated without
+refitting or hardware PASS. Memory snapshots and native callbacks instrument
+execution: the exported stage durations are diagnostic, not new latency
+calibration samples.
+
+## Native stop, finalization and communication causality
+
+The current native probe distinguishes actual HIP context operations from IPC;
+the letters in `hipCtx...` are not an IPC ownership proof. RCCL operations retain
+their real names, arguments, typed return statuses, communicator handles and
+correlation chains. A typed successful collective does not by itself register
+every allocation on its process or thread as communication storage.
+
+The optional thread-source observer records actual `pthread_create` calls made
+under observed communicator initialization, the parent init correlation, original
+start routine/module and the actual child TID. It calls the original routine
+with the original argument and preserves its return. Audits require matching
+loaded-library/source and allocation lineage; thread names or timing proximity
+cannot fill missing causality. Recorded thread origin is a separate proof from
+successful native allocation and fixed-backing lifetime. Unsupported proxy
+activity still prevents complete attribution.
+
+`mlsys_probe_stop()` first stops the SDK context, then drains both callback
+execution and already-entered API calls under a bounded deadline. Open-call
+underflow, unfinished calls, new API entry after stop, late callbacks or a
+nonzero stop/drain status remain explicit failures. A checkpoint is a prefix,
+not finalization proof.
+
+The Worker close path calls `mlsys_probe_finalize()` after successful stop and
+all potentially HIP-backed metadata reads. This wrapper invokes the installed
+SDK's `rocprofiler_client_finalize_t`; it does not call `tool_fini` itself. The
+SDK callback is void, so no SDK return code is invented. Wrapper success needs
+the actual tool-finalize callback exactly once and a final report write. The
+finalization fields, worker RPC result and normal process exit must agree.
+Legacy programs and separate controls must likewise retain their actual final
+SDK file after normal exit; the checkpoint alone is insufficient.
+
+## Legacy single-card prefill acquisition
 
 Select the physical card explicitly, retain the actual mapping, and provide a
 complete bound experiment matching the domain above. The acquisition output path
@@ -159,6 +295,7 @@ driver does not supervise itself or automatically retry failures.
 SESSION_ROOT="$(mktemp -d /app/work/workspace-session.XXXXXX)"
 # Set GPU_INDEX to the chosen physical visible-device index.
 ROCP_TOOL_LIBRARIES=/app/work/native_probe.so \
+LD_PRELOAD=/app/work/native_probe.so \
 MLSYS_NATIVE_PROBE_OUT="$SESSION_ROOT/native-final.json" \
 MLSYS_NATIVE_PROBE_RETAIN_ALL=1 MLSYS_NATIVE_PROBE_MAX_EVENTS=1048576 \
 HIP_VISIBLE_DEVICES="$GPU_INDEX" \
@@ -243,59 +380,33 @@ scripts intentionally do not automate calibration, selection or acceptance.
 
 ## Source lineage and CPU verification
 
-The current public native source SHA256 values are:
+Version 1.13 changes the native probe, Torch bridge and rank/transport audits.
+Their current bytes must not be described as identical to the earlier 1.12
+artifacts. New builds and acquisitions record their actual source, header,
+library and DSO hashes in receipts/manifests. Keep the exact executed sources
+beside the raw evidence and preserve the commit that produced them. Hash values
+from a historical report are not replacements for those actual current files.
 
-```text
-6d70afa159fc49688ce1aa8eaef40004efa2502c3a7b7af6143dcab558121fb6  native_probe.cpp
-153248a4d62c2178eaaf905103b4ce23434b8eb3cef83014338f738dd9cf6f3b  torch_allocator_probe.cpp
-808ae2ae21ca152e27f424cd0c13797bffb4dc1fab17d20fd7b3de6f3da29d8d  device_heap_controls.hip
-```
+The legacy driver/merger and the Worker driver/merger are distinct interfaces.
+Legacy sessions may lack newer observed facts and remain partial under newer
+gates. Never backfill a runtime version, thread origin, source hash or successful
+receipt into old observations to make them pass. Earlier formatting/fixture
+replay equivalence applied only to those historical revisions; it does not
+establish semantic equality for the current expanded native/placement/lifetime
+rules. Independent repeat data and frozen Profile bytes remain unchanged.
 
-`native_probe.cpp` and `torch_allocator_probe.cpp` retain the recorded original
-bytes. Earlier live HIP controls used
-`42f43cd528e0570083bfdfed7e724f9343e0ebdf8f2e3c49db7a3d36e1feb955`;
-the public `808ae2...` source includes later metadata changes. Both public HIP
-variants have now been compiled and exited normally on the live host, as
-separate controls. Successful program exit does not replace the retained SDK
-visibility/control checks described above.
-
-The three component auditors (`analyze_native_probe.py`,
-`native_backing_audit.py` and `workspace_torch_audit.py`) retain their audited
-rules after formatting/type/local-name corrections. Their original and public
-versions passed the same 44 CPU fixtures and produced equal JSON for 113
-fixture audit calls. The optional `native_probe_controls_v2.py` adds a real
-known RCCL query and explicit library binding; it is not AST-equivalent to
-the historical HIP-only control.
-
-**The current `workspace_capture_session.py` and `assemble_workspace.py` are
-semantically stricter**, with shared `workspace_domain.py` checks and nine new
-CPU domain regressions. Earlier AST/replay equality results applied to the
-pre-gate revisions and must not be presented as equivalence of the current
-merger on legacy inputs. The new merger intentionally refuses canonical output
-when historical inputs lack the newly observed facts. A fresh acquisition and
-independent frozen-Profile repeat exercise the current driver/merger; historical
-receipts, frozen Profiles and observations are not rewritten to simulate that
-new acquisition.
-
-**Python source hashes intentionally differ from the historical hardware
-sources.** Existing hardware archives and their executed-source receipts retain
-the original hashes, including the original acquisition driver
-`af69fa92116d5987b506710364b6d49705f9bb8414104e645c48e0abcdf1f2cc`.
-CPU replay with the public merger must still reference those original executed
-bytes; do not rewrite a historical receipt to name the public driver. A new
-acquisition using the public driver records its actual current source SHA and
-gets a new receipt. Neither formatting equivalence nor a CPU replay authorizes
-changing a frozen Profile or held-out observations.
-
-Run the 44 integer/dictionary audit fixtures plus nine domain guards from the checkout or extracted sdist:
+Run the pure-data audit and domain fixtures from the checkout or extracted sdist:
 
 ```sh
 python -m unittest discover -s tests -p 'test_rocm_*.py' -v
 ```
 
-They import the packaged sources using `importlib`, require no `work/` directory,
-Torch, SDK or GPU, and never establish measured hardware evidence. They cover
-storage geometry/aliases, delayed frees and generations, full history/callback
-agreement, native API status/ancestry, exact backing, loss/unknowns and strict
-partial results. Native compilation and live control observations require the
-matching Linux environment above and are separate from these CPU checks.
+The fixtures test unsupported/missing evidence as well as complete candidates.
+They import the distributed sources, require no private work directory, SDK or
+GPU, and do not establish measured hardware results. Reproduction also needs
+actual native compilation, separate positive controls, complete source/rank
+binding, fresh process receipts and independently frozen validation. See the
+[Workspace workflow](../../docs/workspace-and-capacity.md) and
+[live evidence record](../../docs/workspace-live-validation.md) for their
+separate scopes. Neither raw exit 0, a positive control, nor a component status
+changes the overall hardware-acceptance flag.

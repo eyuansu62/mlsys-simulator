@@ -76,8 +76,61 @@ def analyze(data):
         failures.append("actual_stop_status_name_missing")
     if not 0 < stop.get("begin_ns", 0) <= stop.get("end_ns", 0) < data.get("finalize_ns", 0):
         failures.append("stop_and_sdk_finalize_order_not_proven")
+    drain = data.get("api_call_drain_evidence")
+    if drain is not None:
+        if (not isinstance(drain, dict) or drain.get("method") != "ordinary_api_enter_exit_counter_v1"
+                or drain.get("ordinary_domains") != [0, 1, 2, 3, 4, 5, 8]
+                or drain.get("normalized_and_scratch_counted") is not False):
+            failures.append("ordinary_api_drain_contract_invalid")
+        else:
+            for field in ("open_calls_at_window_close", "counter_underflows", "api_enters_after_sdk_stop_return"):
+                if type(drain.get(field)) is not int or drain[field] != 0:
+                    failures.append("ordinary_api_drain_" + field + "_not_zero")
+            for field in ("wait_iterations", "open_calls_at_sdk_stop_return", "sdk_stop_return_ns", "window_closed_ns"):
+                if type(drain.get(field)) is not int or drain[field] < 0:
+                    failures.append("ordinary_api_drain_" + field + "_invalid")
+            if (not 0 < stop.get("begin_ns", 0) <= drain.get("sdk_stop_return_ns", 0)
+                    <= drain.get("window_closed_ns", 0) == stop.get("end_ns", 0)
+                    or drain.get("timeout_ns") != 1000000000):
+                failures.append("ordinary_api_drain_window_order_invalid")
+    explicit_finalize = data.get("explicit_client_finalize")
+    if explicit_finalize is not None:
+        if not isinstance(explicit_finalize, dict):
+            failures.append("explicit_client_finalize_facts_invalid")
+        else:
+            if (type(explicit_finalize.get("schema_version")) is not int
+                    or explicit_finalize["schema_version"] != 1
+                    or type(explicit_finalize.get("requested")) is not bool
+                    or explicit_finalize.get("actual_tool_fini_callback_count") != 1
+                    or type(explicit_finalize.get("actual_tool_fini_callback_count")) is not int
+                    or explicit_finalize.get("api") != "rocprofiler_client_finalize_t"
+                    or explicit_finalize.get("sdk_return_type") != "void"
+                    or explicit_finalize.get("sdk_return_status", "missing") is not None):
+                failures.append("explicit_client_finalize_facts_invalid")
+            if explicit_finalize.get("requested") is True:
+                if (explicit_finalize.get("official_callback_available") is not True
+                        or explicit_finalize.get("actual_client_id_saved") is not True
+                        or type(explicit_finalize.get("request_begin_ns")) is not int
+                        or not stop.get("end_ns", 0) <= explicit_finalize.get("request_begin_ns", 0)
+                            <= data.get("finalize_ns", 0)):
+                    failures.append("official_client_finalize_invocation_not_proven")
+            elif explicit_finalize.get("request_begin_ns") != 0:
+                failures.append("unrequested_client_finalize_has_request_timestamp")
     if data.get("metadata_truncated") is not False:
         failures.append("metadata_truncated")
+    origins = data.get("rccl_thread_origins")
+    if origins is not None:
+        if (not isinstance(origins, dict) or origins.get("schema_version") != 1
+                or origins.get("method") != "pthread_create_from_observed_rccl_init_v1"
+                or not isinstance(origins.get("records"), list)
+                or origins.get("record_count") != len(origins.get("records", []))
+                or type(origins.get("capacity")) is not int
+                or not 0 <= len(origins.get("records", [])) <= origins.get("capacity", -1) <= 256):
+            failures.append("rccl_thread_origin_metadata_invalid")
+        else:
+            for key in ("dropped_records", "observation_errors", "init_stack_errors"):
+                if type(origins.get(key)) is not int or origins[key] != 0:
+                    failures.append("rccl_thread_origin_" + key + "_not_zero")
     if data.get("buffered_services_used") is not False or data.get("buffer_flush_applicable") is not False:
         failures.append("unexpected_buffered_service")
     if data.get("sdk_buffer_drop_count", "missing") is not None:

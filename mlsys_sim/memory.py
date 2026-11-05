@@ -125,6 +125,12 @@ class MemoryPlanner:
                 # allocated another full tensor. Runner additionally owns a
                 # persistent full input-copy target on every receiving stage.
                 outgoing = resident * inflight if stage < pp - 1 else 0
+                # The supported synchronous MRv1 path self-retains the prior
+                # send's tensors until the next isend reaps them, after the
+                # current forward has produced another pair. Two full pairs
+                # can therefore overlap even with one model wave. Existing
+                # larger inflight reservations already cover those two slots.
+                retention_slack = resident * max(0, 2 - inflight) if stage < pp - 1 else 0
                 incoming = resident * inflight if stage > 0 else 0
                 backing = (sum(tensor["full_bytes"] for tensor in descriptor["tensors"]
                            if tensor["tp_sliced"]) * inflight if stage > 0 else 0)
@@ -132,12 +138,13 @@ class MemoryPlanner:
                 native_buffers = {
                     "scope": "native_pp_full_resident_per_rank_upper_bound",
                     "outgoing_inflight_bytes": outgoing,
+                    "outgoing_retention_slack_bytes": retention_slack,
                     "incoming_inflight_bytes": incoming,
                     "incoming_slice_backing_bytes": backing,
                     "persistent_input_copy_bytes": persistent,
                     "max_padded_tokens": descriptor["padded_tokens"],
                 }
-                pipeline_buffers = outgoing + incoming + backing + persistent
+                pipeline_buffers = outgoing + retention_slack + incoming + backing + persistent
             else:
                 pipeline_buffers = int(
                     boundaries * strategy.pipeline_max_inflight_microbatches

@@ -250,12 +250,28 @@ def verify(dist: Path) -> dict:
                          "tests/test_rocm_workspace_domain.py",
                          "scripts/rocm_workspace_audit/README.md",
                          "scripts/rocm_workspace_audit/workspace_domain.py",
+                         "scripts/rocm_workspace_audit/worker_workspace_capture.py",
+                         "scripts/rocm_workspace_audit/workspace_stage_session.py",
+                         "scripts/rocm_workspace_audit/workspace_stage_domain.py",
+                         "scripts/rocm_workspace_audit/assemble_stage_workspace.py",
+                         "scripts/rocm_workspace_audit/workspace_transport_audit.py",
+                         "scripts/rocm_workspace_audit/synchronization_resource_audit.py",
+                         "tests/test_workspace_repeats.py", "tests/test_workspace_repeat_cli.py",
+                         "tests/test_native_pp_retention_budget.py",
+                         "tests/test_rocm_workspace_worker.py",
+                         "tests/test_rocm_workspace_stage_domain.py",
+                         "tests/test_rocm_workspace_stage_assembly.py",
+                         "tests/test_rocm_workspace_placement.py",
+                         "tests/test_rocm_workspace_transport.py",
+                         "tests/test_rocm_workspace_native_comm.py",
+                         "tests/test_rocm_synchronization_resources.py",
                          "scripts/rocm_workspace_audit/native_probe.cpp",
                          "scripts/rocm_workspace_audit/torch_allocator_probe.cpp",
                          "scripts/rocm_workspace_audit/device_heap_controls.hip",
                          "docs/workspace-live-validation.md", "docs/capacity-live-validation.md",
                          "docs/multigpu-stage-validation.md",
                          "docs/online-policy-live-validation.md",
+                         "docs/workspace-stage-validation.md",
                          "scripts/verify_distribution.py"):
             assert required in source_names, f"Source distribution missing {required}"
         assert not any(name.startswith(("sample-runs/", "work/")) for name in source_names)
@@ -372,6 +388,31 @@ def verify(dist: Path) -> dict:
         run([str(console), "calibrate", "--workspace", "--dataset",
              str(workspace_inputs / "workspace-measurements.fixture.json"), "--profile-version", "installed-ws-v1",
              "--allow-test-fixture", "--out", "workspace-fit"], outside, env)
+        training_workspace = json.loads((workspace_inputs / "workspace-measurements.fixture.json").read_text())
+        training_workspace.setdefault("notes", {})["acquisition"] = {
+            "session_id": "installed-workspace-training-fixture", "clock_domain": "cpu-fixture-monotonic",
+            "capture_input_sha256": ["c" * 64]}
+        (outside / "workspace-training.json").write_text(json.dumps(training_workspace))
+        repeated_workspace = json.loads(json.dumps(training_workspace))
+        repeated_workspace["dataset_id"] = "installed-workspace-repeat-fixture"
+        repeated_workspace["notes"]["acquisition"].update(
+            session_id="installed-workspace-independent-fixture", capture_input_sha256=["d" * 64])
+        for row in repeated_workspace["records"]:
+            row["record_id"] = "repeat-" + row["record_id"]
+            row["group_id"] = "repeat-" + row["group_id"]
+        (outside / "workspace-repeat.json").write_text(json.dumps(repeated_workspace))
+        run([str(console), "calibrate", "--workspace", "--dataset", "workspace-training.json",
+             "--profile-version", "installed-workspace-repeats-v1", "--allow-test-fixture",
+             "--out", "workspace-repeat-fit"], outside, env)
+        run([str(console), "validate", "--workspace-repeats", "--profile", "workspace-repeat-fit/profile.json",
+             "--training-dataset", "workspace-repeat-fit/dataset.json", "--dataset", "workspace-repeat.json",
+             "--allow-test-fixture", "--out", "workspace-repeat-validation"], outside, env)
+        workspace_repeat_report = json.loads((outside / "workspace-repeat-validation/result.json").read_text())
+        assert workspace_repeat_report["summary"]["coverage"] == 1
+        assert workspace_repeat_report["summary"]["rank_coverage"] == 1
+        assert workspace_repeat_report["summary"]["retained_shape_coverage"] == 1
+        assert workspace_repeat_report["summary"]["underprediction_count"] == 0
+        assert workspace_repeat_report["hardware_validated"] is False
         for mode in ("predict", "simulate"):
             target = f"workspace-{mode}"
             run([str(console), mode, "--experiment", str(workspace_inputs / "native-pp-workspace.fixture.json"),
@@ -571,6 +612,7 @@ def verify(dist: Path) -> dict:
             "installed_native_pp_size_lookup_guarded_holdout": "passed",
             "installed_native_pp_simple_policy_lookup_holdout": "passed",
             "installed_workspace_calibration_and_capacity_brackets": "passed",
+            "installed_workspace_exact_rank_repeats": "passed",
             "installed_exact_stage_repeats_and_lazy_capacity_adapter": "passed",
             "installed_calibration_comparison_holdout": "passed"}
 

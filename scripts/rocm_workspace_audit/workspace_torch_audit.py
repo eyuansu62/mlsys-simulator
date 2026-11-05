@@ -66,6 +66,12 @@ _RUNTIME = {
     "runner.num_accepted_tokens.gpu": ([1], "int32"),
     "runner.query_pos.gpu": ([512], "int64"),
 }
+_SAMPLING_ALIASES = {
+    "runner.input_batch.sampling_metadata." + name: "runner.input_batch." + name
+    for name in ("frequency_penalties", "presence_penalties", "repetition_penalties")
+}
+_PP_TARGETS = {"runner.intermediate_tensors.tensors[" + name + "]"
+               for name in ("hidden_states", "residual")}
 
 
 class AuditInputError(ValueError):
@@ -97,7 +103,28 @@ def _issue(result: dict, code: str, **details: Any) -> None:
         result["issues"].append(entry)
 
 
-def _model(model: dict) -> None:
+def _placement(value: dict | None, device: int) -> dict:
+    if value is None:
+        return {"tensor_parallel_size": 1, "pipeline_parallel_size": 1, "stage_index": 0,
+                "tp_rank": 0, "device_index": device, "start_layer": 0, "end_layer": 28}
+    fields = {"tensor_parallel_size", "pipeline_parallel_size", "stage_index", "tp_rank",
+              "device_index", "start_layer", "end_layer"}
+    if not isinstance(value, dict) or set(value) != fields:
+        raise AuditInputError("placement requires exact parallel, stage/rank, device and layer-range fields")
+    current = {name: _int(value[name], "placement." + name) for name in sorted(fields)}
+    tp, pp = current["tensor_parallel_size"], current["pipeline_parallel_size"]
+    if (tp, pp) not in ((1, 1), (2, 1), (1, 2)):
+        raise AuditInputError("Only the observed single/two-device TP1/PP1, TP2/PP1 and TP1/PP2 layouts are supported")
+    stage, rank = current["stage_index"], current["tp_rank"]
+    if stage >= pp or rank >= tp or current["device_index"] != device or device not in (0, 1):
+        raise AuditInputError("Placement rank/stage/device differs from the local audit")
+    layers = 28 // pp
+    if (current["start_layer"], current["end_layer"]) != (stage * layers, (stage + 1) * layers):
+        raise AuditInputError("Placement requires the actual equal Qwen3 layer partition")
+    return current
+
+
+def _model(model: dict, placement: dict) -> None:
     if not isinstance(model, dict):
         raise AuditInputError("model must be asdict(ModelSpec)")
     for name, value in _GEOMETRY.items():
@@ -105,9 +132,12 @@ def _model(model: dict) -> None:
             raise AuditInputError(f"Unsupported Qwen3 model geometry: {name}")
     if model.get("name") != "Qwen3-1.7B":
         raise AuditInputError("Only the fixed Qwen3-1.7B domain is supported")
-    for name in ("tie_word_embeddings", "qk_norm", "final_norm"):
+    for name in ("qk_norm", "final_norm"):
         if model.get(name) is not True:
             raise AuditInputError(f"The fixed domain requires {name}=true")
+    tying = model.get("tie_word_embeddings")
+    if type(tying) is not bool or (placement["pipeline_parallel_size"] == 1 and not tying):
+        raise AuditInputError("Single-stage Qwen3 requires tied weights; PP needs an explicit effective tying flag")
     for name in ("weight_dtype", "kv_dtype", "activation_dtype"):
         if model.get(name) != "bfloat16":
             raise AuditInputError(f"The fixed domain requires {name}=bfloat16")
@@ -116,52 +146,67 @@ def _model(model: dict) -> None:
             raise AuditInputError(f"The fixed domain requires {name}=2")
 
 
-def _weight_shapes() -> dict[str, list[int]]:
-    result = {"model.embed_tokens.weight": [151936, 2048], "model.norm.weight": [2048]}
-    for layer in range(28):
+def _weight_shapes(placement: dict, tied: bool) -> dict[str, list[int]]:
+    tp, pp, stage = (placement[name] for name in
+                     ("tensor_parallel_size", "pipeline_parallel_size", "stage_index"))
+    result = {}
+    if stage == 0 or (tied and stage == pp - 1):
+        result["model.embed_tokens.weight"] = [151936 // tp, 2048]
+    if stage == pp - 1:
+        result["model.norm.weight"] = [2048]
+        if not tied:
+            result["lm_head.weight"] = [151936 // tp, 2048]
+    for layer in range(placement["start_layer"], placement["end_layer"]):
         prefix = f"model.layers.{layer}."
         for suffix in ("input_layernorm.weight", "post_attention_layernorm.weight"):
             result[prefix + suffix] = [2048]
         for suffix in ("q_norm.weight", "k_norm.weight"):
             result[prefix + "self_attn." + suffix] = [128]
         for suffix, shape in (
-            ("self_attn.qkv_proj.weight", [4096, 2048]),
-            ("self_attn.o_proj.weight", [2048, 2048]),
-            ("mlp.gate_up_proj.weight", [12288, 2048]),
-            ("mlp.down_proj.weight", [2048, 6144]),
+            ("self_attn.qkv_proj.weight", [4096 // tp, 2048]),
+            ("self_attn.o_proj.weight", [2048, 2048 // tp]),
+            ("mlp.gate_up_proj.weight", [12288 // tp, 2048]),
+            ("mlp.down_proj.weight", [2048, 6144 // tp]),
         ):
             result[prefix + suffix] = shape
     return result
 
 
-def _expected_owner(path: str) -> tuple[str, list[int] | None, str | None, str] | None:
+def _expected_owner(path: str, placement: dict, tied: bool) -> tuple[str, list[int] | None, str | None, str] | None:
     if path.startswith("model.parameter:"):
         name = path.removeprefix("model.parameter:")
-        shape = _weight_shapes().get(name)
-        if name == "lm_head.weight":
-            shape = [151936, 2048]
+        shape = _weight_shapes(placement, tied).get(name)
+        if name == "lm_head.weight" and placement["stage_index"] == placement["pipeline_parallel_size"] - 1:
+            shape = [151936 // placement["tensor_parallel_size"], 2048]
         return ("weights", shape, "bfloat16", "weight") if shape is not None else None
-    if re.fullmatch(r"runner\.kv_caches\[(?:[0-9]|1[0-9]|2[0-7])\]", path):
+    local_layers = placement["end_layer"] - placement["start_layer"]
+    kv = re.fullmatch(r"runner\.kv_caches\[(0|[1-9][0-9]*)\]", path)
+    if kv and int(kv[1]) < local_layers:
         return "kv_pool", None, "bfloat16", "kv"
-    if re.fullmatch(
-        r"model\.buffer:model\.layers\.(?:[0-9]|1[0-9]|2[0-7])\.self_attn\.rotary_emb\.cos_sin_cache", path
-    ):
+    rope = re.fullmatch(
+        r"model\.buffer:model\.layers\.(0|[1-9][0-9]*)\.self_attn\.rotary_emb\.cos_sin_cache", path)
+    if rope and placement["start_layer"] <= int(rope[1]) < placement["end_layer"]:
         return "runtime", [40960, 128], "bfloat16", "rope"
-    if re.fullmatch(
-        r"model\.buffer:model\.layers\.(?:[0-9]|1[0-9]|2[0-7])\.self_attn\.attn\._(?:q|k|v|prob)_scale", path
-    ):
+    scale = re.fullmatch(
+        r"model\.buffer:model\.layers\.(0|[1-9][0-9]*)\.self_attn\.attn\._(?:q|k|v|prob)_scale", path)
+    if scale and placement["start_layer"] <= int(scale[1]) < placement["end_layer"]:
         return "runtime", [], "float32", "scale"
     if path == "ATen.getCUDABlasLtWorkspace":
         return "runtime", None, None, "blaslt"
     if path == "runner.input_batch.logitsprocs.argmax_invariant[0].min_p":
         return "runtime", [0], "float32", "min_p_empty_alias"
+    if path in _SAMPLING_ALIASES:
+        return "runtime", None, "float32", "sampling_alias"
+    if placement["pipeline_parallel_size"] == 2 and placement["stage_index"] == 1 and path in _PP_TARGETS:
+        return "pp_buffers", [512, 2048], "bfloat16", "pp_target"
     if path in _RUNTIME:
         shape, dtype = _RUNTIME[path]
         return "runtime", shape, dtype, "runtime_tensor"
     return None
 
 
-def _registry(owners: list[dict], result: dict, label: str) -> list[dict]:
+def _registry(owners: list[dict], result: dict, label: str, placement: dict, tied: bool,
+              *, explicit_placement: bool) -> list[dict]:
     if not isinstance(owners, list) or not 0 < len(owners) <= 20000:
         raise AuditInputError(f"{label}: expected bounded nonempty owner array")
     checked: list[dict[str, Any]] = []
@@ -177,7 +222,11 @@ def _registry(owners: list[dict], result: dict, label: str) -> list[dict]:
         pointer, size = _int(row.get("pointer"), "owner.pointer"), _int(row.get("bytes"), "owner.bytes")
         if size and not pointer:
             raise AuditInputError(f"{label}: positive owner storage needs a pointer")
-        expected = _expected_owner(path)
+        expected = _expected_owner(path, placement, tied)
+        if explicit_placement and expected is None and path.startswith(
+            ("model.parameter:", "model.buffer:model.layers.", "runner.kv_caches[")
+        ):
+            _issue(result, "UNEXPECTED_PLACEMENT_OWNER", registry=label, path=path)
         current: dict[str, Any] = {
             "path": path,
             "category": category,
@@ -234,6 +283,14 @@ def _registry(owners: list[dict], result: dict, label: str) -> list[dict]:
             if expected:
                 wanted_category, wanted_shape, wanted_dtype, kind = expected
                 valid = category == wanted_category and dtype == wanted_dtype
+                if kind == "pp_target":
+                    # The raw recursive census labels runner fields generically
+                    # as Runtime. The fixed, loaded input-copy targets have a
+                    # separate PP budget; classify them here without rewriting
+                    # any original observation or accepting another field.
+                    valid = category in ("runtime", "pp_buffers") and dtype == wanted_dtype
+                    if valid:
+                        current["category"] = "pp_buffers"
                 if kind == "min_p_empty_alias":
                     # Greedy/default-min-p keeps an empty view into the 4-byte
                     # min_p_device storage. It may identify an alias, never a
@@ -243,10 +300,17 @@ def _registry(owners: list[dict], result: dict, label: str) -> list[dict]:
                         valid and shape == [0] and stride == [1] and offset == 0 and size == 4
                     )
                     valid = False
+                elif kind == "sampling_alias":
+                    current["alias_only"] = True
+                    current["alias_target"] = _SAMPLING_ALIASES[path]
+                    current["valid_alias"] = valid and shape in ([0], [1]) and stride == [1] and offset == 0 and size == 4
+                    valid = False
                 elif kind == "kv":
-                    per_block = 28 * 2 * 16 * 8 * 128 * 2
+                    features = 8 // placement["tensor_parallel_size"] * 128
+                    layers = placement["end_layer"] - placement["start_layer"]
+                    per_block = layers * 2 * 16 * features * 2
                     blocks = size // per_block
-                    valid = valid and size % per_block == 0 and blocks > 0 and shape == [blocks, 2, 16, 1024]
+                    valid = valid and size % per_block == 0 and blocks > 0 and shape == [blocks, 2, 16, features]
                 else:
                     valid = valid and shape == wanted_shape and logical == size and offset == 0
                 current["valid_owner"] = valid
@@ -255,7 +319,7 @@ def _registry(owners: list[dict], result: dict, label: str) -> list[dict]:
         if not size:
             result["diagnostics"]["zero_storage_paths"].append({"registry": label, "path": path})
         checked.append(current)
-    min_p_alias = next((row for row in checked if row.get("alias_only")), None)
+    min_p_alias = next((row for row in checked if row["path"] == "runner.input_batch.logitsprocs.argmax_invariant[0].min_p"), None)
     if min_p_alias is not None:
         device_path = "runner.input_batch.logitsprocs.argmax_invariant[0].min_p_device"
         min_p_device = next(
@@ -270,14 +334,22 @@ def _registry(owners: list[dict], result: dict, label: str) -> list[dict]:
             )
         ):
             _issue(result, "MIN_P_EMPTY_ALIAS_BINDING_MISMATCH", registry=label)
-    required = {"model.parameter:" + name for name in _weight_shapes()}
-    required |= {f"runner.kv_caches[{i}]" for i in range(28)}
+    for alias in (row for row in checked if row.get("alias_target")):
+        target = next((row for row in checked if row["path"] == alias["alias_target"] and row["valid_owner"]), None)
+        if (target is None or not alias.get("valid_alias")
+                or any(alias[key] != target[key] for key in ("pointer", "bytes", "dtype", "element_size"))):
+            _issue(result, "SAMPLING_VIEW_ALIAS_BINDING_MISMATCH", registry=label, path=alias["path"])
+    layers = placement["end_layer"] - placement["start_layer"]
+    required = {"model.parameter:" + name for name in _weight_shapes(placement, tied)}
+    required |= {f"runner.kv_caches[{i}]" for i in range(layers)}
     required |= {
         f"model.buffer:model.layers.{i}.self_attn.attn._{scale}_scale"
-        for i in range(28)
+        for i in range(placement["start_layer"], placement["end_layer"])
         for scale in ("q", "k", "v", "prob")
     }
     required.add("ATen.getCUDABlasLtWorkspace")
+    if placement["pipeline_parallel_size"] == 2 and placement["stage_index"] == 1:
+        required |= _PP_TARGETS
     missing = required - {row["path"] for row in checked if row["valid_owner"]}
     if missing:
         _issue(result, "MISSING_REQUIRED_OWNERS", registry=label, paths=sorted(missing))
@@ -289,17 +361,20 @@ def _registry(owners: list[dict], result: dict, label: str) -> list[dict]:
         if len({(row["pointer"], row["bytes"]) for row in kv}) != 1:
             _issue(result, "KV_POOL_IS_NOT_ONE_SHARED_STORAGE", registry=label)
         blocks = kv[0]["shape"][0]
-        layer_elements = blocks * 2 * 16 * 1024
+        features = 8 // placement["tensor_parallel_size"] * 128
+        token_elements = 16 * features
+        layer_elements = blocks * 2 * token_elements
         # Both proved layouts tile a complete contiguous physical layer:
         # [layer, blocks, K/V, token, head] or [layer, K/V, blocks, token, head].
         # A bounding interval alone cannot rule out internal overlap or holes.
-        layouts = {(32768, 16384, 1024, 1), (16384, blocks * 16384, 1024, 1)}
+        layouts = {(2 * token_elements, token_elements, features, 1),
+                   (token_elements, blocks * token_elements, features, 1)}
         observed_layouts = {tuple(row["stride"]) for row in kv}
         if (
             len(observed_layouts) != 1
             or not observed_layouts <= layouts
             or any(
-                row["shape"] != [blocks, 2, 16, 1024]
+                row["shape"] != [blocks, 2, 16, features]
                 or row["dtype"] != "bfloat16"
                 or row["element_size"] != 2
                 for row in kv
@@ -307,19 +382,20 @@ def _registry(owners: list[dict], result: dict, label: str) -> list[dict]:
         ):
             _issue(result, "KV_LAYOUT_NOT_PROVED", registry=label, strides=sorted(observed_layouts))
         if (
-            len(kv) != 28
-            or {row["storage_offset"] for row in kv} != {layer * layer_elements for layer in range(28)}
-            or kv[0]["bytes"] != 28 * layer_elements * 2
+            len(kv) != layers
+            or {row["storage_offset"] for row in kv} != {layer * layer_elements for layer in range(layers)}
+            or kv[0]["bytes"] != layers * layer_elements * 2
         ):
             _issue(result, "KV_VIEWS_DO_NOT_PARTITION_POOL", registry=label)
     embed = next((row for row in checked if row["path"] == "model.parameter:model.embed_tokens.weight"), None)
     head = next((row for row in checked if row["path"] == "model.parameter:lm_head.weight"), None)
-    if head and embed and (head["pointer"], head["bytes"]) != (embed["pointer"], embed["bytes"]):
+    if tied and head and embed and (head["pointer"], head["bytes"]) != (embed["pointer"], embed["bytes"]):
         _issue(result, "TIED_EMBEDDING_ALIAS_MISMATCH", registry=label)
     return checked
 
 
-def _blocks(snapshot: dict, device: int, result: dict, label: str) -> dict[int, dict]:
+def _blocks(snapshot: dict, device: int, result: dict, label: str,
+            *, transport_pending: set[int] | None = None) -> dict[int, dict]:
     if not isinstance(snapshot, dict) or not isinstance(snapshot.get("segments"), list):
         raise AuditInputError(f"{label}: missing snapshot segments")
     active: dict[int, dict] = {}
@@ -345,14 +421,14 @@ def _blocks(snapshot: dict, device: int, result: dict, label: str) -> dict[int, 
                 raise AuditInputError("Snapshot blocks are not contiguous within the segment")
             cursor = pointer + size
             state = block.get("state")
-            if state not in ("inactive", "active_allocated", "active_awaiting_free"):
+            if state not in ("inactive", "active_allocated", "active_awaiting_free", "active_pending_free"):
                 raise AuditInputError("Unknown snapshot block state")
             if state == "inactive":
                 continue
             requested = _int(block.get("requested_size"), "block.requested_size", 1)
             if requested > size or pointer in active:
                 raise AuditInputError("Snapshot active block size/address is inconsistent")
-            if state == "active_awaiting_free":
+            if state in ("active_awaiting_free", "active_pending_free") and pointer not in (transport_pending or set()):
                 _issue(result, "PENDING_FREE_AT_BOUNDARY", snapshot=label, address=pointer)
             active[pointer] = {
                 "address": pointer,
@@ -468,7 +544,9 @@ def _delta(before: dict, after: dict, device: int, bound: int, supplied: list | 
     return delta
 
 
-def _native_events(probe: dict, epoch_id: int, device: int, result: dict) -> list[dict]:
+def _native_events(probe: dict, epoch_id: int, device: int, result: dict,
+                   *, transport_free_sequences: set[int] | None = None,
+                   global_snapshot_metadata: bool = False) -> list[dict]:
     if not isinstance(probe, dict) or probe.get("kind") != "torch_allocator_trace_probe":
         raise AuditInputError("torch_probe must be the native Torch bridge report, not SDK output")
     expected = {
@@ -561,7 +639,12 @@ def _native_events(probe: dict, epoch_id: int, device: int, result: dict) -> lis
         action = _int(event.get("action"), "native.action")
         if action >= len(_ACTIONS) or event.get("action_name") != _ACTIONS[action]:
             raise AuditInputError("Unknown/conflicting native Torch action")
-        if (
+        actual_transport_free = (event["sequence"] in (transport_free_sequences or set())
+                                 and action in (1, 2) and event.get("flags") == 2
+                                 and event.get("owner_token") == 0
+                                 and type(event.get("thread_id")) is int
+                                 and event["thread_id"] != owner_thread)
+        if not actual_transport_free and (
             type(event.get("thread_id")) is not int
             or event["thread_id"] != owner_thread
             or type(event.get("owner_token")) is not int
@@ -571,7 +654,9 @@ def _native_events(probe: dict, epoch_id: int, device: int, result: dict) -> lis
         ):
             _issue(result, "CROSS_THREAD_OR_UNOWNED_TORCH_EVENT", sequence=event["sequence"])
         stamp = _int(event.get("timestamp_ns"), "native.timestamp_ns", 1)
-        if not begin <= stamp <= end or type(event.get("device")) is not int or event["device"] != device:
+        snapshot_metadata = global_snapshot_metadata and action == 7 and type(event.get("device")) is int and event["device"] in (0, 1)
+        if not begin <= stamp <= end or (not snapshot_metadata and
+                (type(event.get("device")) is not int or event["device"] != device)):
             _issue(result, "TORCH_EVENT_TIME_OR_DEVICE_MISMATCH", sequence=event["sequence"])
         metadata = event.get("user_metadata")
         metadata_size = _int(event.get("user_metadata_size"), "native.user_metadata_size")
@@ -626,8 +711,10 @@ def audit_torch_workspace(
     history_max_entries: int,
     history_delta: list[dict] | None = None,
     device_index: int = 0,
+    placement: dict | None = None,
+    transport_context: dict | None = None,
 ) -> dict:
-    """Audit one exact TP1, eager Qwen3 epoch, without claiming native coverage."""
+    """Audit one local eager Qwen3 rank/epoch, without claiming native coverage."""
     result: dict[str, Any] = {
         "schema_version": 1,
         "kind": "torch_workspace_epoch_audit",
@@ -652,24 +739,77 @@ def audit_torch_workspace(
     }
     recorder = None
     try:
-        _model(model)
         _int(epoch_id, "epoch_id", 1)
         _int(device_index, "device_index")
+        layout = _placement(placement, device_index)
+        _model(model, layout)
         _int(history_max_entries, "history_max_entries", 1)
         if history_max_entries > 1000000:
             raise AuditInputError("History bound exceeds supported audit limit")
         _json(
-            (model, before_snapshot, after_snapshot, owners_before, owners_after, torch_probe, history_delta)
+            (model, before_snapshot, after_snapshot, owners_before, owners_after, torch_probe, history_delta, placement)
         )
         result.update(
             epoch_id=epoch_id,
             device_index=device_index,
             model_sha256=hashlib.sha256(_json(model).encode()).hexdigest(),
         )
-        before_owners = _registry(owners_before, result, "before")
-        after_owners = _registry(owners_after, result, "after")
-        before = _blocks(before_snapshot, device_index, result, "before")
-        after = _blocks(after_snapshot, device_index, result, "after")
+        if placement is not None:
+            result["placement"] = layout
+        transport = None
+        transport_epoch = None
+        if transport_context is not None:
+            if placement is None:
+                raise AuditInputError("Cross-epoch PP audit requires an explicit local placement")
+            from workspace_transport_audit import audit_workspace_transport
+
+            transport = audit_workspace_transport(torch_probe=torch_probe,
+                transport_context=transport_context, placement=layout)
+            result["transport_audit"] = transport
+            if transport["status"] != "TRANSPORT_GENERATIONS_PROVEN":
+                raise AuditInputError("The complete raw transport generation replay is not proven")
+            bound_model = transport_context["session"]["stage_capture"]["experiment"]["strategy"]["model"]
+            if _json(bound_model) != _json(model):
+                raise AuditInputError("Transport stage model differs from the rank-local owner audit")
+            transport_epoch = transport["epochs"].get(str(epoch_id))
+            if transport_epoch is None:
+                raise AuditInputError("The current epoch is missing from the complete transport evidence")
+            frames = [row for row in transport_context["epochs"] if row["epoch_id"] == epoch_id]
+            if len(frames) != 1:
+                raise AuditInputError("One actual transport frame is required")
+            frame = frames[0]
+            for field, value in (("before", before_snapshot), ("after", after_snapshot),
+                                 ("owners_before", owners_before), ("owners_after", owners_after)):
+                if _json(frame.get(field)) != _json(value):
+                    raise AuditInputError("Transport frame disagrees with the supplied raw " + field)
+
+            def exclude_transport_owners(rows: list[dict], side: str) -> list[dict]:
+                addresses = {row["address"]: row["bytes"] for row in transport_epoch[side]}
+                retained = []
+                for row in rows:
+                    if row.get("pointer") in addresses:
+                        path = row.get("path", "")
+                        if (row.get("bytes") != addresses[row["pointer"]]
+                                or _expected_owner(path, layout, model["tie_word_embeddings"]) is not None
+                                or path.startswith(("model.parameter:", "model.buffer:", "runner.kv_caches["))):
+                            raise AuditInputError("Transport registration contradicts a fixed owner")
+                    else:
+                        retained.append(row)
+                return retained
+
+            owners_before = exclude_transport_owners(owners_before, "before")
+            owners_after = exclude_transport_owners(owners_after, "after")
+        before_owners = _registry(owners_before, result, "before", layout, model["tie_word_embeddings"],
+                                  explicit_placement=placement is not None)
+        after_owners = _registry(owners_after, result, "after", layout, model["tie_word_embeddings"],
+                                 explicit_placement=placement is not None)
+        before_transport = {row["address"] for row in transport_epoch["before"]} if transport_epoch else set()
+        after_transport = {row["address"] for row in transport_epoch["after"]} if transport_epoch else set()
+        before = _blocks(before_snapshot, device_index, result, "before", transport_pending=before_transport)
+        after = _blocks(after_snapshot, device_index, result, "after", transport_pending=after_transport)
+        if transport_epoch:
+            before = {address: row for address, row in before.items() if address not in before_transport}
+            after = {address: row for address, row in after.items() if address not in after_transport}
         categories = _categorize(before, before_owners, result, "before")
         _categorize(after, after_owners, result, "after")
         result["entry_categories"] = categories
@@ -677,8 +817,8 @@ def audit_torch_workspace(
         for row in categories:
             fixed[row["category"]] += row["requested_bytes"]
         result["fixed_requested_bytes_by_category"] = dict(sorted(fixed.items()))
-        if _json(sorted(before_owners, key=lambda row: row["path"])) != _json(
-            sorted(after_owners, key=lambda row: row["path"])
+        if _json(sorted((row for row in before_owners if not row.get("valid_alias")), key=lambda row: row["path"])) != _json(
+            sorted((row for row in after_owners if not row.get("valid_alias")), key=lambda row: row["path"])
         ):
             _issue(result, "FIXED_OWNER_BINDINGS_CHANGED")
         if before != after:
@@ -689,7 +829,24 @@ def audit_torch_workspace(
                 missing_addresses=sorted(before.keys() - after.keys()),
             )
         delta = _delta(before_snapshot, after_snapshot, device_index, history_max_entries, history_delta)
-        native = _native_events(torch_probe, epoch_id, device_index, result)
+        transport_frees = set(transport["allowed_cross_thread_free_sequences"]) if transport else set()
+        native = _native_events(torch_probe, epoch_id, device_index, result,
+                                transport_free_sequences=transport_frees,
+                                global_snapshot_metadata=placement is not None)
+        excluded_sequences: set[int] = set()
+        if transport_epoch:
+            first, last = transport_epoch["before_sequence"], transport_epoch["after_sequence"]
+            excluded_sequences = set(transport_epoch["excluded_native_sequences"])
+            all_transport_sequences = set(transport["excluded_native_sequences"]) if transport else set()
+            for event in native:
+                if not first < event["sequence"] <= last and event["action_name"] != "snapshot":
+                    if event["sequence"] not in all_transport_sequences:
+                        _issue(result, "NONTRANSPORT_EVENT_OUTSIDE_FRAME_SNAPSHOTS", sequence=event["sequence"])
+            native = torch_probe["events"][first:last]
+            for event in native:
+                if event["epoch_id"] != epoch_id and event["action_name"] != "snapshot":
+                    if event["sequence"] not in excluded_sequences:
+                        _issue(result, "UNOWNED_NONTRANSPORT_EVENT_IN_FRAME", sequence=event["sequence"])
         pairs = _cross_check(delta, native, result)
         result["history_cross_check"] = {
             "before_entries": len(before_snapshot["device_traces"][device_index]),
@@ -708,7 +865,21 @@ def audit_torch_workspace(
         )
         active: dict[int, dict] = {}
         generations: Counter = Counter()
+        if transport_epoch and transport is not None:
+            result["pp_transport_peak_bytes"] = transport_epoch["peak_pp_requested_bytes"]
+            identity = {sequence: generation["generation_id"]
+                        for generation in transport["transport_generations"]
+                        for sequence in generation["event_sequences"]}
+            result["excluded_transport_ledger"] = [
+                {"native_sequence": event["sequence"], "generation_id": identity[event["sequence"]],
+                 "action": event["action_name"], "address": event["address"],
+                 "requested_bytes": event["size_bytes"], "thread_id": event["thread_id"],
+                 "flags": event["flags"], "epoch_id": event["epoch_id"],
+                 "category": "pp_buffers", "accounted_separately": True}
+                for _, event in pairs if event["sequence"] in excluded_sequences]
         for row, event in pairs:
+            if event["sequence"] in excluded_sequences:
+                continue
             action, address, size, stream, pool, metadata, _ = _history_key(row)
             if action in ("segment_alloc", "segment_free"):
                 continue

@@ -208,7 +208,7 @@ the number of adjacent boundaries:
 
 | Stage-side allocation | Per-rank reservation |
 | --- | --- |
-| Outgoing boundary | `I × 2H` for full hidden/residual outputs |
+| Outgoing boundary | `max(I, 2) × 2H` for full hidden/residual outputs |
 | Incoming boundary | `I × (2H + B)` for reconstructed results plus retained receive backing |
 | Receiving-stage persistent input-copy target | One additional `2H`, independent of `I` |
 
@@ -221,12 +221,40 @@ reserves `I × 2H + 2H`, while a receiving stage with both tensors sliced reserv
 The first stage has no incoming/persistent-input reservation, and the final
 stage has no outgoing reservation.
 
+The outgoing floor of two pairs accounts for the pinned synchronous MRv1
+Worker's actual retention order. The previous send's tensors stay in the PP
+group until the next `isend_tensor_dict` naturally reaps them, after the current
+forward has produced its output. With `I=1`, previous and current pairs can
+therefore coexist. For `I>=2`, the existing inflight reservation already covers
+those two slots. Reports preserve `outgoing_inflight_bytes=I × 2H` and add
+`outgoing_retention_slack_bytes=max(0, 2-I) × 2H`; the latter is budget slack,
+not an extra network payload. This bound is confined to the supported synchronous
+path and does not claim an async/DBO retention bound.
+
+A separate fresh TP1×PP2 stress acquisition tested two 511-token prompts with
+one output each, a 512-token transport bound and `I=1`. Full transport-storage
+generation replay observed a sender peak of **8,372,224 bytes**, including
+previous/current output pairs and pending releases. The old one-pair budget
+of 4,194,304 bytes was insufficient; the new 8,388,608-byte reservation covered
+that observation with 16,384 bytes remaining. This supports the source-derived
+bound for the fixed synchronous path and stress cohort. It was not Workspace
+training data and does not establish complete native-allocation attribution,
+an arbitrary-workload upper bound, or async coverage.
+
 The descriptor's `resident_bytes_per_rank=2H` names one final reconstructed
 pair, not all these simultaneously live copies. The complete buffer budget
 remains reserved alongside weights, the fixed KV pool and other declared
 memory; it is never divided by TP because a wire tensor was sliced. KV/cache
 pinning, atomic all-stage reservation, pressure draining, swap DMA and feedback
 lifetimes keep the existing policies.
+
+The optional Worker Workspace collector observes the original send, receive
+and natural-reap points without waiting or reaping early to manufacture a
+closed epoch. Pending PP leases keep their real storage generations and release
+completion across iterations; a final teardown drain is separate from formal
+Workspace peaks. Registered PP and communication storage are budgeted in their
+own categories, not added again as dynamic scratch. See the
+[Worker Workspace workflow](workspace-and-capacity.md#collect-worker-level-prefill-and-decode).
 
 ## Supported scope and evidence limits
 

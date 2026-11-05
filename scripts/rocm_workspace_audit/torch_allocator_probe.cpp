@@ -263,6 +263,18 @@ extern "C" int mlsys_torch_probe_end(uint64_t id) noexcept {
     return 0;
 }
 
+extern "C" uint64_t mlsys_torch_probe_cursor() noexcept {
+    // Read a committed prefix without allocating, synchronizing HIP or changing
+    // epochs. Concurrent allocator callbacks are explicit uncertainty.
+    if (!valid_control()) return UINT64_MAX;
+    const uint64_t cutoff = g_attempted.load(std::memory_order_acquire);
+    if (cutoff > g_limit || g_inflight.load(std::memory_order_acquire)) return UINT64_MAX;
+    if (cutoff && g_ready[cutoff - 1].load(std::memory_order_acquire) != 1) return UINT64_MAX;
+    if (g_inflight.load(std::memory_order_acquire) ||
+        g_attempted.load(std::memory_order_acquire) != cutoff) return UINT64_MAX;
+    return cutoff;
+}
+
 extern "C" int mlsys_torch_probe_write(const char* path) noexcept {
     Control guard;
     if (!guard.acquired) return reject(EBUSY);
@@ -289,12 +301,12 @@ extern "C" int mlsys_torch_probe_write(const char* path) noexcept {
         "\"clock\":\"CLOCK_MONOTONIC_RAW\",\"metadata_encoding\":\"byte_preserving_latin1\","
         "\"hook_detachable\":false,\"callback_gpu_calls\":false,\"callback_gil\":false,"
         "\"callback_extra_locks\":false,\"abi_cxx11\":1,"
-        "\"install_thread_id\":%" PRIu64 ",\"event_capacity\":%" PRIu64 ",\"event_limit\":%" PRIu64 ","
+        "\"pid\":%ld,\"install_thread_id\":%" PRIu64 ",\"event_capacity\":%" PRIu64 ",\"event_limit\":%" PRIu64 ","
         "\"attempted_events_at_cutoff\":%" PRIu64 ",\"retained_events\":%" PRIu64 ","
         "\"dropped_events\":%" PRIu64 ",\"unknown_actions\":%" PRIu64 ","
         "\"truncated_metadata\":%" PRIu64 ",\"clock_failures\":%" PRIu64 ",\"thread_id_failures\":%" PRIu64 ","
         "\"outside_epoch_allocations\":%" PRIu64 ",\"api_errors\":%" PRIu64 ",\"epochs\":[",
-        g_install_thread, kEvents, g_limit, cutoff, retained, g_dropped.load(), g_unknown.load(),
+        long(getpid()), g_install_thread, kEvents, g_limit, cutoff, retained, g_dropped.load(), g_unknown.load(),
         g_metadata_truncated.load(), g_clock_failure.load(), g_thread_failure.load(),
         g_outside_epoch_allocations.load(), g_api_errors.load());
     for (uint64_t i = 0; i < g_epoch_count; ++i) {

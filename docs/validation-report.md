@@ -1,8 +1,47 @@
-# V1.12.0 软件与限定真机验证记录
+# V1.13.0 软件与限定真机验证记录
 
 日期：2026-11-05  
 环境：Python 3.14.3，macOS，CPU 执行  
-版本：1.12.0
+版本：1.13.0
+
+## 1.13 Decode 与多卡 Workspace
+
+新增 Worker 级采集保留真实 Prefill/Decode、逐 rank Torch storage generation、
+Native 通信分配、PP 跨迭代引用与自然 shutdown 证据。完整装配器重放这些证据后，
+才允许生成 canonical Workspace 数据集；采集进程成功或组件审核通过均不能代替完整归因。
+
+单卡 Qwen3-1.7B BF16、同步 eager MRv1、单序列、512-token 上限、256MiB KV
+域完成了训练与冻结后的独立 Runtime 重复。训练和验证各 24 条正式观测、8 种形状，
+覆盖 Prefill16/32 和 Decode contexts16/17/18/32/33/34。验证记录、rank 和保留形状
+覆盖率均为100%，最大绝对字节误差0、低估0；冻结 Profile 原始字节保持不变。
+六种 Decode 的 requested-storage 峰值均为920,844 bytes。普通公开 simulate CLI
+使用同一 Profile 完成非空请求，Workspace 来源为显式 Profile；此消费检查不构成新时延精度证据。
+
+TP2 训练与独立重复也已完整归因并通过公开验证：每个 cohort 各24条 canonical记录、
+48条rank观测和8种精确形状，记录/rank/保留形状覆盖率均100%，最大绝对字节误差0、
+低估0。Profile于2026-11-05 05:49:37.167722 UTC冻结，SHA256为
+`f2e6a8a3024586e086e1e9d8c1327b93a391d81c920c283e1c09ecbeac6c546c`，
+新Runtime重复前后原始字节未变。两rank的20个通信backing分别独立证明，各17,113,392 bytes。
+
+PP2 已完成实际采集与逐 rank 组件回放，但完整校准仍以全部 Native 和同步
+资源门禁闭合为前提。PP 自然退出后仍有未证明归属/销毁的 formal HSA signal generation；
+进程退出诊断的 SDK stop 实际返回 CONTEXT_NOT_FOUND，不能改写为成功。
+这些 partial 结果不进入 Workspace 拟合或独立验证，也不能据此推断GPU泄漏或OOM。
+
+真实 PP2 大形状压力观测还发现 sender 跨迭代保留峰值8,372,224 bytes；原单 inflight
+预算4,194,304 bytes不足，修正为 `max(inflight,2)` 对输出缓冲后的8,388,608 bytes可覆盖。
+该压力诊断不进入训练，不推广为任意异步或多序列上界。
+
+新增独立 `validate --workspace-repeats` 核对训练 SHA、重算的拟合来源、独立采集身份、
+逐 rank/shape 覆盖与字节低估。现有 TP/PP、缓存、swap、混批组合仍受精确 Profile
+身份和形状域约束。实采域未启用这些在线策略，CPU 组合回归不授予它们新增硬件精度结论。
+所有报告保留 `hardware_validated=false`。完整范围与冻结 SHA 见
+[Worker Workspace 验证记录](workspace-stage-validation.md)。
+
+本轮本地1115项CPU回归检查通过；沙箱跳过的两项loopback HTTP测试另行补跑通过。
+Mac缺C++标准头而跳过的可选原生路径formatter测试，在实际Linux容器中使用同一
+测试类与实际probe源码编译执行通过，零跳过。Ruff通过，mypy对52个源文件检查通过，
+源码编译检查通过。最终提交的跨Python结果以该提交对应的GitHub Actions记录为准。
 
 ## 1.12 新增证据与验收范围
 

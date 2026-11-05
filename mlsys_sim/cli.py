@@ -431,9 +431,31 @@ def _validate(args: argparse.Namespace, manifest: dict) -> dict:
     from .profiles import load_dataset, load_profile
 
     exact_repeats = getattr(args, "exact_repeats", False)
+    workspace_repeats = getattr(args, "workspace_repeats", False)
     training_path = getattr(args, "training_dataset", None)
-    if training_path is not None and not exact_repeats:
-        raise SimulationError("INVALID_ARGUMENT", "--training-dataset requires --exact-repeats")
+    if training_path is not None and not (exact_repeats or workspace_repeats):
+        raise SimulationError("INVALID_ARGUMENT", "--training-dataset requires --exact-repeats or --workspace-repeats")
+    if workspace_repeats:
+        from .workspace import load_workspace_profile, validate_workspace_repeats
+        if (args.profile is None or training_path is None or args.allow_extrapolation
+                or any(value is not None for value in (args.holdout_group, args.holdout_fraction, args.seed))):
+            raise SimulationError("INVALID_ARGUMENT", "Workspace repeats require --profile and --training-dataset; "
+                                  "split and extrapolation options do not apply")
+        for path in (args.dataset, args.profile, training_path):
+            _record_input(manifest, path)
+        workspace_profile = load_workspace_profile(args.profile, allow_test_fixture=args.allow_test_fixture)
+        training, _ = _read_json(training_path)
+        repeated, _ = _read_json(args.dataset)
+        report = validate_workspace_repeats(workspace_profile, training, repeated,
+                                             allow_test_fixture=args.allow_test_fixture)
+        _write_json(args.out / "training.json", training)
+        _write_json(args.out / "repeat.json", repeated)
+        _write_json(args.out / "profile.json", workspace_profile)
+        manifest.update(profile_version=workspace_profile["profile_version"], source=workspace_profile["source"],
+                        profile_kind="workspace_profile", dataset_sha256=report["training_dataset_sha256"],
+                        repeat_dataset_sha256=report["repeat_dataset_sha256"],
+                        profile_sha256=hashlib.sha256((args.out / "profile.json").read_bytes()).hexdigest())
+        return report
     if exact_repeats:
         from .calibration import validate_profile_repeats
         if (args.profile is None or training_path is None or args.allow_extrapolation
@@ -919,8 +941,9 @@ def _arguments(parser: argparse.ArgumentParser, mode: str) -> None:
             validation_kind.add_argument("--native-pp-communication", action="store_true")
             validation_kind.add_argument("--memory-capacity", action="store_true")
             validation_kind.add_argument("--exact-repeats", action="store_true")
+            validation_kind.add_argument("--workspace-repeats", action="store_true")
             parser.add_argument("--training-dataset", type=Path,
-                                help="Exact canonical training snapshot for --exact-repeats")
+                                help="Exact canonical training snapshot for stage or Workspace repeats")
         return
     source = parser.add_mutually_exclusive_group(required=True)
     source.add_argument("--predicted", type=Path)

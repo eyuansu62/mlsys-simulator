@@ -280,7 +280,148 @@ def calibrate_workspace(data: dict, *, profile_version: str, parent_profile: dic
         "notes": {"dataset_id": dataset["dataset_id"], "fit": "maximum_observed_bytes_per_exact_shape_and_rank",
             "parent_samples_reused": False, "scope": "replacement_for_dynamic_workspace_only",
             "interpolation": False, "extrapolation": False}}
+    if "acquisition" in dataset.get("notes", {}):
+        from .calibration import _acquisition
+        profile["notes"]["acquisition"] = _acquisition(dataset["notes"]["acquisition"])
     return validate_workspace_profile(profile, allow_test_fixture=allow_test_fixture)
+
+
+def _repeat_rank_summary(rows: list[dict]) -> dict:
+    covered = [row for row in rows if row["profile_bytes"] is not None]
+    return {
+        "sample_count": len(rows),
+        "predicted_count": len(covered),
+        "rejected_count": len(rows) - len(covered),
+        "coverage": len(covered) / len(rows) if rows else None,
+        "underprediction_count": sum(row["underprediction_bytes"] > 0 for row in covered),
+        "max_underprediction_bytes": max((row["underprediction_bytes"] for row in covered), default=None),
+        "max_absolute_error_bytes": max((row["absolute_error_bytes"] for row in covered), default=None),
+    }
+
+
+def _repeat_summary(rows: list[dict]) -> dict:
+    covered = [row for row in rows if row["status"] == "PREDICTED"]
+    ranks = _repeat_rank_summary([rank for row in rows for rank in row["ranks"]])
+    return {
+        "sample_count": len(rows), "predicted_count": len(covered),
+        "rejected_count": len(rows) - len(covered),
+        "coverage": len(covered) / len(rows) if rows else None,
+        "rank_sample_count": ranks["sample_count"], "rank_predicted_count": ranks["predicted_count"],
+        "rank_rejected_count": ranks["rejected_count"], "rank_coverage": ranks["coverage"],
+        "underprediction_count": ranks["underprediction_count"],
+        "underpredicted_record_count": sum(any(rank["underprediction_bytes"] > 0 for rank in row["ranks"])
+                                            for row in covered),
+        "max_underprediction_bytes": ranks["max_underprediction_bytes"],
+        "max_absolute_error_bytes": ranks["max_absolute_error_bytes"],
+        "extrapolated_count": 0,
+    }
+
+
+def validate_workspace_repeats(
+    profile: dict,
+    training_dataset: dict,
+    repeat_dataset: dict,
+    *,
+    allow_test_fixture: bool = False,
+) -> dict:
+    """Compare independent acquisitions at frozen exact Workspace shapes/ranks.
+
+    The data's acquisition facts are checked for reuse; they cannot themselves
+    authenticate a fresh Runtime or complete storage attribution. This function
+    never calibrates on the repeat or grants a hardware-acceptance verdict.
+    """
+    from .calibration import _acquisition
+
+    fit = validate_workspace_profile(profile, allow_test_fixture=allow_test_fixture)
+    training = validate_workspace_dataset(training_dataset, allow_test_fixture=allow_test_fixture)
+    repeated = validate_workspace_dataset(repeat_dataset, allow_test_fixture=allow_test_fixture)
+    digest = hashlib.sha256(_json(training_dataset, "CALIBRATION_MISMATCH").encode()).hexdigest()
+    if digest != fit["training"]["dataset_sha256"]:
+        _fail("Training dataset canonical SHA256 differs from the frozen Workspace Profile", "CALIBRATION_MISMATCH")
+    # Parent versions are context only: calibration never reuses their samples.
+    # Recompute every bound from the supplied training acquisition alone.
+    expected = calibrate_workspace(training_dataset, profile_version=fit["profile_version"],
+                                   allow_test_fixture=allow_test_fixture)
+    for name in ("profile_id", "identity", "source", "attribution", "method", "samples"):
+        if fit[name] != expected[name]:
+            _fail(f"Frozen Workspace Profile {name} differs from its training dataset", "CALIBRATION_MISMATCH")
+    for name in ("dataset_sha256", "record_ids", "group_ids", "shape_keys"):
+        if fit["training"][name] != expected["training"][name]:
+            _fail(f"Frozen Workspace training provenance {name} differs", "CALIBRATION_MISMATCH")
+    if any(_json(fit.get("notes", {}).get(name), "CALIBRATION_MISMATCH") != _json(value, "CALIBRATION_MISMATCH")
+           for name, value in expected["notes"].items()):
+        _fail("Frozen Workspace Profile notes differ from its fitting provenance", "CALIBRATION_MISMATCH")
+    train_acquisition = _acquisition(training.get("notes", {}).get("acquisition"))
+    repeat_acquisition = _acquisition(repeated.get("notes", {}).get("acquisition"))
+    if fit.get("notes", {}).get("acquisition") != train_acquisition:
+        _fail("Frozen Workspace Profile lacks its exact training acquisition facts", "CALIBRATION_MISMATCH")
+    if repeated["identity"] != fit["identity"] or repeated["attribution"] != fit["attribution"]:
+        _fail("Repeat Workspace identity or attribution differs from the frozen Profile", "CALIBRATION_MISMATCH")
+    overlaps = (
+        set(fit["training"]["record_ids"]) & {row["record_id"] for row in repeated["records"]},
+        set(fit["training"]["group_ids"]) & {row["group_id"] for row in repeated["records"]},
+        set(train_acquisition["capture_input_sha256"]) & set(repeat_acquisition["capture_input_sha256"]),
+    )
+    if train_acquisition["session_id"] == repeat_acquisition["session_id"] or any(overlaps):
+        _fail("Repeat Workspace reuses a training session, capture, record or group", "VALIDATION_DATA_LEAKAGE")
+    indexed = {_key(sample): sample for sample in fit["samples"]}
+    rows = []
+    for record in sorted(repeated["records"], key=lambda item: item["record_id"]):
+        key = _key(record)
+        sample = indexed.get(key)
+        row = {name: deepcopy(record[name]) for name in
+               ("record_id", "group_id", "phase", "stage_index", "query_tokens", "context_lengths")}
+        if "request_phases" in record:
+            row["request_phases"] = list(record["request_phases"])
+        row.update(shape_key=key, extrapolated=False,
+                   status="PREDICTED" if sample is not None else "OUT_OF_DOMAIN",
+                   method="exact" if sample is not None else None,
+                   error_code=None if sample is not None else "OUT_OF_WORKSPACE_CALIBRATION_DOMAIN",
+                   reason=None if sample is not None else "Workspace repeats require a retained exact shape; interpolation is disabled")
+        ranks = []
+        for observation in record["workspace_bytes_per_rank"]:
+            rank, observed = observation["tp_rank"], observation["peak_bytes"]
+            bound = sample["workspace_bytes_per_rank"][rank]["peak_bytes"] if sample is not None else None
+            signed = bound - observed if bound is not None else None
+            ranks.append({"tp_rank": rank, "observed_bytes": observed, "profile_bytes": bound,
+                          "signed_error_bytes": signed,
+                          "absolute_error_bytes": abs(signed) if signed is not None else None,
+                          "underprediction_bytes": max(0, -signed) if signed is not None else None})
+        row["ranks"] = ranks
+        rows.append(row)
+    groups: dict[str, list[dict]] = {}
+    stage_ranks: dict[tuple[int, int], list[dict]] = {}
+    for row in rows:
+        groups.setdefault(row["group_id"], []).append(row)
+        for rank in row["ranks"]:
+            stage_ranks.setdefault((row["stage_index"], rank["tp_rank"]), []).append(rank)
+    summary = _repeat_summary(rows)
+    retained = {row["shape_key"] for row in rows if row["status"] == "PREDICTED"}
+    summary.update(profile_shape_count=len(indexed), repeated_retained_shape_count=len(retained),
+                   retained_shape_coverage=len(retained) / len(indexed))
+    fixture = any(value["source"]["kind"] == "test_fixture" for value in (fit, training, repeated))
+    return {
+        "schema_version": 1, "status": "COMPLETED",
+        "validation_type": "independent_exact_workspace_repeats",
+        "validation_scope": "within_retained_exact_shapes_and_tp_ranks_only",
+        "profile_id": fit["profile_id"], "profile_version": fit["profile_version"],
+        "dataset_id": repeated["dataset_id"], "identity": deepcopy(fit["identity"]),
+        "attribution": deepcopy(fit["attribution"]),
+        "calibration_source": deepcopy(fit["source"]), "validation_source": deepcopy(repeated["source"]),
+        "test_fixture_only": fixture, "hardware_validated": False,
+        "hardware_validation": {"status": "not_asserted",
+            "reason": "Acquisition facts do not alone prove a fresh Runtime, storage attribution or hardware acceptance."},
+        "unseen_shape_generalization": False, "interpolation": False, "allow_extrapolation": False,
+        "summary": summary, "records": rows,
+        "groups": {name: _repeat_summary(values) for name, values in sorted(groups.items())},
+        "by_stage_and_rank": [{"stage_index": stage, "tp_rank": rank, **_repeat_rank_summary(values)}
+                              for (stage, rank), values in sorted(stage_ranks.items())],
+        "training_dataset_sha256": digest,
+        "repeat_dataset_sha256": hashlib.sha256(_json(repeat_dataset, "INVALID_WORKSPACE_DATASET").encode()).hexdigest(),
+        "parent_profile_version": fit["training"]["parent_profile_version"], "parent_samples_reused": False,
+        "acquisition": {"training": train_acquisition, "repeat": repeat_acquisition},
+        "online_sla": None, "online_sla_reason": "WORKSPACE_DATASET_HAS_NO_ONLINE_TIMELINE",
+    }
 
 
 class WorkspaceModel:

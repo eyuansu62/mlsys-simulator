@@ -1,5 +1,47 @@
 # Changelog
 
+## 1.13.0 — 2026-11-05
+
+Workspace acquisition now observes each real Worker iteration and separates
+rank-local scratch from retained native PP and communicator storage.
+
+### Added
+
+- Optional source-pinned single/TP2/PP2 Worker acquisition for prefill lengths 16/32 and
+  the following three decode contexts, retaining warmup, per-rank storage
+  generations, real PP handoff/retention and separate teardown evidence.
+- Rank-placement ownership checks for Qwen3 TP shards, PP layer ranges and
+  distinct PP endpoint vocabulary copies; missing ownership remains partial.
+- `validate_workspace_repeats` and `validate --workspace-repeats` for independent
+  acquisitions at retained exact shapes and TP ranks, with frozen training
+  SHA/recomputed-fit checks, capture separation, coverage and byte underprediction.
+
+### Changed
+
+- Native PP sender reservations cover `max(inflight, 2)` full output pairs for
+  the supported synchronous MRv1 path. The existing inflight component is
+  preserved and the extra one-wave retention slot is reported separately.
+  Receiving buffers, legacy transport and latency calculations are unchanged.
+- Native observation uses explicit bounded event budgets and preserves API
+  context, finalization and communication-causality evidence. Unknown backing,
+  unfinished calls, missing lineage or lost events cannot become complete data.
+
+### Evidence boundaries
+
+- Scoped single-card and TP2 train/frozen-repeat pairs completed full attribution
+  and public Workspace validation: eight exact shapes and 24 records per cohort
+  (48 rank observations for TP2), full coverage, zero byte error and no
+  underprediction. PP2 remains partial and has no admitted Workspace fit.
+- The raw Worker collector is restricted to BF16, synchronous eager MRv1,
+  seq1/512-token limits and 256MiB KV, without cache/chunk/mixed/swap. Its success
+  does not imply that all native communication attribution gates passed.
+- Memory instrumentation changes observed durations; those timings are not
+  used to calibrate a new latency Profile. Complete Workspace datasets contain
+  no duration and remain exact-only when consumed by existing serving policies.
+- CPU combination regressions preserve TP/PP, cache, swap, mixed and replica
+  software contracts; they do not extend a measured Profile to unmeasured domains.
+  Independent repeats do not establish unseen-shape generalization or hardware PASS.
+
 ## 1.12.0 — 2026-11-05
 
 Real Runtime verification now distinguishes exact-domain repeated stage
