@@ -4,7 +4,7 @@ from dataclasses import replace
 import unittest
 
 from mlsys_sim.config import experiment_from_dict
-from mlsys_sim.layout import local_kv_heads, rank_weight_bytes
+from mlsys_sim.layout import layer_parameters, local_kv_heads, rank_weight_bytes
 from mlsys_sim.performance import AnalyticalModel, predict_experiment, ring_allreduce_ms
 from mlsys_sim.schema import Experiment, SimulationError
 
@@ -109,6 +109,67 @@ class PerformanceTests(unittest.TestCase):
         self.assertTrue(all(v is None for v in result["online_metrics"].values()))
         self.assertEqual(result["online_metrics_reason"], "SHAPE_ANALYSIS_HAS_NO_ARRIVALS_OR_QUEUEING")
         self.assertFalse(result["hardware_validated"])
+
+
+class QuantizedStoragePerformanceTests(unittest.TestCase):
+    def step(self, phase, queries, contexts, **model):
+        exp = experiment_from_dict({"strategy": {"model": model}})
+        return AnalyticalModel(exp).estimate_step(phase, queries, contexts), exp
+
+    def test_fused_dequant_charges_work_without_extra_weight_traffic(self):
+        baseline, _ = self.step("decode", [1], [0])
+        fused, exp = self.step("decode", [1], [0], weight_bytes=0.5, weight_dtype="int4",
+                               weight_dequant="fused")
+        model = exp.strategy.model
+        layers = model.num_layers
+        dequant = layers * layer_parameters(model, 1)["linear"]
+        linear = fused.breakdown["linear"]
+        self.assertEqual(linear["dequant_flops_per_rank"], dequant)
+        self.assertEqual(linear["flops_per_rank"],
+                         baseline.breakdown["linear"]["flops_per_rank"] + dequant)
+        activation_io = layers * 1 * (4 * model.hidden_size) * model.activation_bytes
+        self.assertEqual(linear["hbm_bytes_per_rank"],
+                         layers * layer_parameters(model, 1)["linear"] * 0.5 + activation_io)
+        self.assertNotIn("dequant", fused.breakdown)
+        self.assertTrue(any("Fused weight dequant" in note for note in fused.assumptions))
+        self.assertTrue(any("no accuracy" in note for note in fused.assumptions))
+
+    def test_materialized_dequant_is_a_separate_pass_with_expanded_gemm(self):
+        baseline, _ = self.step("decode", [1], [0])
+        # 0.515625 is the GPTQ-128 effective width (group scales included), so
+        # no raw dtype label matches it; auto keeps the bytes as source of truth.
+        exp = experiment_from_dict({"strategy": {
+            "model": {"weight_bytes": 0.515625, "weight_dequant": "materialized"}}})
+        estimate = AnalyticalModel(exp).estimate_step("decode", [1], [0])
+        model = exp.strategy.model
+        params = layer_parameters(model, 1)["linear"]
+        dequant = estimate.breakdown["dequant"]
+        self.assertEqual(dequant["flops_per_rank"], 4 * params)
+        self.assertEqual(dequant["hbm_bytes_per_rank"], 4 * params * (0.515625 + 2.0))
+        self.assertAlmostEqual(dequant["overhead_ms"], 4 * exp.calibration.launch_overhead_us / 1000)
+        linear = estimate.breakdown["linear"]
+        # The GEMM reads expanded activation-width weights, so its bytes match
+        # the unquantized baseline; the packed-read/write pass is separate.
+        self.assertEqual(linear["hbm_bytes_per_rank"],
+                         baseline.breakdown["linear"]["hbm_bytes_per_rank"])
+        self.assertEqual(linear["flops_per_rank"],
+                         baseline.breakdown["linear"]["flops_per_rank"])
+        self.assertNotIn("dequant_flops_per_rank", linear)
+        self.assertTrue(any("Materialized weight dequant" in note for note in estimate.assumptions))
+
+    def test_kv_dequant_is_fused_into_attention_at_declared_rate(self):
+        baseline, _ = self.step("decode", [1], [16])
+        estimate, exp = self.step("decode", [1], [16], kv_bytes=1.0, kv_dtype="int8")
+        model = exp.strategy.model
+        kv_elements = 2 * 4 * local_kv_heads(model, 1) * model.head_dim * 17
+        attention = estimate.breakdown["attention"]
+        self.assertEqual(attention["flops_per_rank"],
+                         baseline.breakdown["attention"]["flops_per_rank"] + kv_elements)
+        self.assertEqual(attention["hbm_bytes_per_rank"],
+                         2 * 4 * local_kv_heads(model, 1) * model.head_dim * 1.0 * 17
+                         + baseline.breakdown["attention"]["hbm_bytes_per_rank"]
+                         - 2 * 4 * local_kv_heads(model, 1) * model.head_dim * 2.0 * 17)
+        self.assertTrue(any("KV dequant is fused on-the-fly" in note for note in estimate.assumptions))
 
 
 if __name__ == "__main__":
