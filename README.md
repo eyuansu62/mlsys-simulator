@@ -13,9 +13,10 @@ collection adapters instrument an installed Runtime separately from simulation.
 [ROCm collection](docs/rocm-collection.md) · [Qwen3 and vLLM hooks](docs/qwen3-and-vllm-hooks.md) ·
 [Native PP capture and Profiles](docs/native-pp-capture.md) ·
 [Native PP communication calibration](docs/native-pp-communication.md) ·
+[Quantized storage](docs/quantization.md) ·
 [Workspace and capacity validation](docs/workspace-and-capacity.md) · [Contributing](CONTRIBUTING.md)
 
-**Version 1.14 software scope:** Public HSA/driver GTT synchronization-resource
+**Version 1.15 software scope:** Public HSA/driver GTT synchronization-resource
 evidence and Worker-level Prefill/Decode Workspace acquisition
 for the pinned single/TP2/PP2 layouts, provenance-checked independent exact
 Workspace repeats, independent exact per-rank Workspace Profiles,
@@ -26,7 +27,8 @@ lazy-receive capture and exact stage Profiles, Qwen3 geometry/import and
 version-checked internal capture, with optional AMD/ROCm collection adapters, explicit hardware
 evidence acceptance, multi-replica routing and load balancing with
 mixed Prefill/Decode batches, Prefix Cache, Chunked Prefill, online TP/PP and
-optional CPU KV swap, analytical models, versioned lookup
+optional CPU KV swap, declared-width quantized weight/KV storage
+(FP8/INT8/INT4/FP4 with explicit dequant work, no accuracy modeling), analytical models, versioned lookup
 profiles, calibration, grouped holdout evaluation and run/candidate comparison.
 User-supplied AMD and NVIDIA reference packages inform the import and audit
 contracts; raw packages and prompt/output text are not distributed with this
@@ -353,7 +355,9 @@ behavior and budgets are explicit. See the [specification](docs/specification.md
 
 `simulate` models online PP stage queues, P2P transfers and feedback dependencies.
 `predict` remains shape-only analysis and never supplies online SLA metrics.
-NVMe swap and quantized storage formats remain outside this version. Allocator fragmentation, kernel cycles and
+NVMe swap remains outside this version; quantized storage is modeled as
+declared effective byte widths with explicit dequant work, never as a format
+parser (see [quantized storage](docs/quantization.md)). Allocator fragmentation, kernel cycles and
 live CUDA/HIP or host DMA execution are not simulated.
 The [capability matrix](docs/coverage-matrix.md) separates software support from
 hardware evidence. A calibrated profile does not itself establish held-out

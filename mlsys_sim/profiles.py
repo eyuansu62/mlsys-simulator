@@ -26,7 +26,7 @@ if TYPE_CHECKING:
     from .performance import AnalyticalModel
 
 _ADDITIVE_MODEL_FLAGS = {"tie_word_embeddings", "qk_norm", "final_norm"}
-_ADDITIVE_MODEL_FIELDS = _ADDITIVE_MODEL_FLAGS | {"architecture_config_sha256"}
+_ADDITIVE_MODEL_FIELDS = _ADDITIVE_MODEL_FLAGS | {"architecture_config_sha256", "weight_dequant"}
 
 
 def _invalid(message: str, code: str = "INVALID_PROFILE") -> None:
@@ -94,6 +94,8 @@ def profile_identity(experiment: Experiment) -> dict:
             model_identity.pop(flag)
     if model_identity["architecture_config_sha256"] == "":
         model_identity.pop("architecture_config_sha256")
+    if model_identity["weight_dequant"] == "none":
+        model_identity.pop("weight_dequant")
     identity: dict[str, Any] = {
         "model": model_identity,
         "devices": [asdict(device) for device in infra.devices],

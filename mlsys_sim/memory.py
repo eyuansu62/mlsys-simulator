@@ -12,7 +12,7 @@ from dataclasses import dataclass
 from .batching import batch_members
 import hashlib
 
-from .layout import rank_kv_bytes_per_token, rank_weight_bytes, stage_layer_counts
+from .layout import exact_storage_bytes, rank_kv_bytes_per_token, rank_weight_bytes, stage_layer_counts
 from .schema import Experiment, RequestSpec, SimulationError
 
 
@@ -146,10 +146,10 @@ class MemoryPlanner:
                 }
                 pipeline_buffers = outgoing + retention_slack + incoming + backing + persistent
             else:
-                pipeline_buffers = int(
+                pipeline_buffers = exact_storage_bytes(
                     boundaries * strategy.pipeline_max_inflight_microbatches
-                    * strategy.max_batch_tokens * strategy.model.hidden_size
-                    * strategy.model.activation_bytes)
+                    * strategy.max_batch_tokens * strategy.model.hidden_size,
+                    strategy.model.activation_bytes)
             # Safety margin and external users are constraints, not allocations
             # owned by this model. Preserve this distinction in the snapshots.
             physical = (weights + self.config.kv_pool_bytes + self.config.graph_bytes

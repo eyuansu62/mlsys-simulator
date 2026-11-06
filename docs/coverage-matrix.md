@@ -1,13 +1,13 @@
-# Version 1.14 capability matrix
+# Version 1.15 capability matrix
 
-This table describes the version 1.14 software scope. Available fixture demonstrations
+This table describes the version 1.15 software scope. Available fixture demonstrations
 and unit tests do not establish AMD hardware accuracy. User-supplied reference
 packages are external evidence with their own timing and model-coverage limits.
 
 | Capability | Software status | Supported scope and evidence boundary |
 | --- | --- | --- |
 | Six inputs and strict configuration | Implemented | JSON/TOML, JSONL workload, relative references; optional installed PyYAML |
-| Qwen3 geometry and HF import | Implemented | Independent residual/query widths, tied vocabulary storage, Q/K and final Norm, strict unquantized full-attention config and architecture fingerprints |
+| Qwen3 geometry and HF import | Implemented | Independent residual/query widths, tied vocabulary storage, Q/K and final Norm, strict unquantized full-attention config (quantized configs are rejected and pointed at an explicit storage declaration) and architecture fingerprints |
 | C01 macro performance model | Implemented | Shape-aware Dense MHA/GQA costs; analytical parameters are uncalibrated |
 | C02 memory planning | Implemented | Per-rank physical budget, fixed KV pool, logical blocks and labeled Workspace source |
 | C03 serving DES | Implemented | FIFO, default prefill-first batching or opt-in decode-first chunked/mixed scheduling, Token events, timeout and bounded execution |
@@ -49,12 +49,18 @@ packages are external evidence with their own timing and model-coverage limits.
 | Chunked Prefill/recompute | Implemented | Retained contexts, final-chunk-only output, decode priority; single-group and TP×PP recovery |
 | Mixed Prefill/Decode batches | Implemented | Opt-in shared stage execution, decode-first packing, ordered member roles, joint Workspace and exact mixed Profiles; PP/cache/swap lifetimes preserved |
 | Multiple replicas and load balancing | Implemented | Global causal DES; round-robin, least-loaded and load-bounded prefix affinity; independent TP/PP/cache/swap/mixed execution |
-| NVMe swap and quantized formats | Unsupported, rejected | CPU swap only; 2/4/8-byte float storage assumptions only |
+| NVMe swap | Unsupported, rejected | CPU swap only |
+| Quantized weight/KV storage | Implemented, analytical/synthetic only | Declared effective byte widths (FP8/INT8/INT4/FP4, up to 8 bytes) with exact ceiling arithmetic, explicit fused or materialized weight dequant and on-the-fly KV dequant at a declared FLOP rate; no quantization accuracy is modeled and live capture remains unquantized |
 
 The shipped calibration data uses `source.kind="test_fixture"`. Fixture opt-in is explicit
 and does not grant measured status. Profiles backed by measured records are
 calibrated inputs, not an automatic hardware-validation verdict. Actual test and
 CI results belong in the validation report and workflow run records.
+
+Quantized storage is a declared effective-byte-width contract, not a quantization
+format parser: the user supplies the per-element bytes (including any block/scale
+metadata) and the dequant work model, and the simulator never infers either from a
+framework configuration. See [quantized storage](quantization.md).
 
 
 TP2 and PP2 have limited independent real stage observations, and native P2P

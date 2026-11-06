@@ -1,6 +1,6 @@
 # Python API
 
-Install distribution `mlsys-simulator` and import `mlsys_sim`. Version 1.14 exposes the
+Install distribution `mlsys-simulator` and import `mlsys_sim`. Version 1.15 exposes the
 simulation, profile, calibration and comparison functions through this package,
 with optional hardware collection and evidence-acceptance commands;
 `mlsys_sim.__version__` is the software version. JSON schema and Profile version
@@ -65,6 +65,13 @@ rank. Final RMSNorm contributes one residual-width vector on the last stage.
 A tied embedding/LM-head allocation is counted once when both roles reside on
 the same physical rank. PP endpoints on different devices retain distinct
 physical copies. Tying storage does not remove LM-head computation.
+
+Storage byte widths (`weight_bytes`, `kv_bytes`, `activation_bytes`) accept any
+positive finite value up to 8; quantized formats are declared by their
+effective bytes per element plus `weight_dequant` (`none`, `fused`,
+`materialized`) and `calibration.dequant_flops_per_weight`. Dtype labels must
+agree with the bytes. No quantization accuracy is modeled; see
+[quantized storage](quantization.md).
 
 ```python
 from mlsys_sim.qwen3 import load_qwen3_model, model_from_qwen3_config

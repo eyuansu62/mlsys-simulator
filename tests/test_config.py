@@ -79,16 +79,59 @@ class ConfigTests(unittest.TestCase):
         self.assert_invalid({"strategy": {"preemption": "nvme_swap"}}, "UNSUPPORTED_MECHANISM")
         self.assert_invalid({"strategy": {"replica_routing": "random_unseeded"}}, "UNSUPPORTED_MECHANISM")
 
-    def test_quantized_storage_does_not_silently_omit_metadata(self):
+    def test_storage_widths_accept_effective_quantized_bytes(self):
         for field in ("weight_bytes", "kv_bytes", "activation_bytes"):
-            for width in (-1.0, 0.0, 0.5, 1.0, 1.25, 3.0):
-                with self.subTest(field=field, width=width):
-                    self.assert_invalid({"strategy": {"model": {field: width}}},
-                                        "UNSUPPORTED_MECHANISM")
-            for width in (2.0, 4.0, 8.0):
+            for width in (0.5, 0.515625, 0.53125, 0.5625, 1.0, 1.25, 2.0, 3.0, 4.0, 8.0):
                 with self.subTest(field=field, width=width):
                     exp = experiment_from_dict({"strategy": {"model": {field: width}}})
                     self.assertEqual(getattr(exp.strategy.model, field), width)
+            for width in (-1.0, 0.0):
+                with self.subTest(field=field, width=width):
+                    self.assert_invalid({"strategy": {"model": {field: width}}})
+            with self.subTest(field=field):
+                self.assert_invalid({"strategy": {"model": {field: 8.5}}}, "UNSUPPORTED_MECHANISM")
+
+    def test_dtype_labels_must_match_declared_byte_width(self):
+        for label, width in (("float16", 2.0), ("bfloat16", 2.0), ("float32", 4.0),
+                             ("float64", 8.0), ("float8_e4m3", 1.0), ("float8_e5m2", 1.0),
+                             ("int8", 1.0), ("int4", 0.5), ("float4_e2m1", 0.5)):
+            with self.subTest(label=label, field="weight_bytes"):
+                exp = experiment_from_dict(
+                    {"strategy": {"model": {"weight_dtype": label, "weight_bytes": width}}})
+                self.assertEqual(exp.strategy.model.weight_bytes, width)
+        for label, width in (("float8_e4m3", 2.0), ("float8_e5m2", 0.5), ("int8", 0.5),
+                             ("int4", 1.0), ("float4_e2m1", 1.0), ("float16", 1.0),
+                             ("float32", 2.0), ("float8_e9m4", 1.0)):
+            with self.subTest(label=label, width=width):
+                self.assert_invalid({"strategy": {"model": {"weight_dtype": label,
+                                                             "weight_bytes": width}}})
+
+    def test_weight_dequant_is_explicit_and_requires_packed_storage(self):
+        for mode in ("none", "fused", "materialized"):
+            with self.subTest(mode=mode):
+                exp = experiment_from_dict({"strategy": {
+                    "model": {"weight_bytes": 0.5, "weight_dequant": mode}}})
+                self.assertEqual(exp.strategy.model.weight_dequant, mode)
+        self.assert_invalid({"strategy": {"model": {"weight_dequant": "inline"}}},
+                            "UNSUPPORTED_MECHANISM")
+        for width in (2.0, 4.0):
+            with self.subTest(weight_bytes=width):
+                self.assert_invalid({"strategy": {
+                    "model": {"weight_bytes": width, "weight_dequant": "fused"}}},
+                    "UNSUPPORTED_MECHANISM")
+        self.assertEqual(experiment_from_dict(
+            {"strategy": {"model": {"weight_bytes": 4.0, "activation_bytes": 2.0}}})
+            .strategy.model.weight_dequant, "none")
+
+    def test_dequant_flops_per_weight_must_be_positive(self):
+        for value in (0.0, -0.5, float("nan")):
+            with self.subTest(value=value):
+                self.assert_invalid({"calibration": {"dequant_flops_per_weight": value}})
+        for value in (1.0, 2.5):
+            with self.subTest(value=value):
+                self.assertEqual(experiment_from_dict(
+                    {"calibration": {"dequant_flops_per_weight": value}})
+                    .calibration.dequant_flops_per_weight, value)
 
     def test_jsonl_and_toml_section_references(self):
         with tempfile.TemporaryDirectory() as directory:

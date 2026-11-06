@@ -1,5 +1,47 @@
 # Changelog
 
+## 1.15.0 — 2026-11-06
+
+### Added
+
+- Quantized weight/KV storage as a declared effective byte-width contract:
+  `weight_bytes`, `kv_bytes` and `activation_bytes` now accept any positive
+  finite value up to 8 (for example GPTQ-128 0.515625, NVFP4 0.5625, MXFP4
+  0.53125, FP8/INT8 1.0, INT4/FP4 0.5). Block/scale metadata is declared by the
+  user, never inferred; storage calculations use exact ceiling arithmetic so
+  fractional widths never understate physical bytes.
+- Extended dtype label table (`float8_e4m3`, `float8_e5m2`, `int8`, `int4`,
+  `float4_e2m1`); an explicit label must match the declared byte width, and
+  effective widths with metadata use `auto` plus the declared bytes.
+- `ModelSpec.weight_dequant` (`none`, `fused`, `materialized`): fused keeps
+  packed-weight traffic and charges dequant FLOPs to the GEMM; materialized
+  adds a separate pass at `params x (weight_bytes + 2 x activation_bytes)`
+  with one launch per layer. Only valid for packed storage
+  (`weight_bytes < activation_bytes`).
+- `CalibrationSpec.dequant_flops_per_weight` (default 1.0): uncalibrated
+  first-order FLOPs per weight/KV element. KV dequant is modeled fused
+  on-the-fly at this rate inside the attention macro.
+- `weight_dequant` participates in the Profile identity, so quantized
+  experiments cannot reuse non-quantized Profiles; pre-1.15 Profile files load
+  unchanged and still match their non-quantized experiments.
+- `docs/quantization.md` with format/effective-width derivations, configuration
+  examples and boundaries; coverage matrix split so quantized storage is
+  "Implemented, analytical/synthetic only".
+
+### Behavior changes
+
+- The Qwen3 importer still rejects `quantization_config`; the error now points
+  at the explicit storage declaration path in `docs/quantization.md`.
+- Historical `int()` truncation in weight/KV/pipeline-buffer byte calculations
+  is replaced by exact ceiling arithmetic; 2/4/8-byte results are unchanged
+  and locked by regression tests.
+
+### Unchanged boundaries
+
+- No quantization accuracy or kernel modeling; live vLLM capture still
+  rejects quantized models; existing live-validation evidence stays
+  unquantized; NVMe swap remains unsupported.
+
 ## 1.14.0 — 2026-11-05
 
 ### Added

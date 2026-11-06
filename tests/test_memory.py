@@ -3,7 +3,7 @@
 from dataclasses import replace
 import unittest
 
-from mlsys_sim.layout import rank_kv_bytes_per_token, rank_weight_bytes
+from mlsys_sim.layout import exact_storage_bytes, rank_kv_bytes_per_token, rank_weight_bytes
 from mlsys_sim.memory import MemoryPlanner
 from mlsys_sim.schema import (
     DeviceSpec, Experiment, InfraSpec, MemoryConfig, ModelSpec, SimulationError,
@@ -154,6 +154,53 @@ class MemoryPlannerTests(unittest.TestCase):
                 planner.check(targets, queries, "decode")
             self.assertEqual(error.exception.code, "INVALID_CONFIG")
         self.assertEqual(planner.allocations, {"a": 16})
+
+
+class QuantizedStorageByteTests(unittest.TestCase):
+    def test_exact_storage_bytes_ceil_without_truncating_metadata(self):
+        self.assertEqual(exact_storage_bytes(0, 0.5), 0)
+        for elements, width, bytes in ((1000, 2.0, 2000), (1000, 4.0, 4000), (1000, 8.0, 8000)):
+            with self.subTest(elements=elements, width=width):
+                self.assertEqual(exact_storage_bytes(elements, width), bytes)
+        # Effective quantized widths round up instead of losing scale bytes.
+        for elements, width, bytes in ((100, 0.515625, 52), (100, 0.5625, 57),
+                                       (100, 0.53125, 54), (101, 0.5, 51), (3, 0.1, 1)):
+            with self.subTest(elements=elements, width=width):
+                self.assertEqual(exact_storage_bytes(elements, width), bytes)
+        for elements, width in ((-1, 2.0), (0, 0.0), (1000, 8.5), (1.5, 2.0), (1000, float("nan"))):
+            with self.subTest(elements=elements, width=width):
+                with self.assertRaises(SimulationError) as error:
+                    exact_storage_bytes(elements, width)
+                self.assertEqual(error.exception.code, "INVALID_CONFIG")
+
+    def test_quantized_fixture_uses_effective_widths_and_default_is_invariant(self):
+        self.assertEqual(rank_weight_bytes(Experiment(), 0), 2033664)
+        self.assertEqual(rank_kv_bytes_per_token(Experiment(), 0), 512)
+        for width, weights in ((0.5, 508416), (0.515625, 524304), (1.0, 1016832)):
+            with self.subTest(weight_bytes=width):
+                exp = replace(fixture(), strategy=replace(fixture().strategy,
+                            model=replace(ModelSpec(), weight_bytes=width)))
+                self.assertEqual(rank_weight_bytes(exp, 0), weights)
+        for width, kv in ((1.0, 256), (0.5, 128)):
+            with self.subTest(kv_bytes=width):
+                exp = replace(fixture(), strategy=replace(fixture().strategy,
+                            model=replace(ModelSpec(), kv_bytes=width)))
+                self.assertEqual(rank_kv_bytes_per_token(exp, 0), kv)
+
+    def test_quantized_storage_can_restore_static_feasibility(self):
+        exp = fixture()
+        fixed = MemoryPlanner(exp).snapshot()[0]["fixed_budget_bytes"]
+        squeezed = replace(exp, infra=replace(exp.infra, devices=(
+            replace(exp.infra.devices[0], memory_bytes=fixed - 129),)))
+        with self.assertRaises(SimulationError) as error:
+            MemoryPlanner(squeezed)
+        self.assertEqual(error.exception.code, "STATIC_MEMORY_INFEASIBLE")
+        quantized = replace(squeezed, strategy=replace(squeezed.strategy, model=replace(
+            squeezed.strategy.model, weight_bytes=1.0, weight_dtype="int8",
+            kv_bytes=1.0, kv_dtype="int8")))
+        ranks = MemoryPlanner(quantized).snapshot()
+        self.assertTrue(all(rank["fixed_budget_bytes"] <= rank["device_memory_bytes"]
+                            for rank in ranks))
 
 
 if __name__ == "__main__":

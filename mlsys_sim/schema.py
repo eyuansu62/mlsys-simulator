@@ -29,6 +29,7 @@ class ModelSpec:
     tie_word_embeddings: bool = False
     qk_norm: bool = False
     final_norm: bool = False
+    weight_dequant: str = "none"
     architecture_config_sha256: str = ""
 
     @property
@@ -124,6 +125,7 @@ class CalibrationSpec:
     decode_ms: float = 1.0
     recompute_ms: float = 10.0
     mixed_ms: float = 10.0
+    dequant_flops_per_weight: float = 1.0
     profile_path: str | None = None
     replica_profile_paths: tuple[str, ...] = ()
     allow_extrapolation: bool = False

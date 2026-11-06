@@ -9,6 +9,7 @@ from copy import deepcopy
 import math
 from typing import Any, NoReturn
 
+from .layout import exact_storage_bytes
 from .schema import Experiment, SimulationError, StepEstimate
 
 
@@ -121,7 +122,7 @@ def estimate_pipeline_transfer(experiment: Experiment, query_tokens,
             _fail("Native PP padded_tokens cannot be smaller than the logical query count")
         payload = descriptor["wire_bytes_per_rank"]
     elif strategy.pipeline_transport == "full_hidden":
-        payload = int(sum(queries) * model.hidden_size * model.activation_bytes)
+        payload = exact_storage_bytes(sum(queries) * model.hidden_size, model.activation_bytes)
         payload_source = "configured_logical_tokens"
     else:
         _fail("Unsupported pipeline_transport")
