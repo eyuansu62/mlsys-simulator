@@ -1,8 +1,28 @@
 """The supported dense GQA shard plan, shared by timing and memory models."""
 
 from dataclasses import replace
+from fractions import Fraction
+import math
 
 from .schema import Experiment, ModelSpec, SimulationError
+
+
+def exact_storage_bytes(elements: int, bytes_per_element: float) -> int:
+    """Round a declared effective byte width up, without truncating metadata.
+
+    Fraction arithmetic is exact for every positive finite width, so 2/4/8-byte
+    models keep the historical integer product while fractional effective
+    widths (0.515625 for GPTQ-128, ...) never understate the physical bytes.
+    """
+    if type(elements) is not int or elements < 0:
+        raise SimulationError("INVALID_CONFIG", "storage element count must be a nonnegative integer")
+    try:
+        width = Fraction(bytes_per_element)
+    except (ValueError, TypeError, OverflowError) as exc:
+        raise SimulationError("INVALID_CONFIG", "storage byte width must be a finite number") from exc
+    if width <= 0 or width > 8:
+        raise SimulationError("INVALID_CONFIG", "storage byte width must be in (0, 8]")
+    return math.ceil(elements * width)
 
 
 def replica_experiment(experiment: Experiment, replica_index: int) -> Experiment:
@@ -70,12 +90,25 @@ def rank_weight_bytes(experiment: Experiment, stage: int) -> int:
             total += model.vocab_size * model.hidden_size // tp
         if model.final_norm:
             total += model.hidden_size
-    return total * int(model.weight_bytes)
+    return exact_storage_bytes(total, model.weight_bytes)
+
+
+def materialized_weight_workspace_bytes(experiment: Experiment) -> int:
+    """One layer's expanded local Linear weights, reused by sequential layers.
+
+    This is temporary execution storage in addition to resident packed weights.
+    Stage layer count and PP inflight waves do not multiply this per-rank peak.
+    """
+    model = experiment.strategy.model
+    if model.weight_dequant != "materialized":
+        return 0
+    elements = layer_parameters(model, experiment.strategy.tensor_parallel_size)["linear"]
+    return exact_storage_bytes(elements, model.activation_bytes)
 
 
 def rank_kv_bytes_per_token(experiment: Experiment, stage: int) -> int:
     strategy = experiment.strategy
     model = strategy.model
-    return (2 * stage_layer_counts(experiment)[stage]
-            * local_kv_heads(model, strategy.tensor_parallel_size)
-            * model.head_dim * int(model.kv_bytes))
+    return exact_storage_bytes(2 * stage_layer_counts(experiment)[stage]
+                               * local_kv_heads(model, strategy.tensor_parallel_size)
+                               * model.head_dim, model.kv_bytes)

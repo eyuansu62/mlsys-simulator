@@ -275,6 +275,33 @@ class ProfileModelTests(unittest.TestCase):
                 ProfileModel(candidate)
             self.assertEqual(raised.exception.code, "CALIBRATION_MISMATCH")
 
+    def test_weight_dequant_identity_is_backward_compatible_and_binding(self):
+        self.assertNotIn("weight_dequant", profile_identity(Experiment())["model"])
+        # A pre-1.15 profile file has no weight_dequant key and still matches
+        # the non-quantized experiment it was captured for.
+        data = profile(experiment=Experiment())
+        data["identity"]["model"].pop("weight_dequant", None)
+        self.assertEqual(ProfileModel(self.experiment(data=data))
+                         .estimate_step("prefill", [4], [0]).source, "test_fixture_profile")
+        none = Experiment()
+        none = replace(none, strategy=replace(none.strategy, model=replace(
+            none.strategy.model, weight_bytes=0.5, weight_dtype="int4", weight_dequant="none")))
+        fused = replace(none, strategy=replace(none.strategy,
+                                               model=replace(none.strategy.model,
+                                                             weight_dequant="fused")))
+        self.assertEqual(profile_identity(fused)["model"]["weight_dequant"], "fused")
+        self.assertEqual(ProfileModel(self.experiment(base=none, data=profile(experiment=none)))
+                         .estimate_step("prefill", [4], [0]).source, "test_fixture_profile")
+        with self.assertRaises(SimulationError) as raised:
+            ProfileModel(replace(fused, calibration=self.experiment(
+                base=none, data=profile(experiment=none)).calibration))
+        self.assertEqual(raised.exception.code, "CALIBRATION_MISMATCH")
+        # Quantized storage can never reuse a non-quantized profile.
+        non_quantized = self.experiment(data=profile(experiment=Experiment()))
+        with self.assertRaises(SimulationError) as raised:
+            ProfileModel(replace(fused, calibration=non_quantized.calibration))
+        self.assertEqual(raised.exception.code, "CALIBRATION_MISMATCH")
+
     def test_file_snapshot_and_exposed_copy_cannot_mutate_a_running_model(self):
         exp = self.experiment()
         raw = self.path.read_bytes()

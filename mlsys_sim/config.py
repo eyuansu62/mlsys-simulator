@@ -87,17 +87,30 @@ def validate_experiment(experiment: Experiment) -> None:
                  "num_attention_heads", "num_kv_heads", "head_dim", "vocab_size"):
         _positive(getattr(model, name), f"strategy.model.{name}")
     for name in ("weight_bytes", "kv_bytes", "activation_bytes"):
-        if getattr(model, name) not in (2.0, 4.0, 8.0):
+        width = getattr(model, name)
+        if width <= 0:
+            _invalid(f"strategy.model.{name}", "must be a positive byte width")
+        if width > 8.0:
             raise SimulationError(
                 "UNSUPPORTED_MECHANISM",
-                f"strategy.model.{name}: only non-quantized 2/4/8-byte storage is "
-                "supported; 8-bit/packed formats and their metadata are not modeled",
+                f"strategy.model.{name}: storage width {width} exceeds the supported 8-byte maximum",
             )
-    dtype_bytes = {"float16": 2.0, "bfloat16": 2.0, "float32": 4.0, "float64": 8.0}
+    # Effective per-element widths: the declared value already includes any
+    # block/scale metadata overhead (for example GPTQ-128 is 0.515625 bytes).
+    dtype_bytes = {"float16": 2.0, "bfloat16": 2.0, "float32": 4.0, "float64": 8.0,
+                   "float8_e4m3": 1.0, "float8_e5m2": 1.0, "int8": 1.0,
+                   "int4": 0.5, "float4_e2m1": 0.5}
     for kind in ("weight", "kv", "activation"):
         dtype = getattr(model, f"{kind}_dtype")
         if dtype != "auto" and (dtype not in dtype_bytes or dtype_bytes[dtype] != getattr(model, f"{kind}_bytes")):
-            _invalid(f"strategy.model.{kind}_dtype", "must be auto or an explicit float dtype matching its byte width")
+            _invalid(f"strategy.model.{kind}_dtype", "must be auto or an explicit dtype label matching its byte width")
+    if model.weight_dequant not in ("none", "fused", "materialized"):
+        raise SimulationError("UNSUPPORTED_MECHANISM", "weight_dequant must be none, fused or materialized")
+    if model.weight_dequant != "none" and model.weight_bytes >= model.activation_bytes:
+        raise SimulationError(
+            "UNSUPPORTED_MECHANISM",
+            "weight_dequant requires packed storage: weight_bytes must be below activation_bytes",
+        )
     if not model.name.strip() or not model.revision.strip():
         _invalid("strategy.model", "name and revision must not be empty")
     if model.architecture_config_sha256 and (len(model.architecture_config_sha256) != 64 or any(
@@ -231,6 +244,7 @@ def validate_experiment(experiment: Experiment) -> None:
             _invalid(f"calibration.{name}", "must be in (0, 1]")
     for name in ("launch_overhead_us", "framework_overhead_us"):
         _positive(getattr(calibration, name), f"calibration.{name}", zero=True)
+    _positive(calibration.dequant_flops_per_weight, "calibration.dequant_flops_per_weight")
     for name in ("prefill_ms", "decode_ms", "recompute_ms", "mixed_ms"):
         _positive(getattr(calibration, name), f"calibration.{name}")
     request_ids = set()

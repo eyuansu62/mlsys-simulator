@@ -6,7 +6,7 @@ from typing import Any
 
 from .batching import batch_members
 from .config import validate_experiment
-from .layout import layer_parameters, local_kv_heads, stage_layer_counts
+from .layout import layer_parameters, local_kv_heads, materialized_weight_workspace_bytes, stage_layer_counts
 from .pp_transport import estimate_pipeline_transfer
 from .schema import Experiment, SimulationError, StepEstimate
 
@@ -17,6 +17,30 @@ def _finite(value, name, *, allow_zero=False):
             "INVALID_CONFIG", f"{name} must remain finite and "
             f"{'nonnegative' if allow_zero else 'positive'} after unit conversion")
     return value
+
+
+def _kv_dequant_required(model) -> bool:
+    # All 2/4/8-byte KV/activation combinations predate quantized storage.
+    # A narrower floating-point KV dtype alone is not a quantization declaration.
+    return model.kv_bytes not in (2.0, 4.0, 8.0) and model.kv_bytes < model.activation_bytes
+
+
+def dequant_assumptions(model, profile) -> tuple[str, ...]:
+    """State the declared dequant work model; empty for unquantized storage."""
+    notes: tuple[str, ...] = ()
+    if model.weight_dequant == "fused":
+        notes += ("Fused weight dequant: packed weights are read once and the conversion is charged to the "
+                  "linear macros at calibration.dequant_flops_per_weight FLOPs per weight element.",)
+    elif model.weight_dequant == "materialized":
+        notes += ("Materialized weight dequant: a separate pass moves params x (weight_bytes + activation_bytes) "
+                  "with one launch per layer; sequential layers reuse one expanded-weight Workspace buffer.",)
+    if _kv_dequant_required(model):
+        notes += ("KV dequant is fused on-the-fly at calibration.dequant_flops_per_weight FLOPs per loaded "
+                  "KV element; no expanded KV storage is materialized.",)
+    if model.weight_dequant != "none" or _kv_dequant_required(model):
+        notes += ("Quantized storage is modeled by effective byte width and dequant work only; no accuracy "
+                  "or quantization error is modeled.",)
+    return notes
 
 
 def ring_allreduce_ms(ranks: int, message_bytes: float, bandwidth_gbps: float,
@@ -98,17 +122,42 @@ class AnalyticalModel:
                     "overhead_ms": overhead_ms,
                     "duration_ms": max(compute_ms, memory_ms) + overhead_ms}
 
+        # Declared packed storage is expanded at calibration.dequant_flops_per_weight
+        # FLOPs per weight element (uncalibrated first-order dequant cost).
+        dequant_work = layers * local_params["linear"] * profile.dequant_flops_per_weight
         # One joint batch reuses weights across both serving phases when mixed.
-        linear_flops = 2 * layers * local_params["linear"] * tokens
+        linear_flops: int | float = 2 * layers * local_params["linear"] * tokens
         # Keep the inherited residual/FFN traffic approximation, while the two
         # projected Q/O activation terms grow with the local attention width.
         projected_io_delta = 2 * (model.query_projection_size - model.hidden_size) // tp
-        linear_bytes = (layers * local_params["linear"] * model.weight_bytes
+        # A materialized GEMM consumes the expanded, activation-width weights.
+        weight_bytes = model.activation_bytes if model.weight_dequant == "materialized" else model.weight_bytes
+        linear_bytes = (layers * local_params["linear"] * weight_bytes
                         + layers * tokens * (4 * model.hidden_size + projected_io_delta) * model.activation_bytes)
+        if model.weight_dequant == "fused":
+            # The conversion folds into each GEMM: packed weights are read once,
+            # the traffic is unchanged, and the work is charged to the macro.
+            linear_flops += dequant_work
         linear = macro(linear_flops, linear_bytes, layers)
+        if model.weight_dequant == "fused":
+            linear["dequant_flops_per_rank"] = dequant_work
+        dequant = None
+        if model.weight_dequant == "materialized":
+            # A separate pass reads the packed storage, writes the expanded
+            # tensors, and the GEMM reads them again: params x (w + 2a) bytes,
+            # with one extra launch per layer.
+            dequant = macro(dequant_work,
+                            layers * local_params["linear"] * (model.weight_bytes + model.activation_bytes),
+                            layers)
+            dequant["peak_expanded_weights_bytes_per_rank"] = materialized_weight_workspace_bytes(exp)
         # Causal attention includes the prefix and lower triangle of new queries.
         pairs = sum(q * c + q * (q + 1) / 2 for q, c in zip(queries, contexts))
         attn_flops = 4 * layers * (model.num_attention_heads / tp) * model.head_dim * pairs
+        if _kv_dequant_required(model):
+            # On-the-fly dequant of every loaded KV element, fused into attention.
+            kv_elements = (2 * layers * local_kv_heads(model, tp) * model.head_dim
+                           * sum(c + q for c, q in zip(contexts, queries)))
+            attn_flops += kv_elements * profile.dequant_flops_per_weight
         kv_bytes = (2 * layers * local_kv_heads(model, tp) * model.head_dim
                     * model.kv_bytes * sum(c + q for c, q in zip(contexts, queries)))
         query_io = 2 * layers * tokens * model.query_projection_size / tp * model.activation_bytes
@@ -157,6 +206,8 @@ class AnalyticalModel:
                                        "allreduce_ms": collective_ms,
                                        "logits_allgather_ms": logits_gather_ms},
                      "framework": {"duration_ms": framework_ms}}
+        if dequant is not None:
+            breakdown["dequant"] = dequant
         duration = sum(part["duration_ms"] for part in breakdown.values())
         if phase == "mixed":
             breakdown["batch"] = {"phase": phase, "request_phases": list(members),
@@ -168,6 +219,7 @@ class AnalyticalModel:
             "Three baseline macro launch terms per block plus enabled Q/K and final norms; no overlap or link contention.",
             ("Tied vocabulary storage aliases only within a rank; embedding/output work and logits AllGather remain."
              if model.tie_word_embeddings else "Untied, vocabulary-sharded embedding/output; final logits use AllGather."),
+            *dequant_assumptions(model, profile),
         ))
 
 

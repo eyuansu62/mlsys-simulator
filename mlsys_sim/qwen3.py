@@ -120,7 +120,10 @@ def _validated(config: dict) -> tuple[dict, str]:
     if config.get("attention_dropout", 0) != 0 or type(config.get("attention_dropout", 0)) not in (int, float):
         _fail("Nonzero or invalid attention dropout is not an inference contract", unsupported=True)
     if config.get("quantization_config") is not None:
-        _fail("Quantized Qwen3 storage and metadata are not modeled", unsupported=True)
+        _fail("Quantized Qwen3 storage and metadata are not imported; declare the effective "
+              "weight_bytes/kv_bytes/activation_bytes (including block/scale overhead) and "
+              "weight_dequant explicitly in the experiment strategy; see docs/quantization.md",
+              unsupported=True)
     window = config.get("use_sliding_window", False)
     if type(window) is not bool:
         _fail("use_sliding_window must be a boolean")

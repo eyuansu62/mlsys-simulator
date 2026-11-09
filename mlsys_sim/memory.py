@@ -12,7 +12,8 @@ from dataclasses import dataclass
 from .batching import batch_members
 import hashlib
 
-from .layout import rank_kv_bytes_per_token, rank_weight_bytes, stage_layer_counts
+from .layout import (exact_storage_bytes, materialized_weight_workspace_bytes, rank_kv_bytes_per_token,
+                     rank_weight_bytes, stage_layer_counts)
 from .schema import Experiment, RequestSpec, SimulationError
 
 
@@ -106,6 +107,7 @@ class MemoryPlanner:
             raise SimulationError("INVALID_CONFIG", "each pipeline stage must own at least one layer")
         if sum(layers) != strategy.model.num_layers:
             raise SimulationError("INVALID_CONFIG", "stage layers must cover all model layers")
+        self._materialized_weight_workspace = materialized_weight_workspace_bytes(experiment)
 
         for stage in range(pp):
             kv_per_token = rank_kv_bytes_per_token(experiment, stage)
@@ -146,10 +148,10 @@ class MemoryPlanner:
                 }
                 pipeline_buffers = outgoing + retention_slack + incoming + backing + persistent
             else:
-                pipeline_buffers = int(
+                pipeline_buffers = exact_storage_bytes(
                     boundaries * strategy.pipeline_max_inflight_microbatches
-                    * strategy.max_batch_tokens * strategy.model.hidden_size
-                    * strategy.model.activation_bytes)
+                    * strategy.max_batch_tokens * strategy.model.hidden_size,
+                    strategy.model.activation_bytes)
             # Safety margin and external users are constraints, not allocations
             # owned by this model. Preserve this distinction in the snapshots.
             physical = (weights + self.config.kv_pool_bytes + self.config.graph_bytes
@@ -160,7 +162,8 @@ class MemoryPlanner:
             for tp_rank in range(tp):
                 device = experiment.infra.devices[stage * tp + tp_rank]
                 capacity = _integer(device.memory_bytes, f"{device.id}.memory_bytes", 1)
-                static_workspace_floor = 0 if self._workspace_model is not None else self.config.workspace_base_bytes
+                static_workspace_floor = (0 if self._workspace_model is not None else
+                    self.config.workspace_base_bytes + self._materialized_weight_workspace)
                 if fixed_budget + static_workspace_floor > capacity:
                     raise SimulationError(
                         "STATIC_MEMORY_INFEASIBLE",
@@ -511,12 +514,15 @@ class MemoryPlanner:
         used_before = self._used_blocks(self.allocations)
         used_after, cache_evictions = self._projected_usage(projected, alone)
         workspace = (self.config.workspace_base_bytes
-                     + self.config.workspace_bytes_per_token * sum(queries))
+                     + self.config.workspace_bytes_per_token * sum(queries)
+                     + self._materialized_weight_workspace)
         ranks: list[dict] = []
         for rank in self._ranks:
             rank_workspace = workspace
             workspace_source = "analytical_assumption"
             if self._workspace_model is not None and queries:
+                # Complete observed Workspace already includes the expanded
+                # buffer. It replaces the analytical sum rather than adding it.
                 contexts = [target - query for target, query in zip(targets.values(), queries)]
                 rank_workspace = self._workspace_model.workspace_bytes(
                     phase, queries, contexts, rank.stage_index, rank.tp_rank, request_phases=request_phases)

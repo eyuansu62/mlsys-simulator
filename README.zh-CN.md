@@ -1,7 +1,7 @@
 # LLM 推理系统模拟器
 
 [English](README.md) · [Python API](docs/api.md) · [校准](docs/calibration.md) ·
-[验证规范](docs/validation-protocol.md) · [系统规范](docs/specification.md) · [PP 与 CPU swap](docs/pipeline-and-swap.md) · [Prefix Cache 与分块预填充](docs/prefix-cache-and-chunking.md) · [混合批处理](docs/mixed-batching.md) · [多副本路由](docs/multi-replica.md) · [ROCm 采集](docs/rocm-collection.md) · [Qwen3 与 vLLM 内部 hook](docs/qwen3-and-vllm-hooks.md) · [原生 PP 采样与 Profile](docs/native-pp-capture.md) · [原生 PP 通信微基准与校准](docs/native-pp-communication.md) · [Workspace 与容量验证](docs/workspace-and-capacity.md)
+[验证规范](docs/validation-protocol.md) · [系统规范](docs/specification.md) · [PP 与 CPU swap](docs/pipeline-and-swap.md) · [Prefix Cache 与分块预填充](docs/prefix-cache-and-chunking.md) · [混合批处理](docs/mixed-batching.md) · [多副本路由](docs/multi-replica.md) · [ROCm 采集](docs/rocm-collection.md) · [Qwen3 与 vLLM 内部 hook](docs/qwen3-and-vllm-hooks.md) · [原生 PP 采样与 Profile](docs/native-pp-capture.md) · [原生 PP 通信微基准与校准](docs/native-pp-communication.md) · [量化存储](docs/quantization.md) · [Workspace 与容量验证](docs/workspace-and-capacity.md)
 
 1.14 版增加 PP2 的公开 HSA 查询与被动 KFD 事件页证据，独立核对 CPU signal body、GTT 分配及映射生命周期。保留逐 Worker 的 Prefill／Decode Workspace 采集、逐 rank 校准、严格 Profile 身份，以及已有 TP／PP、缓存、分块、混合批处理、CPU swap、多副本调度。用户提供的 AMD/NVIDIA 参考包用于格式适配与审计；原始包及 prompt/output 全文不随库分发，现有覆盖不代表通用硬件准确率。仓库为[私有仓库](https://github.com/eyuansu62/mlsys-simulator)，许可证待选择，尚未发布 PyPI。归属边界见[同步资源证据合同](docs/pp2-synchronization-evidence.md)。
 
@@ -48,6 +48,10 @@ mlsys-sim simulate --experiment examples/v1_2/pp_prefix_chunk.json --out runs/pp
 ```
 
 Prefix Cache 使用显式 `prompt_token_ids`、namespace 和完整 token 前缀匹配不可变 KV block；缺少 token ID 时绕过缓存，不按输入长度猜命中。缓存与请求共用固定显存池，无人引用的 block 按 LRU 淘汰，正在使用的 block 不提前释放。Chunked Prefill 保留前缀上下文、分次计算输入，只在最后一块完成后输出首 Token；连续批处理在启用分块时优先调度 Decode，未开启混合策略时各批保持同一 phase。完整配置、PP／swap 组合和计时边界见[专门说明](docs/prefix-cache-and-chunking.md)。
+
+## 量化存储（FP8 / FP4 / INT8 / INT4）
+
+权重与 KV 按**声明的有效字节宽度**建模：`weight_bytes`／`kv_bytes`／`activation_bytes` 接受任意 ≤8 的正值，块/比例元数据需自行折算进有效宽度（如 GPTQ-128 为 0.515625、NVFP4 为 0.5625、MXFP4 为 0.53125），存储计算向上取整、2 字节域结果与原实现完全一致。`weight_dequant` 可选 `none`／`fused`（流量不变，反量化计入 GEMM FLOPs）／`materialized`（独立展开通道，流量为 params × (weight_bytes + 2×activation_bytes)，每层多一次 launch）；KV 反量化按每元素 `calibration.dequant_flops_per_weight`（默认 1.0）FLOPs 在线融合进注意力。dtype 标签必须与字节宽度一致。该能力只做解析/合成建模，不建模量化精度；Profile 身份包含 `weight_dequant`，量化配置不会静默复用非量化 Profile，旧 Profile 文件照常加载。格式推导、配置示例与边界见[量化存储](docs/quantization.md)。
 
 ## Prefill/Decode 混合批处理
 
@@ -178,7 +182,7 @@ print(run.result["counts"])
 
 Warmup 使用独立时间线，不进入测量指标，也不把 KV 留给测量。当前仅支持 `empty_cache` 初始状态。测量到达窗口为半开区间，窗外请求为 `NOT_ADMITTED`；是否 drain 及最大 drain 时间显式配置。
 
-PP 在线模拟已支持 stage 队列、P2P 和反馈依赖；`predict` 仍是未分块、无缓存的形状分析，不执行在线混合调度或输出在线 SLA。NVMe swap 和量化存储格式仍未实现。混合 stage 使用共享权重与通信的解析假设或精确 Profile，不执行真实 GPU Kernel。软件功能不等于真实硬件验证完成，具体见[能力矩阵](docs/coverage-matrix.md)。
+PP 在线模拟已支持 stage 队列、P2P 和反馈依赖；`predict` 仍是未分块、无缓存的形状分析，不执行在线混合调度或输出在线 SLA。NVMe swap 仍未实现；量化存储按声明的有效字节宽度建模（仅解析/合成，不建模精度）。混合 stage 使用共享权重与通信的解析假设或精确 Profile，不执行真实 GPU Kernel。软件功能不等于真实硬件验证完成，具体见[能力矩阵](docs/coverage-matrix.md)。
 
 ## 指标和输出
 

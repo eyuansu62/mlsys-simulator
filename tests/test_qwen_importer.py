@@ -123,6 +123,11 @@ class Qwen3ImporterTests(unittest.TestCase):
         for change in changes:
             with self.subTest(change=change), self.assertRaises(SimulationError):
                 imported({**config(), **change})
+        with self.assertRaises(SimulationError) as raised:
+            imported({**config(), "quantization_config": {"quant_method": "fp8"}})
+        self.assertEqual(raised.exception.code, "UNSUPPORTED_MECHANISM")
+        self.assertIn("weight_dequant", str(raised.exception))
+        self.assertIn("docs/quantization.md", str(raised.exception))
 
     def test_unknown_fields_are_rejected_and_known_metadata_is_fingerprinted_separately(self):
         with self.assertRaises(SimulationError):

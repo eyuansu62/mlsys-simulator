@@ -66,6 +66,7 @@
       "tie_word_embeddings": false,
       "qk_norm": false,
       "final_norm": false,
+      "weight_dequant": "none",
       "architecture_config_sha256": ""
     },
     "tensor_parallel_size": 2,
@@ -118,6 +119,7 @@
     "decode_ms": 1.0,
     "recompute_ms": 10.0,
     "mixed_ms": 10.0,
+    "dequant_flops_per_weight": 1.0,
     "profile_path": null,
     "replica_profile_paths": [],
     "allow_extrapolation": false,

@@ -61,6 +61,20 @@ mixed_model = mlsys_sim.AnalyticalModel(Experiment(
     calibration=CalibrationSpec(backend="synthetic", mixed_ms=3)))
 assert mixed_model.estimate_step("mixed", [1, 4], [8, 0],
     request_phases=["decode", "prefill"]).duration_ms == 3
+mixed_float = mlsys_sim.experiment_from_dict({"strategy": {"model": {
+    "kv_bytes": 2.0, "activation_bytes": 4.0}}})
+float_step = mlsys_sim.AnalyticalModel(mixed_float).estimate_step("decode", [1], [16])
+assert float_step.breakdown["attention"]["flops_per_rank"] == 4 * 4 * 8 * 16 * 17
+assert not any("dequant" in note.lower() for note in float_step.assumptions)
+materialized = mlsys_sim.experiment_from_dict({"strategy": {"model": {
+    "weight_bytes": 0.5, "weight_dequant": "materialized"}}})
+fused = replace(materialized, strategy=replace(materialized.strategy,
+    model=replace(materialized.strategy.model, weight_dequant="fused")))
+materialized_memory = mlsys_sim.MemoryPlanner(materialized)
+fused_memory = mlsys_sim.MemoryPlanner(fused)
+assert (materialized_memory.check({"q": 4}, [4], "prefill").details["workspace_bytes"]
+    == fused_memory.check({"q": 4}, [4], "prefill").details["workspace_bytes"] + 475136)
+assert materialized_memory.check_kv({"q": 4}).details["workspace_bytes"] == 0
 exp = Experiment(
     workload=tuple(RequestSpec(name, 0.0, 16, 24) for name in ("a", "b")),
     strategy=StrategySpec(max_batch_size=2, memory=MemoryConfig(kv_pool_bytes=24576)),
@@ -262,6 +276,7 @@ def verify(dist: Path) -> dict:
                          "scripts/rocm_workspace_audit/kfd_event_probe.cpp",
                          "scripts/rocm_workspace_audit/kfd_event_audit.py",
                          "tests/test_workspace_repeats.py", "tests/test_workspace_repeat_cli.py",
+                         "tests/test_quantized_workspace.py", "docs/quantization.md",
                          "tests/test_native_pp_retention_budget.py",
                          "tests/test_rocm_workspace_worker.py",
                          "tests/test_rocm_workspace_stage_domain.py",
