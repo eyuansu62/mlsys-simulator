@@ -93,6 +93,19 @@ def rank_weight_bytes(experiment: Experiment, stage: int) -> int:
     return exact_storage_bytes(total, model.weight_bytes)
 
 
+def materialized_weight_workspace_bytes(experiment: Experiment) -> int:
+    """One layer's expanded local Linear weights, reused by sequential layers.
+
+    This is temporary execution storage in addition to resident packed weights.
+    Stage layer count and PP inflight waves do not multiply this per-rank peak.
+    """
+    model = experiment.strategy.model
+    if model.weight_dequant != "materialized":
+        return 0
+    elements = layer_parameters(model, experiment.strategy.tensor_parallel_size)["linear"]
+    return exact_storage_bytes(elements, model.activation_bytes)
+
+
 def rank_kv_bytes_per_token(experiment: Experiment, stage: int) -> int:
     strategy = experiment.strategy
     model = strategy.model

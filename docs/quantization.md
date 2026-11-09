@@ -60,9 +60,28 @@ and leave the label `auto`.
 A non-`none` mode is only valid for packed storage: `weight_bytes` must be
 strictly below `activation_bytes`.
 
-KV dequant is always modeled fused on the fly — every loaded KV element costs
+The materialized path expands one layer's TP-local Linear matrices, consumes
+them and reuses the buffer for the next layer. Its analytical temporary peak is
+`ceil(local_linear_parameters_per_layer × activation_bytes)` per rank, in
+addition to the resident packed weights and ordinary analytical Workspace.
+Stage layer count and PP inflight microbatches do not multiply this reused
+buffer. The same amount is included in the static minimum and each execution
+capacity check, and exposed as `peak_expanded_weights_bytes_per_rank` in the
+dequant performance breakdown. It is not a fixed reservation or a KV swap-copy
+cost. A selected complete Workspace observation (independent or stage Profile)
+already includes this temporary storage and replaces the analytical sum;
+missing stage Workspace uses the analytical fallback with the buffer included.
+This model covers the block Linear matrices; it does not add a separate
+materialization pass for embedding, norms or the output head.
+
+For new compressed KV widths below `activation_bytes`, KV dequant is modeled
+fused on the fly — every loaded KV element costs
 `dequant_flops_per_weight` FLOPs inside the attention macro — and no expanded KV
-storage is materialized.
+storage is materialized. Existing 2/4/8-byte floating-point KV widths retain
+their previous behavior for every activation width: FP16 KV with FP32
+activations, for example, is mixed floating-point precision and does not imply
+quantization or extra dequant FLOPs. Other effective widths, including metadata,
+use the declared compressed-width model.
 
 `calibration.dequant_flops_per_weight` (default `1.0`) is the uncalibrated
 first-order rate applied to both weight and KV dequant FLOPs. Calibrate it per

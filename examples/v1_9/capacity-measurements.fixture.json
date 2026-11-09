@@ -76,6 +76,7 @@
         "tie_word_embeddings": false,
         "qk_norm": false,
         "final_norm": false,
+        "weight_dequant": "none",
         "architecture_config_sha256": ""
       },
       "tensor_parallel_size": 2,
@@ -128,6 +129,7 @@
       "decode_ms": 1.0,
       "recompute_ms": 10.0,
       "mixed_ms": 10.0,
+      "dequant_flops_per_weight": 1.0,
       "profile_path": null,
       "replica_profile_paths": [],
       "allow_extrapolation": false,
@@ -248,6 +250,7 @@
             "tie_word_embeddings": false,
             "qk_norm": false,
             "final_norm": false,
+            "weight_dequant": "none",
             "architecture_config_sha256": ""
           },
           "tensor_parallel_size": 2,
@@ -300,6 +303,7 @@
           "decode_ms": 1.0,
           "recompute_ms": 10.0,
           "mixed_ms": 10.0,
+          "dequant_flops_per_weight": 1.0,
           "profile_path": null,
           "replica_profile_paths": [],
           "allow_extrapolation": false,
@@ -336,7 +340,7 @@
         },
         "schema_version": 1
       },
-      "effective_config_sha256": "b12d63c9a6ff34668eb524304c31c5b3c160e0a321b17d4ddc83a60bf0766da1",
+      "effective_config_sha256": "91d06b769baf77442d14a278b452c4a799c25e215516a95d921e075b00b7f983",
       "observation": {
         "schema_version": 1,
         "kind": "memory_capacity_trial_capture",
@@ -349,7 +353,7 @@
           "name": "input_tokens",
           "value": 4
         },
-        "effective_config_sha256": "b12d63c9a6ff34668eb524304c31c5b3c160e0a321b17d4ddc83a60bf0766da1",
+        "effective_config_sha256": "91d06b769baf77442d14a278b452c4a799c25e215516a95d921e075b00b7f983",
         "source": {
           "kind": "test_fixture",
           "reference": "CLI protocol fixture; no GPU or communication measurement"
@@ -386,7 +390,7 @@
         ],
         "metadata": {
           "isolation": "owned_process",
-          "effective_config_sha256": "b12d63c9a6ff34668eb524304c31c5b3c160e0a321b17d4ddc83a60bf0766da1",
+          "effective_config_sha256": "91d06b769baf77442d14a278b452c4a799c25e215516a95d921e075b00b7f983",
           "applied_axis": {
             "name": "input_tokens",
             "value": 4
@@ -582,6 +586,7 @@
             "tie_word_embeddings": false,
             "qk_norm": false,
             "final_norm": false,
+            "weight_dequant": "none",
             "architecture_config_sha256": ""
           },
           "tensor_parallel_size": 2,
@@ -634,6 +639,7 @@
           "decode_ms": 1.0,
           "recompute_ms": 10.0,
           "mixed_ms": 10.0,
+          "dequant_flops_per_weight": 1.0,
           "profile_path": null,
           "replica_profile_paths": [],
           "allow_extrapolation": false,
@@ -670,7 +676,7 @@
         },
         "schema_version": 1
       },
-      "effective_config_sha256": "b12d63c9a6ff34668eb524304c31c5b3c160e0a321b17d4ddc83a60bf0766da1",
+      "effective_config_sha256": "91d06b769baf77442d14a278b452c4a799c25e215516a95d921e075b00b7f983",
       "observation": {
         "schema_version": 1,
         "kind": "memory_capacity_trial_capture",
@@ -683,7 +689,7 @@
           "name": "input_tokens",
           "value": 4
         },
-        "effective_config_sha256": "b12d63c9a6ff34668eb524304c31c5b3c160e0a321b17d4ddc83a60bf0766da1",
+        "effective_config_sha256": "91d06b769baf77442d14a278b452c4a799c25e215516a95d921e075b00b7f983",
         "source": {
           "kind": "test_fixture",
           "reference": "CLI protocol fixture; no GPU or communication measurement"
@@ -720,7 +726,7 @@
         ],
         "metadata": {
           "isolation": "owned_process",
-          "effective_config_sha256": "b12d63c9a6ff34668eb524304c31c5b3c160e0a321b17d4ddc83a60bf0766da1",
+          "effective_config_sha256": "91d06b769baf77442d14a278b452c4a799c25e215516a95d921e075b00b7f983",
           "applied_axis": {
             "name": "input_tokens",
             "value": 4
@@ -916,6 +922,7 @@
             "tie_word_embeddings": false,
             "qk_norm": false,
             "final_norm": false,
+            "weight_dequant": "none",
             "architecture_config_sha256": ""
           },
           "tensor_parallel_size": 2,
@@ -968,6 +975,7 @@
           "decode_ms": 1.0,
           "recompute_ms": 10.0,
           "mixed_ms": 10.0,
+          "dequant_flops_per_weight": 1.0,
           "profile_path": null,
           "replica_profile_paths": [],
           "allow_extrapolation": false,
@@ -1004,7 +1012,7 @@
         },
         "schema_version": 1
       },
-      "effective_config_sha256": "df25c5a6564b14358b1bb09e9fee9f6aa059a021231932f3d781786f54e995b0",
+      "effective_config_sha256": "133d697ac6da590565f4f6d712195385ead4bfbdce807892b4f31c574a5203a6",
       "observation": {
         "schema_version": 1,
         "kind": "memory_capacity_trial_capture",
@@ -1017,7 +1025,7 @@
           "name": "input_tokens",
           "value": 8
         },
-        "effective_config_sha256": "df25c5a6564b14358b1bb09e9fee9f6aa059a021231932f3d781786f54e995b0",
+        "effective_config_sha256": "133d697ac6da590565f4f6d712195385ead4bfbdce807892b4f31c574a5203a6",
         "source": {
           "kind": "test_fixture",
           "reference": "CLI protocol fixture; no GPU or communication measurement"
@@ -1054,7 +1062,7 @@
         ],
         "metadata": {
           "isolation": "owned_process",
-          "effective_config_sha256": "df25c5a6564b14358b1bb09e9fee9f6aa059a021231932f3d781786f54e995b0",
+          "effective_config_sha256": "133d697ac6da590565f4f6d712195385ead4bfbdce807892b4f31c574a5203a6",
           "applied_axis": {
             "name": "input_tokens",
             "value": 8
@@ -1266,6 +1274,7 @@
             "tie_word_embeddings": false,
             "qk_norm": false,
             "final_norm": false,
+            "weight_dequant": "none",
             "architecture_config_sha256": ""
           },
           "tensor_parallel_size": 2,
@@ -1318,6 +1327,7 @@
           "decode_ms": 1.0,
           "recompute_ms": 10.0,
           "mixed_ms": 10.0,
+          "dequant_flops_per_weight": 1.0,
           "profile_path": null,
           "replica_profile_paths": [],
           "allow_extrapolation": false,
@@ -1354,7 +1364,7 @@
         },
         "schema_version": 1
       },
-      "effective_config_sha256": "df25c5a6564b14358b1bb09e9fee9f6aa059a021231932f3d781786f54e995b0",
+      "effective_config_sha256": "133d697ac6da590565f4f6d712195385ead4bfbdce807892b4f31c574a5203a6",
       "observation": {
         "schema_version": 1,
         "kind": "memory_capacity_trial_capture",
@@ -1367,7 +1377,7 @@
           "name": "input_tokens",
           "value": 8
         },
-        "effective_config_sha256": "df25c5a6564b14358b1bb09e9fee9f6aa059a021231932f3d781786f54e995b0",
+        "effective_config_sha256": "133d697ac6da590565f4f6d712195385ead4bfbdce807892b4f31c574a5203a6",
         "source": {
           "kind": "test_fixture",
           "reference": "CLI protocol fixture; no GPU or communication measurement"
@@ -1404,7 +1414,7 @@
         ],
         "metadata": {
           "isolation": "owned_process",
-          "effective_config_sha256": "df25c5a6564b14358b1bb09e9fee9f6aa059a021231932f3d781786f54e995b0",
+          "effective_config_sha256": "133d697ac6da590565f4f6d712195385ead4bfbdce807892b4f31c574a5203a6",
           "applied_axis": {
             "name": "input_tokens",
             "value": 8

@@ -6,7 +6,7 @@ from typing import Any
 
 from .batching import batch_members
 from .config import validate_experiment
-from .layout import layer_parameters, local_kv_heads, stage_layer_counts
+from .layout import layer_parameters, local_kv_heads, materialized_weight_workspace_bytes, stage_layer_counts
 from .pp_transport import estimate_pipeline_transfer
 from .schema import Experiment, SimulationError, StepEstimate
 
@@ -19,19 +19,25 @@ def _finite(value, name, *, allow_zero=False):
     return value
 
 
+def _kv_dequant_required(model) -> bool:
+    # All 2/4/8-byte KV/activation combinations predate quantized storage.
+    # A narrower floating-point KV dtype alone is not a quantization declaration.
+    return model.kv_bytes not in (2.0, 4.0, 8.0) and model.kv_bytes < model.activation_bytes
+
+
 def dequant_assumptions(model, profile) -> tuple[str, ...]:
     """State the declared dequant work model; empty for unquantized storage."""
-    notes = ()
+    notes: tuple[str, ...] = ()
     if model.weight_dequant == "fused":
         notes += ("Fused weight dequant: packed weights are read once and the conversion is charged to the "
                   "linear macros at calibration.dequant_flops_per_weight FLOPs per weight element.",)
     elif model.weight_dequant == "materialized":
         notes += ("Materialized weight dequant: a separate pass moves params x (weight_bytes + activation_bytes) "
-                  "with one launch per layer, and the GEMM reads expanded activation-width weights.",)
-    if model.kv_bytes < model.activation_bytes:
+                  "with one launch per layer; sequential layers reuse one expanded-weight Workspace buffer.",)
+    if _kv_dequant_required(model):
         notes += ("KV dequant is fused on-the-fly at calibration.dequant_flops_per_weight FLOPs per loaded "
                   "KV element; no expanded KV storage is materialized.",)
-    if model.weight_dequant != "none" or model.kv_bytes < model.activation_bytes:
+    if model.weight_dequant != "none" or _kv_dequant_required(model):
         notes += ("Quantized storage is modeled by effective byte width and dequant work only; no accuracy "
                   "or quantization error is modeled.",)
     return notes
@@ -120,7 +126,7 @@ class AnalyticalModel:
         # FLOPs per weight element (uncalibrated first-order dequant cost).
         dequant_work = layers * local_params["linear"] * profile.dequant_flops_per_weight
         # One joint batch reuses weights across both serving phases when mixed.
-        linear_flops = 2 * layers * local_params["linear"] * tokens
+        linear_flops: int | float = 2 * layers * local_params["linear"] * tokens
         # Keep the inherited residual/FFN traffic approximation, while the two
         # projected Q/O activation terms grow with the local attention width.
         projected_io_delta = 2 * (model.query_projection_size - model.hidden_size) // tp
@@ -143,10 +149,11 @@ class AnalyticalModel:
             dequant = macro(dequant_work,
                             layers * local_params["linear"] * (model.weight_bytes + model.activation_bytes),
                             layers)
+            dequant["peak_expanded_weights_bytes_per_rank"] = materialized_weight_workspace_bytes(exp)
         # Causal attention includes the prefix and lower triangle of new queries.
         pairs = sum(q * c + q * (q + 1) / 2 for q, c in zip(queries, contexts))
         attn_flops = 4 * layers * (model.num_attention_heads / tp) * model.head_dim * pairs
-        if model.kv_bytes < model.activation_bytes:
+        if _kv_dequant_required(model):
             # On-the-fly dequant of every loaded KV element, fused into attention.
             kv_elements = (2 * layers * local_kv_heads(model, tp) * model.head_dim
                            * sum(c + q for c, q in zip(contexts, queries)))

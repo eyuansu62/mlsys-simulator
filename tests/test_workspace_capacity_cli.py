@@ -98,6 +98,19 @@ def capacity_dataset():
 
 
 class WorkspaceCapacityCLITests(unittest.TestCase):
+    def test_shipped_capacity_fixture_tracks_expanded_configuration_defaults(self):
+        from mlsys_sim import load_experiment
+        from mlsys_sim.capacity import collect_memory_capacity
+
+        root = ROOT / "examples/v1_9"
+        exp = load_experiment(root / "capacity-base.fixture.json")
+        plan = json.loads((root / "capacity.plan.fixture.json").read_text())
+        collected = collect_memory_capacity(exp, plan, base_dir=root, allow_test_fixture=True)
+        self.assertEqual(collected["status"], "COMPLETED")
+        self.assertEqual(collected["source"]["kind"], "test_fixture")
+        self.assertFalse(collected["hardware_validated"])
+        self.assertEqual(len(collected["dataset"]["trials"]), 4)
+
     def setUp(self):
         temporary = tempfile.TemporaryDirectory()
         self.addCleanup(temporary.cleanup)

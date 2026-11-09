@@ -2,6 +2,18 @@
 
 ## 1.15.0 — 2026-11-06
 
+### Fixed
+
+- Preserve all existing 2/4/8-byte floating-point KV/activation combinations;
+  a narrower floating-point KV dtype no longer implies quantization work.
+- Include one TP-local layer's expanded Linear weights in materialized dequant
+  analytical Workspace and minimum capacity checks. Sequential layers reuse the
+  buffer; complete Workspace observations replace the analytical bound without
+  double counting, and KV-copy reservations require no compute Workspace.
+- Refresh the declared capacity fixtures' expanded defaults and configuration
+  hashes for the additive quantization fields; strict evidence validation stays
+  unchanged.
+
 ### Added
 
 - Quantized weight/KV storage as a declared effective byte-width contract:

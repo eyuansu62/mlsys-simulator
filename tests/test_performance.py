@@ -146,6 +146,7 @@ class QuantizedStoragePerformanceTests(unittest.TestCase):
         dequant = estimate.breakdown["dequant"]
         self.assertEqual(dequant["flops_per_rank"], 4 * params)
         self.assertEqual(dequant["hbm_bytes_per_rank"], 4 * params * (0.515625 + 2.0))
+        self.assertEqual(dequant["peak_expanded_weights_bytes_per_rank"], 475136)
         self.assertAlmostEqual(dequant["overhead_ms"], 4 * exp.calibration.launch_overhead_us / 1000)
         linear = estimate.breakdown["linear"]
         # The GEMM reads expanded activation-width weights, so its bytes match
@@ -170,6 +171,38 @@ class QuantizedStoragePerformanceTests(unittest.TestCase):
                          + baseline.breakdown["attention"]["hbm_bytes_per_rank"]
                          - 2 * 4 * local_kv_heads(model, 1) * model.head_dim * 2.0 * 17)
         self.assertTrue(any("KV dequant is fused on-the-fly" in note for note in estimate.assumptions))
+
+    def test_legacy_float_kv_widths_do_not_acquire_quantization_work(self):
+        # All nine pairs were valid before quantized storage was introduced.
+        for kv in (2.0, 4.0, 8.0):
+            for activation in (2.0, 4.0, 8.0):
+                exp = experiment_from_dict({"strategy": {"model": {
+                    "kv_bytes": kv, "activation_bytes": activation}}})
+                expensive = replace(exp, calibration=replace(exp.calibration, dequant_flops_per_weight=1000))
+                for phase, queries, contexts, pairs in (
+                    ("prefill", [2, 3], [0, 0], 9),
+                    ("decode", [1, 1], [16, 32], 50),
+                    ("mixed", [1, 3], [16, 0], 23),
+                ):
+                    roles = {"request_phases": ["decode", "prefill"]} if phase == "mixed" else {}
+                    with self.subTest(kv=kv, activation=activation, phase=phase):
+                        result = AnalyticalModel(exp).estimate_step(phase, queries, contexts, **roles)
+                        self.assertEqual(result.breakdown["attention"]["flops_per_rank"],
+                                         4 * 4 * 8 * 16 * pairs)
+                        self.assertEqual(result, AnalyticalModel(expensive).estimate_step(
+                            phase, queries, contexts, **roles))
+                        self.assertFalse(any("dequant" in note.lower() for note in result.assumptions))
+
+    def test_effective_compressed_kv_widths_still_charge_dequant(self):
+        for width in (0.5, 0.515625, 1.0, 2.5):
+            exp = experiment_from_dict({"strategy": {"model": {
+                "kv_bytes": width, "activation_bytes": 4.0}},
+                "calibration": {"dequant_flops_per_weight": 3}})
+            result = AnalyticalModel(exp).estimate_step("decode", [1], [16])
+            with self.subTest(width=width):
+                self.assertEqual(result.breakdown["attention"]["flops_per_rank"],
+                                 4 * 4 * 8 * 16 * 17 + 2 * 4 * 2 * 16 * 17 * 3)
+                self.assertTrue(any("KV dequant" in note for note in result.assumptions))
 
 
 if __name__ == "__main__":
