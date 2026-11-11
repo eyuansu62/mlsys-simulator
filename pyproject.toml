@@ -28,6 +28,7 @@ classifiers = [
 
 [project.scripts]
 mlsys-sim = "mlsys_sim.cli:main"
+mlsys-sim-web = "mlsys_sim.web:main"
 
 [project.entry-points."vllm.general_plugins"]
 mlsys_internal_capture = "mlsys_sim.vllm_hooks:register_vllm_hooks"
@@ -37,13 +38,13 @@ mlsys_internal_capture = "mlsys_sim.vllm_hooks:register_vllm_hooks"
 "Source" = "https://github.com/eyuansu62/mlsys-simulator"
 
 [tool.setuptools]
-packages = ["mlsys_sim"]
+packages = ["mlsys_sim", "mlsys_sim.web_assets"]
 
 [tool.setuptools.dynamic]
 version = {attr = "mlsys_sim.__version__"}
 
 [tool.setuptools.package-data]
-mlsys_sim = ["py.typed"]
+mlsys_sim = ["py.typed", "web_assets/*.html", "web_assets/*.css", "web_assets/*.js"]
 
 [tool.ruff]
 target-version = "py311"

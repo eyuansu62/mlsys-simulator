@@ -1,10 +1,14 @@
 # Python API
 
-Install distribution `mlsys-simulator` and import `mlsys_sim`. Version 1.18 exposes the
+Install distribution `mlsys-simulator` and import `mlsys_sim`. Version 1.19 exposes the
 simulation, profile, calibration and comparison functions through this package,
 with optional hardware collection and evidence-acceptance commands;
 `mlsys_sim.__version__` is the software version. JSON schema and Profile version
 labels are separate contracts.
+
+The optional `mlsys-sim-web` / `python -m mlsys_sim.web` entry serves the local
+single-GPU analytical form and charts. It reuses the core engine and has no GPU,
+framework or CDN dependency. See the [Web interface](web-interface.md).
 
 ## Independent finite closed-loop studies
 

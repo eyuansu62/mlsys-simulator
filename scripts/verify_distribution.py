@@ -30,6 +30,19 @@ assert "vllm" not in sys.modules, "Optional serving dependency was imported eage
 from mlsys_sim.vllm_capacity_adapter import kv_pool_factory
 assert callable(kv_pool_factory) and callable(mlsys_sim.validate_profile_repeats)
 assert "torch" not in sys.modules and "vllm" not in sys.modules
+from importlib.resources import files
+from mlsys_sim.web import run_isolated
+from mlsys_sim.web_simulation import presets
+for asset in ("index.html", "style.css", "app.js"):
+    assert files("mlsys_sim").joinpath("web_assets", asset).read_bytes()
+web_config = presets()["defaults"]
+web_config["workload"].update(requests=2, input_tokens=16, output_tokens=2)
+web_result = run_isolated(web_config)
+assert web_result["ok"] and web_result["result"]["counts"]["completed"] == 2
+assert web_result["meta"]["source"] == "analytical_uncalibrated"
+assert web_result["meta"]["hardware_validated"] is False
+assert sum(row["tokens"] for row in web_result["charts"]["throughput"]) == 4
+assert "torch" not in sys.modules and "vllm" not in sys.modules
 assert all(callable(getattr(mlsys_sim, name)) for name in (
     "run_chapter1", "write_chapter1_report", "generate_workload", "run_load_sweep",
     "write_load_report", "simulate_dag", "run_dag_candidates", "write_dag_report",
@@ -276,14 +289,19 @@ def verify(dist: Path) -> dict:
             assert f"mlsys_sim/{module}.py" in names
         for module in ("course_roofline", "workload", "load_sweep", "event_driver", "dag",
                        "constraints", "screening", "course_calibration", "load_validation",
-                       "closed_loop_capture", "load_validation_report", "vllm_sla_worker"):
+                       "closed_loop_capture", "load_validation_report", "vllm_sla_worker",
+                       "web", "web_simulation"):
             assert f"mlsys_sim/{module}.py" in names
+        for asset in ("index.html", "style.css", "app.js"):
+            assert f"mlsys_sim/web_assets/{asset}" in names, f"Wheel missing Web UI asset {asset}"
         assert not any(name.startswith(("tests/", "sample-runs/", "work/")) for name in names)
         assert archive.testzip() is None
     with tarfile.open(sdists[0]) as archive:
         source_names = {"/".join(member.name.split("/")[1:]) for member in archive.getmembers()}
         for required in ("pyproject.toml", "README.md", "README.zh-CN.md",
-                         "examples/memory_pressure.json", "tests/test_public_api.py",
+                         "examples/memory_pressure.json", "tests/test_public_api.py", "docs/web-interface.md",
+                         "mlsys_sim/web_assets/index.html", "mlsys_sim/web_assets/app.js",
+                         "mlsys_sim/web_assets/style.css",
                          "examples/v1/step_measurements.fixture.json", "calibrate.py", "validate.py",
                          "examples/v1_2/prefix_cache.json", "docs/prefix-cache-and-chunking.md",
                          "examples/v1_3/mixed_batching.json", "examples/v1_3/pp_mixed_cache_swap.json",
@@ -395,6 +413,8 @@ def verify(dist: Path) -> dict:
             (qwen_inputs / source.name).write_bytes(source.read_bytes())
         run([str(python), "-I", "-c", SMOKE_CODE], outside, env)
         run([str(python), "-I", "-m", "mlsys_sim.vllm_sla_worker", "--help"], outside, env)
+        web_console = binaries / ("mlsys-sim-web.exe" if os.name == "nt" else "mlsys-sim-web")
+        run([str(web_console), "--help"], outside, env)
         course_inputs = outside / "course-inputs"
         course_inputs.mkdir()
         for source in (Path(__file__).resolve().parents[1] / "examples/course").glob("*.json"):

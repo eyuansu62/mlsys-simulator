@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.19.0 — 2026-11-11
+
+- Local, dependency-free Web interface (`mlsys-sim-web` / `python -m mlsys_sim.web`)
+  for model geometry, declared single-GPU hardware, fixed-count arrival workloads
+  and batching/KV settings. It reuses the analytical simulation engine and exports
+  the exact replay experiment and original results.
+- Browser charts for empirical latency quantiles, actual emitted-token rates and
+  cumulative memory-budget peaks with separate logical KV usage. Unknown samples,
+  infeasible configurations and incomplete runs retain their actual outcomes.
+
 ## 1.18.0 — 2026-11-11
 
 ### Added

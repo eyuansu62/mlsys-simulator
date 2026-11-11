@@ -3,7 +3,7 @@
 [English](README.md) · [Python API](docs/api.md) · [校准](docs/calibration.md) ·
 [验证规范](docs/validation-protocol.md) · [系统规范](docs/specification.md) · [PP 与 CPU swap](docs/pipeline-and-swap.md) · [Prefix Cache 与分块预填充](docs/prefix-cache-and-chunking.md) · [混合批处理](docs/mixed-batching.md) · [多副本路由](docs/multi-replica.md) · [ROCm 采集](docs/rocm-collection.md) · [Qwen3 与 vLLM 内部 hook](docs/qwen3-and-vllm-hooks.md) · [原生 PP 采样与 Profile](docs/native-pp-capture.md) · [原生 PP 通信微基准与校准](docs/native-pp-communication.md) · [量化存储](docs/quantization.md) · [Workspace 与容量验证](docs/workspace-and-capacity.md)
 
-1.18 版增加[冻结预测与独立闭环验证](docs/closed-loop-validation.md)：真实完成反馈补位、有限请求cohort、服务端逐token证据和分层课程报告。保留[联合约束筛选与课程η/β导入](docs/course-constraints-and-calibration.md)、量化存储、TP/PP、缓存、分块、混批、CPU swap、多副本与已有采集工具。源码见[GitHub](https://github.com/eyuansu62/mlsys-simulator)，许可证仍待选择，尚未发布PyPI。
+1.19 版增加[本地 Web 实验台](docs/web-interface.md)：表单配置模型、单卡硬件与负载，运行后查看延迟、吞吐与显存图表，并导出可重放配置。保留[冻结预测与独立闭环验证](docs/closed-loop-validation.md)、[联合约束筛选与课程η/β导入](docs/course-constraints-and-calibration.md)、量化存储、TP/PP、缓存、分块、混批、CPU swap、多副本与已有采集工具。源码见[GitHub](https://github.com/eyuansu62/mlsys-simulator)，许可证仍待选择，尚未发布PyPI。
 
 按[课程工作流](docs/course-workflows.md)的六条命令可直接生成图文报告、CSV与SVG。52节点32B/7B示例明确为冻结的人工教学轨迹，硬件参数为声明假设；负载边界是有限网格的观测结果，保留全部seed、失败和非单调情况，不建立新的真机精度结论。
 
@@ -25,6 +25,13 @@ mlsys-sim predict --experiment examples/pp2_analytical.json --out runs/pp2
 ```
 
 也可使用 `python -m mlsys_sim`，或保留的 `simulate.py`／`predict.py` 源码入口。每次运行必须使用新的输出目录，已有结果不会覆盖。
+
+### 本地 Web 界面
+
+安装后运行 `mlsys-sim-web`（或源码中 `python -m mlsys_sim.web`），浏览器打开
+`http://127.0.0.1:8765`。在表单中配置 Qwen3/自定义模型、单卡硬件和请求负载，
+运行后直接查看延迟、输出吞吐、显存预算与 KV 使用图表，并导出可重放配置和结果。
+界面复用 CPU 解析引擎，无新增运行依赖；使用范围与图表口径见[Web 实验台](docs/web-interface.md)。
 
 | 示例 | 用途 |
 | --- | --- |

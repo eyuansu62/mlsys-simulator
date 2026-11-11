@@ -1,6 +1,7 @@
 include README.md README.zh-CN.md CONTRIBUTING.md CHANGELOG.md
 include pyproject.toml requirements-dev.txt simulate.py predict.py calibrate.py compare.py validate.py
 include mlsys_sim/py.typed
+recursive-include mlsys_sim/web_assets *.html *.css *.js
 recursive-include docs *.md
 recursive-include docs/course-sla-9070xt-20261111 *.json *.html *.csv *.svg
 recursive-include examples *.json

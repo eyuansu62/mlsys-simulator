@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>MLSys Lab · 推理模拟工作台</title>
+  <link rel="stylesheet" href="/style.css">
+  <script src="/app.js" defer></script>
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="/" aria-label="MLSys Lab 首页">
+      <svg width="29" height="29" viewBox="0 0 29 29" aria-hidden="true"><path d="M4 5h8v8H4zM17 16h8v8h-8zM17 5h8v8h-8zM4 16h8v8H4z" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M12 9h5M8 13v3M21 13v3M12 20h5" stroke="currentColor" stroke-width="1.4"/></svg>
+      <span>MLSys <b>Lab</b></span><span class="brand-divider"></span><span class="brand-caption">推理模拟工作台</span>
+    </a>
+    <span class="local-indicator"><span></span> 本地运行 · 无需 GPU</span>
+  </header>
+  <main class="workspace">
+    <aside class="configuration" aria-label="实验配置">
+      <div class="config-heading"><div><span class="eyebrow">EXPERIMENT SETUP</span><h1>配置实验</h1></div><button type="button" class="text-button" id="reset" disabled>恢复默认</button></div>
+      <form id="experiment-form">
+        <fieldset>
+          <legend><span class="section-number">01</span> 模型</legend>
+          <label for="model_id">模型结构 <span class="field-hint">BF16</span></label>
+          <select id="model_id" name="model_id" disabled><option>正在加载模型…</option></select>
+          <p class="model-geometry" id="model-geometry">读取本地配置</p>
+          <div id="custom-model" hidden>
+            <label for="model_name">模型名称</label><input id="model_name" value="Custom dense GQA" maxlength="80">
+            <div class="field-pair"><div><label for="num_layers">层数</label><input type="number" id="num_layers" min="1" max="128" value="28" required></div><div><label for="hidden_size">Hidden width</label><input type="number" id="hidden_size" min="16" max="16384" value="2048" required></div></div>
+            <label for="intermediate_size">FFN intermediate width</label><input type="number" id="intermediate_size" min="16" max="65536" value="6144" required>
+            <div class="field-pair"><div><label for="num_attention_heads">Query heads</label><input type="number" id="num_attention_heads" min="1" max="256" value="16" required></div><div><label for="num_kv_heads">KV heads</label><input type="number" id="num_kv_heads" min="1" max="256" value="8" required></div></div>
+            <div class="field-pair"><div><label for="head_dim">Head dim</label><input type="number" id="head_dim" min="1" max="1024" value="128" required></div><div><label for="vocab_size">词表大小</label><input type="number" id="vocab_size" min="1" max="1000000" value="151936" required></div></div>
+            <label class="check"><input type="checkbox" id="tie_word_embeddings" checked> 共享 Embedding / LM head 权重</label>
+          </div>
+        </fieldset>
+        <fieldset>
+          <legend><span class="section-number">02</span> 硬件</legend>
+          <label for="hardware_preset">硬件配置 <span class="field-hint">单 GPU</span></label>
+          <select id="hardware_preset" disabled><option>正在加载硬件…</option></select>
+          <div class="field-pair"><div><label for="memory_gib">显存 <span>GiB</span></label><input type="number" id="memory_gib" min="0.25" max="256" step="0.25" required></div><div><label for="compute_tflops">计算峰值 <span>TFLOP/s</span></label><input type="number" id="compute_tflops" min="0.1" max="10000" step="0.1" required></div></div>
+          <label for="bandwidth_gbps">显存带宽 <span>GB/s</span></label><input type="number" id="bandwidth_gbps" min="1" max="20000" step="1" required>
+          <p class="help">可直接修改参数。预设为课程声明值，不是自动探测结果。</p>
+        </fieldset>
+        <fieldset>
+          <legend><span class="section-number">03</span> 请求负载</legend>
+          <div class="field-pair"><div><label for="input_tokens">输入长度 <span>tokens</span></label><input type="number" id="input_tokens" min="1" max="8192" required></div><div><label for="output_tokens">输出长度 <span>tokens</span></label><input type="number" id="output_tokens" min="1" max="512" required></div></div>
+          <div class="field-pair"><div><label for="requests">请求总数</label><input type="number" id="requests" min="1" max="500" required></div><div><label for="seed">随机种子</label><input type="number" id="seed" min="0" max="2147483647" required></div></div>
+          <label for="arrival">到达方式</label><select id="arrival"><option value="periodic">固定间隔 · Periodic</option><option value="poisson">随机到达 · Poisson</option><option value="burst">同时到达 · Burst</option></select>
+          <label for="rate_rps">到达率 <span>requests/s</span></label><input type="number" id="rate_rps" min="0.1" max="10000" step="0.1" required>
+          <p class="help" id="arrival-help">固定数量的请求按到达间隔进入系统，结束后排空。</p>
+        </fieldset>
+        <details class="advanced">
+          <summary>调度与显存预算 <span>高级配置</span></summary>
+          <div class="advanced-content">
+            <label for="scheduler">调度策略</label><select id="scheduler"><option value="continuous_batching">连续批处理</option><option value="fifo">FIFO · 逐请求执行</option></select>
+            <div class="field-pair"><div><label for="max_batch_size">最大 batch</label><input type="number" id="max_batch_size" min="1" max="128" required></div><div><label for="max_batch_tokens">迭代 token 预算</label><input type="number" id="max_batch_tokens" min="1" max="32768" required></div></div>
+            <label class="check"><input type="checkbox" id="chunked_prefill"> Chunked Prefill</label>
+            <label for="prefill_chunk_tokens">每请求 Prefill chunk <span>tokens</span></label><input type="number" id="prefill_chunk_tokens" min="1" max="8192" required>
+            <label class="check"><input type="checkbox" id="mixed_batching"> Prefill / Decode 混批</label>
+            <label for="kv_pool_gib">固定 KV Cache 池 <span>GiB</span></label><input type="number" id="kv_pool_gib" min="0.015625" max="256" step="any" required>
+            <p class="help">此界面使用单卡解析模型。KV 池是预留预算，不会随已用 KV 重复累加。</p>
+          </div>
+        </details>
+        <div class="run-controls"><button type="submit" id="run" class="run-button" disabled><span id="run-icon" aria-hidden="true">▶</span><span id="run-label">运行模拟</span></button><p>CPU 解析预测 · 不加载模型权重</p></div>
+      </form>
+    </aside>
+    <section class="results" aria-labelledby="results-title">
+      <div class="results-heading"><div><span class="eyebrow">SIMULATION RESULTS</span><h2 id="results-title" tabindex="-1">实验结果</h2><p id="run-description">配置左侧参数，观察请求如何经过推理系统。</p></div><span class="status-badge" id="status-badge">待运行</span></div>
+      <div class="feedback" id="feedback" role="status" aria-live="polite" hidden></div>
+      <div class="error-message" id="error" role="alert" hidden></div>
+      <div class="metric-grid">
+        <article class="metric"><span>首 Token 延迟 <b>P50</b></span><div><strong id="metric-ttft">—</strong><small>ms</small></div><p>TTFT · 到达至首个输出</p></article>
+        <article class="metric"><span>请求端到端延迟 <b>P99</b></span><div><strong id="metric-e2e">—</strong><small>ms</small></div><p>E2E · 到达至最后输出</p></article>
+        <article class="metric"><span>输出吞吐</span><div><strong id="metric-throughput">—</strong><small>tokens/s</small></div><p>完整模拟区间，含排空</p></article>
+        <article class="metric"><span>显存预算峰值</span><div><strong id="metric-memory">—</strong><small>GiB</small></div><p id="memory-capacity">逐设备预算 · 不重复计算 KV</p></article>
+      </div>
+      <div class="empty-state" id="empty-state">
+        <svg viewBox="0 0 224 100" width="224" height="100" aria-hidden="true"><path d="M10 83H214M10 15V83" fill="none" stroke="#cbd7d1"/><path d="M10 67H49V57H88V44H127V29H166V20H209" fill="none" stroke="#187965" stroke-width="2.5"/><path d="M10 74H49V70H88V62H127V65H166V57H209" fill="none" stroke="#c1cec7" stroke-width="2" stroke-dasharray="4 4"/></svg>
+        <h3>从一个小实验开始</h3><p>选一个模型，声明硬件与负载，点击「运行模拟」。<br>图表将使用本次模拟的真实结果绘制。</p><span>例如：增加请求到达率，观察排队延迟与吞吐的变化。</span>
+      </div>
+      <div id="result-content" hidden>
+        <div class="run-summary"><span id="completion-summary"></span><span id="timing-summary"></span></div>
+        <div class="chart-grid">
+          <article class="chart-panel"><div class="chart-heading"><div><h3>延迟分位数</h3><p>完成请求的经验分位数 · ms</p></div><select id="latency-metric" aria-label="延迟图指标"><option value="ttft_ms">TTFT</option><option value="e2e_ms">端到端 E2E</option><option value="tpot_ms">每 Token TPOT</option></select></div><div id="latency-chart" class="chart" aria-live="polite"></div></article>
+          <article class="chart-panel"><div class="chart-heading"><div><h3>输出吞吐随时间</h3><p>按实际 Token 事件分箱 · tokens/s</p></div><span class="chart-key"><i class="teal"></i>输出速率</span></div><div id="throughput-chart" class="chart"></div></article>
+          <article class="chart-panel memory-panel"><div class="chart-heading"><div><h3>显存预算与 KV 使用</h3><p>累计预算峰值与逻辑 KV 分别展示 · GiB</p></div><div class="chart-legend"><span><i class="teal"></i>预算累计峰值</span><span><i class="orange"></i>逻辑 KV 已用</span><span><i class="gray"></i>显存容量</span></div></div><div id="memory-chart" class="chart"></div><p class="chart-note" id="memory-note">内存事件采样点；预算曲线是截至该时刻的峰值，不是瞬时物理显存。KV 已用量包含在固定池内，两条曲线不能相加。</p></article>
+        </div>
+        <div class="result-actions"><div class="tabs" role="tablist" aria-label="结果明细"><button type="button" id="requests-tab" role="tab" aria-selected="true" aria-controls="request-panel">请求明细</button><button type="button" id="config-tab" role="tab" aria-selected="false" aria-controls="config-panel" tabindex="-1">实验配置</button></div><div class="downloads"><button type="button" id="export-config">导出配置</button><button type="button" id="export-result">导出结果</button></div></div>
+        <div id="request-panel" role="tabpanel" aria-labelledby="requests-tab" class="request-panel"><div class="table-scroll"><table><thead><tr><th scope="col">请求</th><th scope="col">到达 ms</th><th scope="col">TTFT ms</th><th scope="col">TPOT ms</th><th scope="col">E2E ms</th><th scope="col">输出 tokens</th><th scope="col">状态</th></tr></thead><tbody id="request-rows"></tbody></table></div><p id="request-note" class="chart-note"></p></div>
+        <div id="config-panel" role="tabpanel" aria-labelledby="config-tab" hidden><pre id="experiment-json" tabindex="0"></pre></div>
+      </div>
+      <footer class="scope-note"><span class="source-marker"></span><p><strong>解析预测 · 未校准</strong>　时间与显存来自现有模拟引擎。教学预设不构成真机精度或 SLA 验收；本界面不会启动 vLLM 或执行 GPU 推理。</p></footer>
+    </section>
+  </main>
+</body>
+</html>
