@@ -12,7 +12,7 @@ import xml.etree.ElementTree as ET
 
 from mlsys_sim import (CalibrationSpec, DeviceSpec, ExecutionSpec, Experiment,
                        InfraSpec, MemoryConfig, RequestSpec, SimulationError, StrategySpec,
-                       load_experiment, simulate)
+                       calibrate_dataset, load_experiment, simulate)
 from mlsys_sim.dag import (DAGNode, DAGPlan, ModelPool, load_dag_plan,
                            run_dag_candidates, simulate_dag, write_dag_report)
 
@@ -27,6 +27,18 @@ def pool(name, *, prefill=10, replicas=1, tp=1, pp=1, **strategy):
 
 def node(name, model="large", parents=(), release=0, output=1, timeout=None, **kwargs):
     return DAGNode(name, model, 4, output, tuple(parents), release, timeout_ms=timeout, **kwargs)
+
+
+def profiled_experiment(directory):
+    """Build fixture evidence from tracked measurements, never local run outputs."""
+    root = Path(__file__).resolve().parents[1]
+    exp = load_experiment(root / "examples/v1/profile_serving.json")
+    measurements = json.loads((root / "examples/v1/step_measurements.fixture.json").read_text())
+    profile = calibrate_dataset(measurements, profile_version=exp.calibration.profile_version,
+                                allow_test_fixture=True)
+    path = Path(directory) / "profile.json"
+    path.write_text(json.dumps(profile) + "\n", encoding="utf-8")
+    return replace(exp, calibration=replace(exp.calibration, profile_path=str(path)))
 
 
 class DAGTimelineTests(unittest.TestCase):
@@ -209,19 +221,19 @@ class DAGTimelineTests(unittest.TestCase):
         self.assertEqual(len(result["devices"]), 8)
 
     def test_profile_pool_preserves_strict_identity_checks(self):
-        root = Path(__file__).resolve().parents[1]
-        exp = load_experiment(root / "examples/v1/profile_serving.json")
-        spec = exp.workload[0]
-        model = ModelPool("profiled", replace(exp, workload=()))
-        target = DAGNode("a", "profiled", spec.input_tokens, spec.output_tokens)
-        result = simulate_dag(DAGPlan((target,), (model,)))
-        self.assertEqual(result["status"], "COMPLETED")
-        self.assertEqual(result["pools"][0]["result"]["calibration_source"], "test_fixture_profile")
-        mismatched = replace(model, experiment=replace(model.experiment,
-            strategy=replace(model.experiment.strategy,
-                             model=replace(model.experiment.strategy.model, name="different-model"))))
-        with self.assertRaises(SimulationError):
-            simulate_dag(DAGPlan((target,), (mismatched,)))
+        with tempfile.TemporaryDirectory() as temporary:
+            exp = profiled_experiment(temporary)
+            spec = exp.workload[0]
+            model = ModelPool("profiled", replace(exp, workload=()))
+            target = DAGNode("a", "profiled", spec.input_tokens, spec.output_tokens)
+            result = simulate_dag(DAGPlan((target,), (model,)))
+            self.assertEqual(result["status"], "COMPLETED")
+            self.assertEqual(result["pools"][0]["result"]["calibration_source"], "test_fixture_profile")
+            mismatched = replace(model, experiment=replace(model.experiment,
+                strategy=replace(model.experiment.strategy,
+                                 model=replace(model.experiment.strategy.model, name="different-model"))))
+            with self.assertRaises(SimulationError):
+                simulate_dag(DAGPlan((target,), (mismatched,)))
 
 
 class DAGValidationAndReportTests(unittest.TestCase):
@@ -324,13 +336,11 @@ class DAGValidationAndReportTests(unittest.TestCase):
             self.assertEqual(captured, plan)
 
     def test_profile_bytes_are_frozen_hashed_and_replay_without_original_file(self):
-        root = Path(__file__).resolve().parents[1]
-        exp = load_experiment(root / "examples/v1/profile_serving.json")
-        raw = Path(exp.calibration.profile_path).read_bytes()
         with tempfile.TemporaryDirectory() as temporary:
-            profile = Path(temporary) / "profile.json"
-            profile.write_bytes(raw)
-            exp = replace(exp, workload=(), calibration=replace(exp.calibration, profile_path=str(profile)))
+            exp = profiled_experiment(temporary)
+            profile = Path(exp.calibration.profile_path)
+            raw = profile.read_bytes()
+            exp = replace(exp, workload=())
             plan = DAGPlan((DAGNode("a", "profiled", 16, 3),), (ModelPool("profiled", exp),))
             first = simulate_dag(plan)
             captured = first["pools"][0]["profile_inputs"][0]
@@ -351,13 +361,11 @@ class DAGValidationAndReportTests(unittest.TestCase):
     def test_profile_changed_during_prediction_or_between_candidates_is_rejected(self):
         from mlsys_sim.dag import _simulate_captured
         from mlsys_sim.event_driver import EventDriver
-        root = Path(__file__).resolve().parents[1]
-        exp = load_experiment(root / "examples/v1/profile_serving.json")
-        raw = Path(exp.calibration.profile_path).read_bytes()
         with tempfile.TemporaryDirectory() as temporary:
-            profile = Path(temporary) / "profile.json"
-            profile.write_bytes(raw)
-            exp = replace(exp, workload=(), calibration=replace(exp.calibration, profile_path=str(profile)))
+            exp = profiled_experiment(temporary)
+            profile = Path(exp.calibration.profile_path)
+            raw = profile.read_bytes()
+            exp = replace(exp, workload=())
             plan = DAGPlan((DAGNode("a", "profiled", 16, 3),), (ModelPool("profiled", exp),))
             original = EventDriver.advance_one
             def changed(driver):
@@ -381,13 +389,11 @@ class DAGValidationAndReportTests(unittest.TestCase):
 
     def test_timing_profile_aba_uses_captured_bytes_in_warmup_and_all_candidates(self):
         from mlsys_sim import profiles
-        root = Path(__file__).resolve().parents[1]
-        exp = load_experiment(root / "examples/v1/profile_serving.json")
-        raw = Path(exp.calibration.profile_path).read_bytes()
         with tempfile.TemporaryDirectory() as temporary:
-            source = Path(temporary) / "profile.json"
-            source.write_bytes(raw)
-            exp = replace(exp, workload=(), calibration=replace(exp.calibration, profile_path=str(source)),
+            exp = profiled_experiment(temporary)
+            source = Path(exp.calibration.profile_path)
+            raw = source.read_bytes()
+            exp = replace(exp, workload=(),
                           execution=replace(exp.execution, warmup=(RequestSpec("warm", 0, 16, 3),)))
             plan = DAGPlan((DAGNode("a", "profiled", 16, 3),), (ModelPool("profiled", exp),))
             baseline = simulate_dag(plan)
