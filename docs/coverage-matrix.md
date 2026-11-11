@@ -1,12 +1,13 @@
-# Version 1.17 capability matrix
+# Version 1.18 capability matrix
 
-This table describes the version 1.17 software scope. Available fixture demonstrations
+This table describes the version 1.18 software scope. Available fixture demonstrations
 and unit tests do not establish AMD hardware accuracy. User-supplied reference
 packages are external evidence with their own timing and model-coverage limits.
 
 | Capability | Software status | Supported scope and evidence boundary |
 | --- | --- | --- |
 | Six inputs and strict configuration | Implemented | JSON/TOML, JSONL workload, relative references; optional installed PyYAML |
+| Independent closed-loop course validation | Implemented protocol/adapter | Fixed-N client policies, terminal-feedback predictions and capture, frozen raw/canonical commitments, separate server/API timing, full cell/seed/error retention and sanitized reports; finite cohorts do not certify steady-state or HTTP SLA |
 | Joint capacity/latency/throughput constraints | Implemented, opt-in | Each physical rank's peak budget, requested quantiles and explicit rate denominator; missing/insufficient evidence stays UNKNOWN and failed runs cannot pass |
 | Fixed-workload candidate screening | Implemented, opt-in | Ordinary runs, every load repetition or heterogeneous DAG/pool assessments; all candidate outcomes retained, PASS-only ranking, exact Profile bytes and offline replay |
 | Course eta/beta import and calibrated report | Implemented adapter | Explicit fit membership, source/ratio checks, preserved diagnostics and analytical-only patch; nominal reports and whole-stage Profiles remain separate, no hardware promotion |
@@ -110,6 +111,16 @@ request-count sweeps preserve the scheduler and do not imply actual GPU batch
 size. Logical KV refusal, timeout, peer death and lock errors are distinct from
 typed allocator OOM. Observed brackets retain resolution and evidence gaps; see
 [Workspace and capacity validation](workspace-and-capacity.md).
+
+## Limited live course evidence added in 1.18
+
+Version 1.18's separate [closed-loop course study](course-sla-9070xt-20261111/README.md)
+adds 39 actual Qwen3-4B single-card cohorts and 39,000 completed requests under
+frozen client policies. Acquisition passed, while the preregistered prediction
+accuracy targets failed. The observed baseline all-repeat safe grid cap4 differs
+from the model's cap16, with 10 false-safe cells. Short/long holdout negatives
+remain. This server-token finite-cohort result does not upgrade HTTP SLA,
+steady-state capacity, complete physical memory or general hardware accuracy.
 
 ## Limited live evidence added in 1.12
 

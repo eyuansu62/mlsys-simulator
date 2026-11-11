@@ -1,0 +1,240 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1320" height="490" viewBox="0 0 1320 490" role="img">
+<title>基线：冻结预测与实测 P99 延迟</title>
+<metadata>canonical report输入SHA256=ef378f0a181265b85b6dd466c61036ec1cee9da5741b6a01595f460494526818; hardware_validated=false</metadata>
+<rect width="1320" height="490" fill="white"/>
+<style>text{font:12px system-ui,"PingFang SC",sans-serif;fill:#172b3a}.title{font-size:19px;font-weight:600}</style>
+<text x="24" y="30" class="title">基线：冻结预测与实测 P99 延迟</text>
+<text x="24" y="55">蓝空心：冻结预测各重复；橙点：实测各重复；红点：实测SLA非PASS；竖线：min–max，非置信区间</text>
+<text x="65" y="88">P99 TTFT</text>
+<line x1="65" x2="415" y1="375.00" y2="375.00" stroke="#d9e2e8"/>
+<text x="17" y="379.00">0</text>
+<line x1="65" x2="415" y1="308.75" y2="308.75" stroke="#d9e2e8"/>
+<text x="17" y="312.75">628</text>
+<line x1="65" x2="415" y1="242.50" y2="242.50" stroke="#d9e2e8"/>
+<text x="17" y="246.50">1.26e+03</text>
+<line x1="65" x2="415" y1="176.25" y2="176.25" stroke="#d9e2e8"/>
+<text x="17" y="180.25">1.89e+03</text>
+<line x1="65" x2="415" y1="110.00" y2="110.00" stroke="#d9e2e8"/>
+<text x="17" y="114.00">2.51e+03</text>
+<line x1="65" x2="415" y1="322.29" y2="322.29" stroke="#8d4860" stroke-dasharray="5,4"/>
+<text x="70" y="317.29">SLA 500 ms</text>
+<text x="57.00" y="398">1</text>
+<line x1="60.00" x2="60.00" y1="373.07" y2="373.07" stroke="#176b9b" stroke-width="1.5"/>
+<g><title>baseline C1 r0（base seed 20261111 子流） prediction ttft_p99_ms=18.3025083534</title><circle cx="58.00" cy="373.07" r="3.2" fill="white" stroke="#176b9b" stroke-width="1.4"/></g>
+<g><title>baseline C1 r1（base seed 20261111 子流） prediction ttft_p99_ms=18.3025083534</title><circle cx="60.00" cy="373.07" r="3.2" fill="white" stroke="#176b9b" stroke-width="1.4"/></g>
+<g><title>baseline C1 r2（base seed 20261111 子流） prediction ttft_p99_ms=18.3025083534</title><circle cx="62.00" cy="373.07" r="3.2" fill="white" stroke="#176b9b" stroke-width="1.4"/></g>
+<line x1="70.00" x2="70.00" y1="371.29" y2="371.25" stroke="#b0521c" stroke-width="1.5"/>
+<g><title>baseline C1 r0（base seed 20261111 子流） observation ttft_p99_ms=35.21392217</title><circle cx="68.00" cy="371.29" r="3.2" fill="#b0521c" stroke="#b0521c" stroke-width="1.4"/></g>
+<g><title>baseline C1 r1（base seed 20261111 子流） observation ttft_p99_ms=35.39714315</title><circle cx="70.00" cy="371.27" r="3.2" fill="#b0521c" stroke="#b0521c" stroke-width="1.4"/></g>
+<g><title>baseline C1 r2（base seed 20261111 子流） observation ttft_p99_ms=35.54114122</title><circle cx="72.00" cy="371.25" r="3.2" fill="#b0521c" stroke="#b0521c" stroke-width="1.4"/></g>
+<text x="115.33" y="398">2</text>
+<line x1="118.33" x2="118.33" y1="371.32" y2="371.32" stroke="#176b9b" stroke-width="1.5"/>
+<g><title>baseline C2 r0（base seed 20261111 子流） prediction ttft_p99_ms=34.8934887633</title><circle cx="116.33" cy="371.32" r="3.2" fill="white" stroke="#176b9b" stroke-width="1.4"/></g>
+<g><title>baseline C2 r1（base seed 20261111 子流） prediction ttft_p99_ms=34.8934887633</title><circle cx="118.33" cy="371.32" r="3.2" fill="white" stroke="#176b9b" stroke-width="1.4"/></g>
+<g><title>baseline C2 r2（base seed 20261111 子流） prediction ttft_p99_ms=34.8934887633</title><circle cx="120.33" cy="371.32" r="3.2" fill="white" stroke="#176b9b" stroke-width="1.4"/></g>
+<line x1="128.33" x2="128.33" y1="370.67" y2="370.65" stroke="#b0521c" stroke-width="1.5"/>
+<g><title>baseline C2 r0（base seed 20261111 子流） observation ttft_p99_ms=41.08564763</title><circle cx="126.33" cy="370.67" r="3.2" fill="#b0521c" stroke="#b0521c" stroke-width="1.4"/></g>
+<g><title>baseline C2 r1（base seed 20261111 子流） observation ttft_p99_ms=41.03894424</title><circle cx="128.33" cy="370.67" r="3.2" fill="#b0521c" stroke="#b0521c" stroke-width="1.4"/></g>
+<g><title>baseline C2 r2（base seed 20261111 子流） observation ttft_p99_ms=41.31040251</title><circle cx="130.33" cy="370.65" r="3.2" fill="#b0521c" stroke="#b0521c" stroke-width="1.4"/></g>
+<text x="173.67" y="398">4</text>
+<line x1="176.67" x2="176.67" y1="367.82" y2="367.82" stroke="#176b9b" stroke-width="1.5"/>
+<g><title>baseline C4 r0（base seed 20261111 子流） prediction ttft_p99_ms=68.0754495831</title><circle cx="174.67" cy="367.82" r="3.2" fill="white" stroke="#176b9b" stroke-width="1.4"/></g>
+<g><title>baseline C4 r1（base seed 20261111 子流） prediction ttft_p99_ms=68.0754495831</title><circle cx="176.67" cy="367.82" r="3.2" fill="white" stroke="#176b9b" stroke-width="1.4"/></g>
+<g><title>baseline C4 r2（base seed 20261111 子流） prediction ttft_p99_ms=68.0754495831</title><circle cx="178.67" cy="367.82" r="3.2" fill="white" stroke="#176b9b" stroke-width="1.4"/></g>
+<line x1="186.67" x2="186.67" y1="367.34" y2="367.29" stroke="#b0521c" stroke-width="1.5"/>
+<g><title>baseline C4 r0（base seed 20261111 子流） observation ttft_p99_ms=73.05553459</title><circle cx="184.67" cy="367.30" r="3.2" fill="#b0521c" stroke="#b0521c" stroke-width="1.4"/></g>
+<g><title>baseline C4 r1（base seed 20261111 子流） observation ttft_p99_ms=73.0962734</title><circle cx="186.67" cy="367.29" r="3.2" fill="#b0521c" stroke="#b0521c" stroke-width="1.4"/></g>
+<g><title>baseline C4 r2（base seed 20261111 子流） observation ttft_p99_ms=72.66596819</title><circle cx="188.67" cy="367.34" r="3.2" fill="#b0521c" stroke="#b0521c" stroke-width="1.4"/></g>
+<text x="232.00" y="398">8</text>
+<line x1="235.00" x2="235.00" y1="360.83" y2="360.83" stroke="#176b9b" stroke-width="1.5"/>
+<g><title>baseline C8 r0（base seed 20261111 子流） prediction ttft_p99_ms=134.439371223</title><circle cx="233.00" cy="360.83" r="3.2" fill="white" stroke="#176b9b" stroke-width="1.4"/></g>
+<g><title>baseline C8 r1（base seed 20261111 子流） prediction ttft_p99_ms=134.439371223</title><circle cx="235.00" cy="360.83" r="3.2" fill="white" stroke="#176b9b" stroke-width="1.4"/></g>
+<g><title>baseline C8 r2（base seed 20261111 子流） prediction ttft_p99_ms=134.439371223</title><circle cx="237.00" cy="360.83" r="3.2" fill="white" stroke="#176b9b" stroke-width="1.4"/></g>
+<line x1="245.00" x2="245.00" y1="360.37" y2="360.32" stroke="#b0521c" stroke-width="1.5"/>
+<g><title>baseline C8 r0（base seed 20261111 子流） observation ttft_p99_ms=138.7454102</title><circle cx="243.00" cy="360.37" r="3.2" fill="#b42538" stroke="#b42538" stroke-width="1.4"/></g>
+<g><title>baseline C8 r1（base seed 20261111 子流） observation ttft_p99_ms=139.06377285</title><circle cx="245.00" cy="360.34" r="3.2" fill="#b42538" stroke="#b42538" stroke-width="1.4"/></g>
+<g><title>baseline C8 r2（base seed 20261111 子流） observation ttft_p99_ms=139.23356421</title><circle cx="247.00" cy="360.32" r="3.2" fill="#b42538" stroke="#b42538" stroke-width="1.4"/></g>
+<text x="290.33" y="398">16</text>
+<line x1="293.33" x2="293.33" y1="360.75" y2="360.75" stroke="#176b9b" stroke-width="1.5"/>
+<g><title>baseline C16 r0（base seed 20261111 子流） prediction ttft_p99_ms=135.199857604</title><circle cx="291.33" cy="360.75" r="3.2" fill="white" stroke="#176b9b" stroke-width="1.4"/></g>
+<g><title>baseline C16 r1（base seed 20261111 子流） prediction ttft_p99_ms=135.199857604</title><circle cx="293.33" cy="360.75" r="3.2" fill="white" stroke="#176b9b" stroke-width="1.4"/></g>
+<g><title>baseline C16 r2（base seed 20261111 子流） prediction ttft_p99_ms=135.199857604</title><circle cx="295.33" cy="360.75" r="3.2" fill="white" stroke="#176b9b" stroke-width="1.4"/></g>
+<line x1="303.33" x2="303.33" y1="359.61" y2="359.58" stroke="#b0521c" stroke-width="1.5"/>
+<g><title>baseline C16 r0（base seed 20261111 子流） observation ttft_p99_ms=146.27471363</title><circle cx="301.33" cy="359.58" r="3.2" fill="#b42538" stroke="#b42538" stroke-width="1.4"/></g>
+<g><title>baseline C16 r1（base seed 20261111 子流） observation ttft_p99_ms=146.04413346</title><circle cx="303.33" cy="359.61" r="3.2" fill="#b42538" stroke="#b42538" stroke-width="1.4"/></g>
+<g><title>baseline C16 r2（base seed 20261111 子流） observation ttft_p99_ms=146.11037138</title><circle cx="305.33" cy="359.60" r="3.2" fill="#b42538" stroke="#b42538" stroke-width="1.4"/></g>
+<text x="348.67" y="398">32</text>
+<line x1="351.67" x2="351.67" y1="308.36" y2="308.36" stroke="#176b9b" stroke-width="1.5"/>
+<g><title>baseline C32 r0（base seed 20261111 子流） prediction ttft_p99_ms=632.200040116</title><circle cx="349.67" cy="308.36" r="3.2" fill="white" stroke="#176b9b" stroke-width="1.4"/></g>
+<g><title>baseline C32 r1（base seed 20261111 子流） prediction ttft_p99_ms=632.200040116</title><circle cx="351.67" cy="308.36" r="3.2" fill="white" stroke="#176b9b" stroke-width="1.4"/></g>
+<g><title>baseline C32 r2（base seed 20261111 子流） prediction ttft_p99_ms=632.200040116</title><circle cx="353.67" cy="308.36" r="3.2" fill="white" stroke="#176b9b" stroke-width="1.4"/></g>
+<line x1="361.67" x2="361.67" y1="285.78" y2="282.75" stroke="#b0521c" stroke-width="1.5"/>
+<g><title>baseline C32 r0（base seed 20261111 子流） observation ttft_p99_ms=846.6274366</title><circle cx="359.67" cy="285.75" r="3.2" fill="#b42538" stroke="#b42538" stroke-width="1.4"/></g>
+<g><title>baseline C32 r1（base seed 20261111 子流） observation ttft_p99_ms=875.17142278</title><circle cx="361.67" cy="282.75" r="3.2" fill="#b42538" stroke="#b42538" stroke-width="1.4"/></g>
+<g><title>baseline C32 r2（base seed 20261111 子流） observation ttft_p99_ms=846.37652386</title><circle cx="363.67" cy="285.78" r="3.2" fill="#b42538" stroke="#b42538" stroke-width="1.4"/></g>
+<text x="407.00" y="398">64</text>
+<line x1="410.00" x2="410.00" y1="208.12" y2="208.12" stroke="#176b9b" stroke-width="1.5"/>
+<g><title>baseline C64 r0（base seed 20261111 子流） prediction ttft_p99_ms=1583.11195176</title><circle cx="408.00" cy="208.12" r="3.2" fill="white" stroke="#176b9b" stroke-width="1.4"/></g>
+<g><title>baseline C64 r1（base seed 20261111 子流） prediction ttft_p99_ms=1583.11195176</title><circle cx="410.00" cy="208.12" r="3.2" fill="white" stroke="#176b9b" stroke-width="1.4"/></g>
+<g><title>baseline C64 r2（base seed 20261111 子流） prediction ttft_p99_ms=1583.11195176</title><circle cx="412.00" cy="208.12" r="3.2" fill="white" stroke="#176b9b" stroke-width="1.4"/></g>
+<line x1="420.00" x2="420.00" y1="140.57" y2="138.39" stroke="#b0521c" stroke-width="1.5"/>
+<g><title>baseline C64 r0（base seed 20261111 子流） observation ttft_p99_ms=2236.26008343</title><circle cx="418.00" cy="139.27" r="3.2" fill="#b42538" stroke="#b42538" stroke-width="1.4"/></g>
+<g><title>baseline C64 r1（base seed 20261111 子流） observation ttft_p99_ms=2223.9264529</title><circle cx="420.00" cy="140.57" r="3.2" fill="#b42538" stroke="#b42538" stroke-width="1.4"/></g>
+<g><title>baseline C64 r2（base seed 20261111 子流） observation ttft_p99_ms=2244.5698321</title><circle cx="422.00" cy="138.39" r="3.2" fill="#b42538" stroke="#b42538" stroke-width="1.4"/></g>
+<text x="115" y="445">并发 clients（log₂）；纵轴 ms</text>
+<text x="505" y="88">P99 TPOT</text>
+<line x1="505" x2="855" y1="375.00" y2="375.00" stroke="#d9e2e8"/>
+<text x="457" y="379.00">0</text>
+<line x1="505" x2="855" y1="308.75" y2="308.75" stroke="#d9e2e8"/>
+<text x="457" y="312.75">14</text>
+<line x1="505" x2="855" y1="242.50" y2="242.50" stroke="#d9e2e8"/>
+<text x="457" y="246.50">28</text>
+<line x1="505" x2="855" y1="176.25" y2="176.25" stroke="#d9e2e8"/>
+<text x="457" y="180.25">42</text>
+<line x1="505" x2="855" y1="110.00" y2="110.00" stroke="#d9e2e8"/>
+<text x="457" y="114.00">56</text>
+<line x1="505" x2="855" y1="138.39" y2="138.39" stroke="#8d4860" stroke-dasharray="5,4"/>
+<text x="510" y="133.39">SLA 50 ms</text>
+<text x="497.00" y="398">1</text>
+<line x1="500.00" x2="500.00" y1="307.21" y2="307.21" stroke="#176b9b" stroke-width="1.5"/>
+<g><title>baseline C1 r0（base seed 20261111 子流） prediction tpot_p99_ms=14.326186216</title><circle cx="498.00" cy="307.21" r="3.2" fill="white" stroke="#176b9b" stroke-width="1.4"/></g>
+<g><title>baseline C1 r1（base seed 20261111 子流） prediction tpot_p99_ms=14.326186216</title><circle cx="500.00" cy="307.21" r="3.2" fill="white" stroke="#176b9b" stroke-width="1.4"/></g>
+<g><title>baseline C1 r2（base seed 20261111 子流） prediction tpot_p99_ms=14.326186216</title><circle cx="502.00" cy="307.21" r="3.2" fill="white" stroke="#176b9b" stroke-width="1.4"/></g>
+<line x1="510.00" x2="510.00" y1="276.13" y2="274.54" stroke="#b0521c" stroke-width="1.5"/>
+<g><title>baseline C1 r0（base seed 20261111 子流） observation tpot_p99_ms=20.8938077213</title><circle cx="508.00" cy="276.13" r="3.2" fill="#b0521c" stroke="#b0521c" stroke-width="1.4"/></g>
+<g><title>baseline C1 r1（base seed 20261111 子流） observation tpot_p99_ms=21.2284108593</title><circle cx="510.00" cy="274.54" r="3.2" fill="#b0521c" stroke="#b0521c" stroke-width="1.4"/></g>
+<g><title>baseline C1 r2（base seed 20261111 子流） observation tpot_p99_ms=21.2035233173</title><circle cx="512.00" cy="274.66" r="3.2" fill="#b0521c" stroke="#b0521c" stroke-width="1.4"/></g>
+<text x="555.33" y="398">2</text>
+<line x1="558.33" x2="558.33" y1="306.86" y2="306.86" stroke="#176b9b" stroke-width="1.5"/>
+<g><title>baseline C2 r0（base seed 20261111 子流） prediction tpot_p99_ms=14.4004071129</title><circle cx="556.33" cy="306.86" r="3.2" fill="white" stroke="#176b9b" stroke-width="1.4"/></g>
+<g><title>baseline C2 r1（base seed 20261111 子流） prediction tpot_p99_ms=14.4004071129</title><circle cx="558.33" cy="306.86" r="3.2" fill="white" stroke="#176b9b" stroke-width="1.4"/></g>
+<g><title>baseline C2 r2（base seed 20261111 子流） prediction tpot_p99_ms=14.4004071129</title><circle cx="560.33" cy="306.86" r="3.2" fill="white" stroke="#176b9b" stroke-width="1.4"/></g>
+<line x1="568.33" x2="568.33" y1="268.52" y2="267.90" stroke="#b0521c" stroke-width="1.5"/>
+<g><title>baseline C2 r0（base seed 20261111 子流） observation tpot_p99_ms=22.584158218</title><circle cx="566.33" cy="268.13" r="3.2" fill="#b0521c" stroke="#b0521c" stroke-width="1.4"/></g>
+<g><title>baseline C2 r1（base seed 20261111 子流） observation tpot_p99_ms=22.5023063533</title><circle cx="568.33" cy="268.52" r="3.2" fill="#b0521c" stroke="#b0521c" stroke-width="1.4"/></g>
+<g><title>baseline C2 r2（base seed 20261111 子流） observation tpot_p99_ms=22.633493984</title><circle cx="570.33" cy="267.90" r="3.2" fill="#b0521c" stroke="#b0521c" stroke-width="1.4"/></g>
+<text x="613.67" y="398">4</text>
+<line x1="616.67" x2="616.67" y1="306.15" y2="306.15" stroke="#176b9b" stroke-width="1.5"/>
+<g><title>baseline C4 r0（base seed 20261111 子流） prediction tpot_p99_ms=14.5488489066</title><circle cx="614.67" cy="306.15" r="3.2" fill="white" stroke="#176b9b" stroke-width="1.4"/></g>
+<g><title>baseline C4 r1（base seed 20261111 子流） prediction tpot_p99_ms=14.5488489066</title><circle cx="616.67" cy="306.15" r="3.2" fill="white" stroke="#176b9b" stroke-width="1.4"/></g>
+<g><title>baseline C4 r2（base seed 20261111 子流） prediction tpot_p99_ms=14.5488489066</title><circle cx="618.67" cy="306.15" r="3.2" fill="white" stroke="#176b9b" stroke-width="1.4"/></g>
+<line x1="626.67" x2="626.67" y1="267.93" y2="266.47" stroke="#b0521c" stroke-width="1.5"/>
+<g><title>baseline C4 r0（base seed 20261111 子流） observation tpot_p99_ms=22.9356854</title><circle cx="624.67" cy="266.47" r="3.2" fill="#b0521c" stroke="#b0521c" stroke-width="1.4"/></g>
+<g><title>baseline C4 r1（base seed 20261111 子流） observation tpot_p99_ms=22.6251732</title><circle cx="626.67" cy="267.93" r="3.2" fill="#b0521c" stroke="#b0521c" stroke-width="1.4"/></g>
+<g><title>baseline C4 r2（base seed 20261111 子流） observation tpot_p99_ms=22.6840404667</title><circle cx="628.67" cy="267.66" r="3.2" fill="#b0521c" stroke="#b0521c" stroke-width="1.4"/></g>
+<text x="672.00" y="398">8</text>
+<line x1="675.00" x2="675.00" y1="304.75" y2="304.75" stroke="#176b9b" stroke-width="1.5"/>
+<g><title>baseline C8 r0（base seed 20261111 子流） prediction tpot_p99_ms=14.8457324939</title><circle cx="673.00" cy="304.75" r="3.2" fill="white" stroke="#176b9b" stroke-width="1.4"/></g>
+<g><title>baseline C8 r1（base seed 20261111 子流） prediction tpot_p99_ms=14.8457324939</title><circle cx="675.00" cy="304.75" r="3.2" fill="white" stroke="#176b9b" stroke-width="1.4"/></g>
+<g><title>baseline C8 r2（base seed 20261111 子流） prediction tpot_p99_ms=14.8457324939</title><circle cx="677.00" cy="304.75" r="3.2" fill="white" stroke="#176b9b" stroke-width="1.4"/></g>
+<line x1="685.00" x2="685.00" y1="236.67" y2="234.21" stroke="#b0521c" stroke-width="1.5"/>
+<g><title>baseline C8 r0（base seed 20261111 子流） observation tpot_p99_ms=29.4609888667</title><circle cx="683.00" cy="235.59" r="3.2" fill="#b42538" stroke="#b42538" stroke-width="1.4"/></g>
+<g><title>baseline C8 r1（base seed 20261111 子流） observation tpot_p99_ms=29.752399</title><circle cx="685.00" cy="234.21" r="3.2" fill="#b42538" stroke="#b42538" stroke-width="1.4"/></g>
+<g><title>baseline C8 r2（base seed 20261111 子流） observation tpot_p99_ms=29.2314918667</title><circle cx="687.00" cy="236.67" r="3.2" fill="#b42538" stroke="#b42538" stroke-width="1.4"/></g>
+<text x="730.33" y="398">16</text>
+<line x1="733.33" x2="733.33" y1="236.56" y2="236.56" stroke="#176b9b" stroke-width="1.5"/>
+<g><title>baseline C16 r0（base seed 20261111 子流） prediction tpot_p99_ms=29.2542710748</title><circle cx="731.33" cy="236.56" r="3.2" fill="white" stroke="#176b9b" stroke-width="1.4"/></g>
+<g><title>baseline C16 r1（base seed 20261111 子流） prediction tpot_p99_ms=29.2542710748</title><circle cx="733.33" cy="236.56" r="3.2" fill="white" stroke="#176b9b" stroke-width="1.4"/></g>
+<g><title>baseline C16 r2（base seed 20261111 子流） prediction tpot_p99_ms=29.2542710748</title><circle cx="735.33" cy="236.56" r="3.2" fill="white" stroke="#176b9b" stroke-width="1.4"/></g>
+<line x1="743.33" x2="743.33" y1="172.14" y2="169.26" stroke="#b0521c" stroke-width="1.5"/>
+<g><title>baseline C16 r0（base seed 20261111 子流） observation tpot_p99_ms=43.4778996653</title><circle cx="741.33" cy="169.26" r="3.2" fill="#b42538" stroke="#b42538" stroke-width="1.4"/></g>
+<g><title>baseline C16 r1（base seed 20261111 子流） observation tpot_p99_ms=42.8676261447</title><circle cx="743.33" cy="172.14" r="3.2" fill="#b42538" stroke="#b42538" stroke-width="1.4"/></g>
+<g><title>baseline C16 r2（base seed 20261111 子流） observation tpot_p99_ms=43.329722282</title><circle cx="745.33" cy="169.96" r="3.2" fill="#b42538" stroke="#b42538" stroke-width="1.4"/></g>
+<text x="788.67" y="398">32</text>
+<line x1="791.67" x2="791.67" y1="236.56" y2="236.56" stroke="#176b9b" stroke-width="1.5"/>
+<g><title>baseline C32 r0（base seed 20261111 子流） prediction tpot_p99_ms=29.2542710748</title><circle cx="789.67" cy="236.56" r="3.2" fill="white" stroke="#176b9b" stroke-width="1.4"/></g>
+<g><title>baseline C32 r1（base seed 20261111 子流） prediction tpot_p99_ms=29.2542710748</title><circle cx="791.67" cy="236.56" r="3.2" fill="white" stroke="#176b9b" stroke-width="1.4"/></g>
+<g><title>baseline C32 r2（base seed 20261111 子流） prediction tpot_p99_ms=29.2542710748</title><circle cx="793.67" cy="236.56" r="3.2" fill="white" stroke="#176b9b" stroke-width="1.4"/></g>
+<line x1="801.67" x2="801.67" y1="172.31" y2="169.49" stroke="#b0521c" stroke-width="1.5"/>
+<g><title>baseline C32 r0（base seed 20261111 子流） observation tpot_p99_ms=43.42846244</title><circle cx="799.67" cy="169.49" r="3.2" fill="#b42538" stroke="#b42538" stroke-width="1.4"/></g>
+<g><title>baseline C32 r1（base seed 20261111 子流） observation tpot_p99_ms=43.1467520913</title><circle cx="801.67" cy="170.82" r="3.2" fill="#b42538" stroke="#b42538" stroke-width="1.4"/></g>
+<g><title>baseline C32 r2（base seed 20261111 子流） observation tpot_p99_ms=42.8331390527</title><circle cx="803.67" cy="172.31" r="3.2" fill="#b42538" stroke="#b42538" stroke-width="1.4"/></g>
+<text x="847.00" y="398">64</text>
+<line x1="850.00" x2="850.00" y1="236.56" y2="236.56" stroke="#176b9b" stroke-width="1.5"/>
+<g><title>baseline C64 r0（base seed 20261111 子流） prediction tpot_p99_ms=29.2542710748</title><circle cx="848.00" cy="236.56" r="3.2" fill="white" stroke="#176b9b" stroke-width="1.4"/></g>
+<g><title>baseline C64 r1（base seed 20261111 子流） prediction tpot_p99_ms=29.2542710748</title><circle cx="850.00" cy="236.56" r="3.2" fill="white" stroke="#176b9b" stroke-width="1.4"/></g>
+<g><title>baseline C64 r2（base seed 20261111 子流） prediction tpot_p99_ms=29.2542710748</title><circle cx="852.00" cy="236.56" r="3.2" fill="white" stroke="#176b9b" stroke-width="1.4"/></g>
+<line x1="860.00" x2="860.00" y1="172.27" y2="170.35" stroke="#b0521c" stroke-width="1.5"/>
+<g><title>baseline C64 r0（base seed 20261111 子流） observation tpot_p99_ms=43.1268822</title><circle cx="858.00" cy="170.92" r="3.2" fill="#b42538" stroke="#b42538" stroke-width="1.4"/></g>
+<g><title>baseline C64 r1（base seed 20261111 子流） observation tpot_p99_ms=42.84134737</title><circle cx="860.00" cy="172.27" r="3.2" fill="#b42538" stroke="#b42538" stroke-width="1.4"/></g>
+<g><title>baseline C64 r2（base seed 20261111 子流） observation tpot_p99_ms=43.2466815207</title><circle cx="862.00" cy="170.35" r="3.2" fill="#b42538" stroke="#b42538" stroke-width="1.4"/></g>
+<text x="555" y="445">并发 clients（log₂）；纵轴 ms</text>
+<text x="945" y="88">P99 E2E</text>
+<line x1="945" x2="1295" y1="375.00" y2="375.00" stroke="#d9e2e8"/>
+<text x="897" y="379.00">0</text>
+<line x1="945" x2="1295" y1="308.75" y2="308.75" stroke="#d9e2e8"/>
+<text x="897" y="312.75">794</text>
+<line x1="945" x2="1295" y1="242.50" y2="242.50" stroke="#d9e2e8"/>
+<text x="897" y="246.50">1.59e+03</text>
+<line x1="945" x2="1295" y1="176.25" y2="176.25" stroke="#d9e2e8"/>
+<text x="897" y="180.25">2.38e+03</text>
+<line x1="945" x2="1295" y1="110.00" y2="110.00" stroke="#d9e2e8"/>
+<text x="897" y="114.00">3.18e+03</text>
+<line x1="945" x2="1295" y1="333.31" y2="333.31" stroke="#8d4860" stroke-dasharray="5,4"/>
+<text x="950" y="328.31">SLA 500 ms</text>
+<text x="937.00" y="398">1</text>
+<line x1="940.00" x2="940.00" y1="355.55" y2="355.55" stroke="#176b9b" stroke-width="1.5"/>
+<g><title>baseline C1 r0（base seed 20261111 子流） prediction end_to_end_p99_ms=233.195301594</title><circle cx="938.00" cy="355.55" r="3.2" fill="white" stroke="#176b9b" stroke-width="1.4"/></g>
+<g><title>baseline C1 r1（base seed 20261111 子流） prediction end_to_end_p99_ms=233.195301594</title><circle cx="940.00" cy="355.55" r="3.2" fill="white" stroke="#176b9b" stroke-width="1.4"/></g>
+<g><title>baseline C1 r2（base seed 20261111 子流） prediction end_to_end_p99_ms=233.195301594</title><circle cx="942.00" cy="355.55" r="3.2" fill="white" stroke="#176b9b" stroke-width="1.4"/></g>
+<line x1="950.00" x2="950.00" y1="346.03" y2="345.61" stroke="#b0521c" stroke-width="1.5"/>
+<g><title>baseline C1 r0（base seed 20261111 子流） observation end_to_end_p99_ms=347.40683825</title><circle cx="948.00" cy="346.03" r="3.2" fill="#b0521c" stroke="#b0521c" stroke-width="1.4"/></g>
+<g><title>baseline C1 r1（base seed 20261111 子流） observation end_to_end_p99_ms=352.09111927</title><circle cx="950.00" cy="345.64" r="3.2" fill="#b0521c" stroke="#b0521c" stroke-width="1.4"/></g>
+<g><title>baseline C1 r2（base seed 20261111 子流） observation end_to_end_p99_ms=352.44820086</title><circle cx="952.00" cy="345.61" r="3.2" fill="#b0521c" stroke="#b0521c" stroke-width="1.4"/></g>
+<text x="995.33" y="398">2</text>
+<line x1="998.33" x2="998.33" y1="354.08" y2="354.08" stroke="#176b9b" stroke-width="1.5"/>
+<g><title>baseline C2 r0（base seed 20261111 子流） prediction end_to_end_p99_ms=250.899595456</title><circle cx="996.33" cy="354.08" r="3.2" fill="white" stroke="#176b9b" stroke-width="1.4"/></g>
+<g><title>baseline C2 r1（base seed 20261111 子流） prediction end_to_end_p99_ms=250.899595456</title><circle cx="998.33" cy="354.08" r="3.2" fill="white" stroke="#176b9b" stroke-width="1.4"/></g>
+<g><title>baseline C2 r2（base seed 20261111 子流） prediction end_to_end_p99_ms=250.899595456</title><circle cx="1000.33" cy="354.08" r="3.2" fill="white" stroke="#176b9b" stroke-width="1.4"/></g>
+<line x1="1008.33" x2="1008.33" y1="343.54" y2="343.35" stroke="#b0521c" stroke-width="1.5"/>
+<g><title>baseline C2 r0（base seed 20261111 子流） observation end_to_end_p99_ms=378.87974867</title><circle cx="1006.33" cy="343.41" r="3.2" fill="#b0521c" stroke="#b0521c" stroke-width="1.4"/></g>
+<g><title>baseline C2 r1（base seed 20261111 子流） observation end_to_end_p99_ms=377.27368333</title><circle cx="1008.33" cy="343.54" r="3.2" fill="#b0521c" stroke="#b0521c" stroke-width="1.4"/></g>
+<g><title>baseline C2 r2（base seed 20261111 子流） observation end_to_end_p99_ms=379.56913303</title><circle cx="1010.33" cy="343.35" r="3.2" fill="#b0521c" stroke="#b0521c" stroke-width="1.4"/></g>
+<text x="1053.67" y="398">4</text>
+<line x1="1056.67" x2="1056.67" y1="351.13" y2="351.13" stroke="#176b9b" stroke-width="1.5"/>
+<g><title>baseline C4 r0（base seed 20261111 子流） prediction end_to_end_p99_ms=286.308183181</title><circle cx="1054.67" cy="351.13" r="3.2" fill="white" stroke="#176b9b" stroke-width="1.4"/></g>
+<g><title>baseline C4 r1（base seed 20261111 子流） prediction end_to_end_p99_ms=286.308183181</title><circle cx="1056.67" cy="351.13" r="3.2" fill="white" stroke="#176b9b" stroke-width="1.4"/></g>
+<g><title>baseline C4 r2（base seed 20261111 子流） prediction end_to_end_p99_ms=286.308183181</title><circle cx="1058.67" cy="351.13" r="3.2" fill="white" stroke="#176b9b" stroke-width="1.4"/></g>
+<line x1="1066.67" x2="1066.67" y1="340.68" y2="340.30" stroke="#b0521c" stroke-width="1.5"/>
+<g><title>baseline C4 r0（base seed 20261111 子流） observation end_to_end_p99_ms=416.1673057</title><circle cx="1064.67" cy="340.30" r="3.2" fill="#b0521c" stroke="#b0521c" stroke-width="1.4"/></g>
+<g><title>baseline C4 r1（base seed 20261111 子流） observation end_to_end_p99_ms=411.53613602</title><circle cx="1066.67" cy="340.68" r="3.2" fill="#b0521c" stroke="#b0521c" stroke-width="1.4"/></g>
+<g><title>baseline C4 r2（base seed 20261111 子流） observation end_to_end_p99_ms=412.61481308</title><circle cx="1068.67" cy="340.59" r="3.2" fill="#b0521c" stroke="#b0521c" stroke-width="1.4"/></g>
+<text x="1112.00" y="398">8</text>
+<line x1="1115.00" x2="1115.00" y1="345.22" y2="345.22" stroke="#176b9b" stroke-width="1.5"/>
+<g><title>baseline C8 r0（base seed 20261111 子流） prediction end_to_end_p99_ms=357.125358632</title><circle cx="1113.00" cy="345.22" r="3.2" fill="white" stroke="#176b9b" stroke-width="1.4"/></g>
+<g><title>baseline C8 r1（base seed 20261111 子流） prediction end_to_end_p99_ms=357.125358632</title><circle cx="1115.00" cy="345.22" r="3.2" fill="white" stroke="#176b9b" stroke-width="1.4"/></g>
+<g><title>baseline C8 r2（base seed 20261111 子流） prediction end_to_end_p99_ms=357.125358632</title><circle cx="1117.00" cy="345.22" r="3.2" fill="white" stroke="#176b9b" stroke-width="1.4"/></g>
+<line x1="1125.00" x2="1125.00" y1="326.97" y2="326.36" stroke="#b0521c" stroke-width="1.5"/>
+<g><title>baseline C8 r0（base seed 20261111 子流） observation end_to_end_p99_ms=578.79497189</title><circle cx="1123.00" cy="326.74" r="3.2" fill="#b42538" stroke="#b42538" stroke-width="1.4"/></g>
+<g><title>baseline C8 r1（base seed 20261111 子流） observation end_to_end_p99_ms=583.31092102</title><circle cx="1125.00" cy="326.36" r="3.2" fill="#b42538" stroke="#b42538" stroke-width="1.4"/></g>
+<g><title>baseline C8 r2（base seed 20261111 子流） observation end_to_end_p99_ms=575.95369041</title><circle cx="1127.00" cy="326.97" r="3.2" fill="#b42538" stroke="#b42538" stroke-width="1.4"/></g>
+<text x="1170.33" y="398">16</text>
+<line x1="1173.33" x2="1173.33" y1="334.42" y2="334.42" stroke="#176b9b" stroke-width="1.5"/>
+<g><title>baseline C16 r0（base seed 20261111 子流） prediction end_to_end_p99_ms=486.688103052</title><circle cx="1171.33" cy="334.42" r="3.2" fill="white" stroke="#176b9b" stroke-width="1.4"/></g>
+<g><title>baseline C16 r1（base seed 20261111 子流） prediction end_to_end_p99_ms=486.688103052</title><circle cx="1173.33" cy="334.42" r="3.2" fill="white" stroke="#176b9b" stroke-width="1.4"/></g>
+<g><title>baseline C16 r2（base seed 20261111 子流） prediction end_to_end_p99_ms=486.688103052</title><circle cx="1175.33" cy="334.42" r="3.2" fill="white" stroke="#176b9b" stroke-width="1.4"/></g>
+<line x1="1183.33" x2="1183.33" y1="316.08" y2="315.33" stroke="#b0521c" stroke-width="1.5"/>
+<g><title>baseline C16 r0（base seed 20261111 子流） observation end_to_end_p99_ms=715.52736823</title><circle cx="1181.33" cy="315.33" r="3.2" fill="#b42538" stroke="#b42538" stroke-width="1.4"/></g>
+<g><title>baseline C16 r1（base seed 20261111 子流） observation end_to_end_p99_ms=706.59486055</title><circle cx="1183.33" cy="316.08" r="3.2" fill="#b42538" stroke="#b42538" stroke-width="1.4"/></g>
+<g><title>baseline C16 r2（base seed 20261111 子流） observation end_to_end_p99_ms=706.76601037</title><circle cx="1185.33" cy="316.06" r="3.2" fill="#b42538" stroke="#b42538" stroke-width="1.4"/></g>
+<text x="1228.67" y="398">32</text>
+<line x1="1231.67" x2="1231.67" y1="285.78" y2="285.78" stroke="#176b9b" stroke-width="1.5"/>
+<g><title>baseline C32 r0（base seed 20261111 子流） prediction end_to_end_p99_ms=1069.98613207</title><circle cx="1229.67" cy="285.78" r="3.2" fill="white" stroke="#176b9b" stroke-width="1.4"/></g>
+<g><title>baseline C32 r1（base seed 20261111 子流） prediction end_to_end_p99_ms=1069.98613207</title><circle cx="1231.67" cy="285.78" r="3.2" fill="white" stroke="#176b9b" stroke-width="1.4"/></g>
+<g><title>baseline C32 r2（base seed 20261111 子流） prediction end_to_end_p99_ms=1069.98613207</title><circle cx="1233.67" cy="285.78" r="3.2" fill="white" stroke="#176b9b" stroke-width="1.4"/></g>
+<line x1="1241.67" x2="1241.67" y1="254.26" y2="249.35" stroke="#b0521c" stroke-width="1.5"/>
+<g><title>baseline C32 r0（base seed 20261111 子流） observation end_to_end_p99_ms=1451.61783266</title><circle cx="1239.67" cy="253.95" r="3.2" fill="#b42538" stroke="#b42538" stroke-width="1.4"/></g>
+<g><title>baseline C32 r1（base seed 20261111 子流） observation end_to_end_p99_ms=1506.78819916</title><circle cx="1241.67" cy="249.35" r="3.2" fill="#b42538" stroke="#b42538" stroke-width="1.4"/></g>
+<g><title>baseline C32 r2（base seed 20261111 子流） observation end_to_end_p99_ms=1447.98190633</title><circle cx="1243.67" cy="254.26" r="3.2" fill="#b42538" stroke="#b42538" stroke-width="1.4"/></g>
+<text x="1287.00" y="398">64</text>
+<line x1="1290.00" x2="1290.00" y1="206.47" y2="206.47" stroke="#176b9b" stroke-width="1.5"/>
+<g><title>baseline C64 r0（base seed 20261111 子流） prediction end_to_end_p99_ms=2021.05813266</title><circle cx="1288.00" cy="206.47" r="3.2" fill="white" stroke="#176b9b" stroke-width="1.4"/></g>
+<g><title>baseline C64 r1（base seed 20261111 子流） prediction end_to_end_p99_ms=2021.05813266</title><circle cx="1290.00" cy="206.47" r="3.2" fill="white" stroke="#176b9b" stroke-width="1.4"/></g>
+<g><title>baseline C64 r2（base seed 20261111 子流） prediction end_to_end_p99_ms=2021.05813266</title><circle cx="1292.00" cy="206.47" r="3.2" fill="white" stroke="#176b9b" stroke-width="1.4"/></g>
+<line x1="1300.00" x2="1300.00" y1="142.19" y2="138.39" stroke="#b0521c" stroke-width="1.5"/>
+<g><title>baseline C64 r0（base seed 20261111 子流） observation end_to_end_p99_ms=2810.27313508</title><circle cx="1298.00" cy="140.66" r="3.2" fill="#b42538" stroke="#b42538" stroke-width="1.4"/></g>
+<g><title>baseline C64 r1（base seed 20261111 子流） observation end_to_end_p99_ms=2837.43350179</title><circle cx="1300.00" cy="138.39" r="3.2" fill="#b42538" stroke="#b42538" stroke-width="1.4"/></g>
+<g><title>baseline C64 r2（base seed 20261111 子流） observation end_to_end_p99_ms=2791.86900382</title><circle cx="1302.00" cy="142.19" r="3.2" fill="#b42538" stroke="#b42538" stroke-width="1.4"/></g>
+<text x="995" y="445">并发 clients（log₂）；纵轴 ms</text>
+<text x="24" y="476">来源 measured · canonical report输入SHA256 ef378f0a181265b8 · finite cohort 含必要drain · hardware_validated=false</text>
+</svg>

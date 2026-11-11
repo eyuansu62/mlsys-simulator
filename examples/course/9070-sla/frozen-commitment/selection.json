@@ -1,0 +1,76 @@
+{
+  "rule": "largest predicted joint-safe baseline client count plus available adjacent grid points",
+  "predicted_safe_cap": 16,
+  "holdout_concurrencies": [
+    8,
+    16,
+    32
+  ],
+  "baseline_decisions": [
+    {
+      "concurrency": 1,
+      "predicted_joint_verdict": "PASS",
+      "replication_verdicts": [
+        "PASS",
+        "PASS",
+        "PASS"
+      ]
+    },
+    {
+      "concurrency": 2,
+      "predicted_joint_verdict": "PASS",
+      "replication_verdicts": [
+        "PASS",
+        "PASS",
+        "PASS"
+      ]
+    },
+    {
+      "concurrency": 4,
+      "predicted_joint_verdict": "PASS",
+      "replication_verdicts": [
+        "PASS",
+        "PASS",
+        "PASS"
+      ]
+    },
+    {
+      "concurrency": 8,
+      "predicted_joint_verdict": "PASS",
+      "replication_verdicts": [
+        "PASS",
+        "PASS",
+        "PASS"
+      ]
+    },
+    {
+      "concurrency": 16,
+      "predicted_joint_verdict": "PASS",
+      "replication_verdicts": [
+        "PASS",
+        "PASS",
+        "PASS"
+      ]
+    },
+    {
+      "concurrency": 32,
+      "predicted_joint_verdict": "FAIL",
+      "replication_verdicts": [
+        "FAIL",
+        "FAIL",
+        "FAIL"
+      ]
+    },
+    {
+      "concurrency": 64,
+      "predicted_joint_verdict": "FAIL",
+      "replication_verdicts": [
+        "FAIL",
+        "FAIL",
+        "FAIL"
+      ]
+    }
+  ],
+  "no_observed_data_used": true,
+  "upper_edge_censored": false
+}

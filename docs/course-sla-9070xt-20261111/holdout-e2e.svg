@@ -1,0 +1,91 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="880" height="490" viewBox="0 0 880 490" role="img">
+<title>独立留出：短 / 长输入 E2E 对照</title>
+<metadata>canonical report输入SHA256=ef378f0a181265b85b6dd466c61036ec1cee9da5741b6a01595f460494526818; hardware_validated=false</metadata>
+<rect width="880" height="490" fill="white"/>
+<style>text{font:12px system-ui,"PingFang SC",sans-serif;fill:#172b3a}.title{font-size:19px;font-weight:600}</style>
+<text x="24" y="30" class="title">独立留出：短 / 长输入 E2E 对照</text>
+<text x="24" y="55">蓝空心：冻结预测各重复；橙点：实测各重复；红点：实测SLA非PASS；竖线：min–max，非置信区间</text>
+<text x="65" y="88">短输入留出 P99 E2E</text>
+<line x1="65" x2="415" y1="375.00" y2="375.00" stroke="#d9e2e8"/>
+<text x="17" y="379.00">0</text>
+<line x1="65" x2="415" y1="308.75" y2="308.75" stroke="#d9e2e8"/>
+<text x="17" y="312.75">316</text>
+<line x1="65" x2="415" y1="242.50" y2="242.50" stroke="#d9e2e8"/>
+<text x="17" y="246.50">631</text>
+<line x1="65" x2="415" y1="176.25" y2="176.25" stroke="#d9e2e8"/>
+<text x="17" y="180.25">947</text>
+<line x1="65" x2="415" y1="110.00" y2="110.00" stroke="#d9e2e8"/>
+<text x="17" y="114.00">1.26e+03</text>
+<line x1="65" x2="415" y1="270.08" y2="270.08" stroke="#8d4860" stroke-dasharray="5,4"/>
+<text x="70" y="265.08">SLA 500 ms</text>
+<text x="57.00" y="398">8</text>
+<line x1="60.00" x2="60.00" y1="316.65" y2="315.73" stroke="#176b9b" stroke-width="1.5"/>
+<g><title>short C8 r0（base seed 20261111 子流） prediction end_to_end_p99_ms=278.071010405</title><circle cx="58.00" cy="316.65" r="3.2" fill="white" stroke="#176b9b" stroke-width="1.4"/></g>
+<g><title>short C8 r1（base seed 20261111 子流） prediction end_to_end_p99_ms=282.46291864</title><circle cx="60.00" cy="315.73" r="3.2" fill="white" stroke="#176b9b" stroke-width="1.4"/></g>
+<g><title>short C8 r2（base seed 20261111 子流） prediction end_to_end_p99_ms=282.46291864</title><circle cx="62.00" cy="315.73" r="3.2" fill="white" stroke="#176b9b" stroke-width="1.4"/></g>
+<line x1="70.00" x2="70.00" y1="270.46" y2="268.39" stroke="#b0521c" stroke-width="1.5"/>
+<g><title>short C8 r0（base seed 20261111 子流） observation end_to_end_p99_ms=499.8091578</title><circle cx="68.00" cy="270.12" r="3.2" fill="#b0521c" stroke="#b0521c" stroke-width="1.4"/></g>
+<g><title>short C8 r1（base seed 20261111 子流） observation end_to_end_p99_ms=508.04575252</title><circle cx="70.00" cy="268.39" r="3.2" fill="#b42538" stroke="#b42538" stroke-width="1.4"/></g>
+<g><title>short C8 r2（base seed 20261111 子流） observation end_to_end_p99_ms=498.1886474</title><circle cx="72.00" cy="270.46" r="3.2" fill="#b0521c" stroke="#b0521c" stroke-width="1.4"/></g>
+<text x="232.00" y="398">16</text>
+<line x1="235.00" x2="235.00" y1="304.44" y2="303.52" stroke="#176b9b" stroke-width="1.5"/>
+<g><title>short C16 r0（base seed 20261111 子流） prediction end_to_end_p99_ms=336.259104844</title><circle cx="233.00" cy="304.44" r="3.2" fill="white" stroke="#176b9b" stroke-width="1.4"/></g>
+<g><title>short C16 r1（base seed 20261111 子流） prediction end_to_end_p99_ms=340.651013079</title><circle cx="235.00" cy="303.52" r="3.2" fill="white" stroke="#176b9b" stroke-width="1.4"/></g>
+<g><title>short C16 r2（base seed 20261111 子流） prediction end_to_end_p99_ms=340.651013079</title><circle cx="237.00" cy="303.52" r="3.2" fill="white" stroke="#176b9b" stroke-width="1.4"/></g>
+<line x1="245.00" x2="245.00" y1="257.54" y2="255.25" stroke="#b0521c" stroke-width="1.5"/>
+<g><title>short C16 r0（base seed 20261111 子流） observation end_to_end_p99_ms=570.6933384</title><circle cx="243.00" cy="255.25" r="3.2" fill="#b42538" stroke="#b42538" stroke-width="1.4"/></g>
+<g><title>short C16 r1（base seed 20261111 子流） observation end_to_end_p99_ms=559.7526199</title><circle cx="245.00" cy="257.54" r="3.2" fill="#b42538" stroke="#b42538" stroke-width="1.4"/></g>
+<g><title>short C16 r2（base seed 20261111 子流） observation end_to_end_p99_ms=562.2736393</title><circle cx="247.00" cy="257.01" r="3.2" fill="#b42538" stroke="#b42538" stroke-width="1.4"/></g>
+<text x="407.00" y="398">32</text>
+<line x1="410.00" x2="410.00" y1="236.64" y2="233.88" stroke="#176b9b" stroke-width="1.5"/>
+<g><title>short C32 r0（base seed 20261111 子流） prediction end_to_end_p99_ms=659.342484984</title><circle cx="408.00" cy="236.64" r="3.2" fill="white" stroke="#176b9b" stroke-width="1.4"/></g>
+<g><title>short C32 r1（base seed 20261111 子流） prediction end_to_end_p99_ms=668.126301454</title><circle cx="410.00" cy="234.80" r="3.2" fill="white" stroke="#176b9b" stroke-width="1.4"/></g>
+<g><title>short C32 r2（base seed 20261111 子流） prediction end_to_end_p99_ms=672.518209689</title><circle cx="412.00" cy="233.88" r="3.2" fill="white" stroke="#176b9b" stroke-width="1.4"/></g>
+<line x1="420.00" x2="420.00" y1="145.64" y2="138.39" stroke="#b0521c" stroke-width="1.5"/>
+<g><title>short C32 r0（base seed 20261111 子流） observation end_to_end_p99_ms=1114.3285011</title><circle cx="418.00" cy="141.17" r="3.2" fill="#b42538" stroke="#b42538" stroke-width="1.4"/></g>
+<g><title>short C32 r1（base seed 20261111 子流） observation end_to_end_p99_ms=1093.0465445</title><circle cx="420.00" cy="145.64" r="3.2" fill="#b42538" stroke="#b42538" stroke-width="1.4"/></g>
+<g><title>short C32 r2（base seed 20261111 子流） observation end_to_end_p99_ms=1127.56435001</title><circle cx="422.00" cy="138.39" r="3.2" fill="#b42538" stroke="#b42538" stroke-width="1.4"/></g>
+<text x="115" y="445">并发 clients（log₂）；纵轴 ms</text>
+<text x="505" y="88">长输入留出 P99 E2E</text>
+<line x1="505" x2="855" y1="375.00" y2="375.00" stroke="#d9e2e8"/>
+<text x="457" y="379.00">0</text>
+<line x1="505" x2="855" y1="308.75" y2="308.75" stroke="#d9e2e8"/>
+<text x="457" y="312.75">842</text>
+<line x1="505" x2="855" y1="242.50" y2="242.50" stroke="#d9e2e8"/>
+<text x="457" y="246.50">1.68e+03</text>
+<line x1="505" x2="855" y1="176.25" y2="176.25" stroke="#d9e2e8"/>
+<text x="457" y="180.25">2.53e+03</text>
+<line x1="505" x2="855" y1="110.00" y2="110.00" stroke="#d9e2e8"/>
+<text x="457" y="114.00">3.37e+03</text>
+<line x1="505" x2="855" y1="335.68" y2="335.68" stroke="#8d4860" stroke-dasharray="5,4"/>
+<text x="510" y="330.68">SLA 500 ms</text>
+<text x="497.00" y="398">8</text>
+<line x1="500.00" x2="500.00" y1="320.81" y2="319.92" stroke="#176b9b" stroke-width="1.5"/>
+<g><title>long C8 r0（base seed 20261111 子流） prediction end_to_end_p99_ms=699.172245829</title><circle cx="498.00" cy="320.02" r="3.2" fill="white" stroke="#176b9b" stroke-width="1.4"/></g>
+<g><title>long C8 r1（base seed 20261111 子流） prediction end_to_end_p99_ms=700.435455513</title><circle cx="500.00" cy="319.92" r="3.2" fill="white" stroke="#176b9b" stroke-width="1.4"/></g>
+<g><title>long C8 r2（base seed 20261111 子流） prediction end_to_end_p99_ms=689.072609828</title><circle cx="502.00" cy="320.81" r="3.2" fill="white" stroke="#176b9b" stroke-width="1.4"/></g>
+<line x1="510.00" x2="510.00" y1="298.81" y2="295.47" stroke="#b0521c" stroke-width="1.5"/>
+<g><title>long C8 r0（base seed 20261111 子流） observation end_to_end_p99_ms=968.85112278</title><circle cx="508.00" cy="298.81" r="3.2" fill="#b42538" stroke="#b42538" stroke-width="1.4"/></g>
+<g><title>long C8 r1（base seed 20261111 子流） observation end_to_end_p99_ms=1011.34412181</title><circle cx="510.00" cy="295.47" r="3.2" fill="#b42538" stroke="#b42538" stroke-width="1.4"/></g>
+<g><title>long C8 r2（base seed 20261111 子流） observation end_to_end_p99_ms=1000.38501405</title><circle cx="512.00" cy="296.33" r="3.2" fill="#b42538" stroke="#b42538" stroke-width="1.4"/></g>
+<text x="672.00" y="398">16</text>
+<line x1="675.00" x2="675.00" y1="282.11" y2="271.69" stroke="#176b9b" stroke-width="1.5"/>
+<g><title>long C16 r0（base seed 20261111 子流） prediction end_to_end_p99_ms=1313.68451593</title><circle cx="673.00" cy="271.69" r="3.2" fill="white" stroke="#176b9b" stroke-width="1.4"/></g>
+<g><title>long C16 r1（base seed 20261111 子流） prediction end_to_end_p99_ms=1181.19061096</title><circle cx="675.00" cy="282.11" r="3.2" fill="white" stroke="#176b9b" stroke-width="1.4"/></g>
+<g><title>long C16 r2（base seed 20261111 子流） prediction end_to_end_p99_ms=1233.75244992</title><circle cx="677.00" cy="277.98" r="3.2" fill="white" stroke="#176b9b" stroke-width="1.4"/></g>
+<line x1="685.00" x2="685.00" y1="252.28" y2="248.69" stroke="#b0521c" stroke-width="1.5"/>
+<g><title>long C16 r0（base seed 20261111 子流） observation end_to_end_p99_ms=1606.22548441</title><circle cx="683.00" cy="248.69" r="3.2" fill="#b42538" stroke="#b42538" stroke-width="1.4"/></g>
+<g><title>long C16 r1（base seed 20261111 子流） observation end_to_end_p99_ms=1571.61219711</title><circle cx="685.00" cy="251.41" r="3.2" fill="#b42538" stroke="#b42538" stroke-width="1.4"/></g>
+<g><title>long C16 r2（base seed 20261111 子流） observation end_to_end_p99_ms=1560.50755097</title><circle cx="687.00" cy="252.28" r="3.2" fill="#b42538" stroke="#b42538" stroke-width="1.4"/></g>
+<text x="847.00" y="398">32</text>
+<line x1="850.00" x2="850.00" y1="202.03" y2="198.31" stroke="#176b9b" stroke-width="1.5"/>
+<g><title>long C32 r0（base seed 20261111 子流） prediction end_to_end_p99_ms=2219.68975896</title><circle cx="848.00" cy="200.45" r="3.2" fill="white" stroke="#176b9b" stroke-width="1.4"/></g>
+<g><title>long C32 r1（base seed 20261111 子流） prediction end_to_end_p99_ms=2199.4988071</title><circle cx="850.00" cy="202.03" r="3.2" fill="white" stroke="#176b9b" stroke-width="1.4"/></g>
+<g><title>long C32 r2（base seed 20261111 子流） prediction end_to_end_p99_ms=2246.88779452</title><circle cx="852.00" cy="198.31" r="3.2" fill="white" stroke="#176b9b" stroke-width="1.4"/></g>
+<line x1="860.00" x2="860.00" y1="154.04" y2="138.39" stroke="#b0521c" stroke-width="1.5"/>
+<g><title>long C32 r0（base seed 20261111 子流） observation end_to_end_p99_ms=3008.788042</title><circle cx="858.00" cy="138.39" r="3.2" fill="#b42538" stroke="#b42538" stroke-width="1.4"/></g>
+<g><title>long C32 r1（base seed 20261111 子流） observation end_to_end_p99_ms=2844.94703872</title><circle cx="860.00" cy="151.28" r="3.2" fill="#b42538" stroke="#b42538" stroke-width="1.4"/></g>
+<g><title>long C32 r2（base seed 20261111 子流） observation end_to_end_p99_ms=2809.76967134</title><circle cx="862.00" cy="154.04" r="3.2" fill="#b42538" stroke="#b42538" stroke-width="1.4"/></g>
+<text x="555" y="445">并发 clients（log₂）；纵轴 ms</text>
+<text x="24" y="476">来源 measured · canonical report输入SHA256 ef378f0a181265b8 · finite cohort 含必要drain · hardware_validated=false</text>
+</svg>

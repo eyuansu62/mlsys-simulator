@@ -1,5 +1,44 @@
 # Changelog
 
+## 1.18.0 — 2026-11-11
+
+### Added
+
+- A separate finite-request closed-loop protocol with frozen categorical streams,
+  actual terminal-feedback refill, explicit timeouts/budgets and cohort drain.
+  The existing duration-limited load sweeps retain their semantics.
+- A standard-library feedback collector and optional pinned single-card ROCm/vLLM
+  worker. Runtime API delivery and Scheduler server-token readiness keep distinct
+  clocks, identities and evidence boundaries; warmup and formal IDs are separate.
+- Raw/canonical prediction commitments, measurement-host freeze receipts and
+  CPU-only prediction reveal/validation tools. Comparison uses frozen client
+  policies, not a replay of measured arrival times, and never refits a holdout.
+- Sanitized course reports separating acquisition completeness, prediction error,
+  SLA agreement and false-safe cases, with every repeat retained and min–max
+  ranges labeled separately from confidence intervals.
+- Opt-in full request/token evidence from `normalize_runtime_trace`, without
+  copying the formatter's empty memory or zero compute placeholders as observations.
+
+### Evidence boundary
+
+- A finite cohort rate is not steady-state capacity. Server-token metrics are
+  not HTTP client delivery. Raw Torch allocator diagnostics do not establish
+  complete physical Workspace or memory validation.
+- Actual course acquisition and its preregistered outcomes are recorded in the
+  accompanying validation report. CPU fixtures never become GPU evidence.
+
+### Limited live course study
+
+- RX9070XT / Qwen3-4B BF16: 39 fresh Runtime cohorts, 39,000 completed requests,
+  baseline client scan and frozen short/long input-distribution holdouts.
+  Both raw and canonical prediction commitments were exactly revealed after
+  measurement; every declared attempt and repeat is retained.
+- Acquisition passed; all 39 cohorts missed at least one prediction-error
+  target. SLA judgments agreed in 29/39 cells with 10 false-safe predictions.
+  The predicted baseline cap16 was not supported; the largest observed grid
+  point passing all three repeats was4. Neither held-out grid had an all-repeat
+  safe point. These negative results were not refitted or converted to a pass.
+
 ## 1.17.0 — 2026-11-11
 
 ### Added

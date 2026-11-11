@@ -3,9 +3,11 @@
 [English](README.md) · [Python API](docs/api.md) · [校准](docs/calibration.md) ·
 [验证规范](docs/validation-protocol.md) · [系统规范](docs/specification.md) · [PP 与 CPU swap](docs/pipeline-and-swap.md) · [Prefix Cache 与分块预填充](docs/prefix-cache-and-chunking.md) · [混合批处理](docs/mixed-batching.md) · [多副本路由](docs/multi-replica.md) · [ROCm 采集](docs/rocm-collection.md) · [Qwen3 与 vLLM 内部 hook](docs/qwen3-and-vllm-hooks.md) · [原生 PP 采样与 Profile](docs/native-pp-capture.md) · [原生 PP 通信微基准与校准](docs/native-pp-communication.md) · [量化存储](docs/quantization.md) · [Workspace 与容量验证](docs/workspace-and-capacity.md)
 
-1.17 版增加[显存、延迟、吞吐联合约束筛选和课程η/β校准导入](docs/course-constraints-and-calibration.md)，支持普通实验、负载扫描与DAG，并生成校准前后18点报告。保留量化存储、TP/PP、缓存、分块、混批、CPU swap、多副本与已有真机采集/校准工具。源码见[GitHub](https://github.com/eyuansu62/mlsys-simulator)，许可证仍待选择，尚未发布PyPI。
+1.18 版增加[冻结预测与独立闭环验证](docs/closed-loop-validation.md)：真实完成反馈补位、有限请求cohort、服务端逐token证据和分层课程报告。保留[联合约束筛选与课程η/β导入](docs/course-constraints-and-calibration.md)、量化存储、TP/PP、缓存、分块、混批、CPU swap、多副本与已有采集工具。源码见[GitHub](https://github.com/eyuansu62/mlsys-simulator)，许可证仍待选择，尚未发布PyPI。
 
 按[课程工作流](docs/course-workflows.md)的六条命令可直接生成图文报告、CSV与SVG。52节点32B/7B示例明确为冻结的人工教学轨迹，硬件参数为声明假设；负载边界是有限网格的观测结果，保留全部seed、失败和非单调情况，不建立新的真机精度结论。
+
+[9070XT/Qwen3-4B课程实测](docs/course-sla-9070xt-20261111/README.md)完成39个fresh Runtime、39,000请求和短／长输入留出。采集完整性通过，预注册精度目标未通过：预测安全cap16，基线三次均满足SLA的最大已观测点为4。报告保留全部阴性结果，未回拟合或挑重复。
 
 单卡和TP2已完成完整训练及冻结后独立验证；1.14的PP2也完成闭环，每个cohort各48条记录/48条rank观测、16种stage精确形状，覆盖率100%、字节误差0、低估0。结论仅限实际采样配置和保留形状，详见[Worker Workspace 验证记录](docs/workspace-stage-validation.md)。
 

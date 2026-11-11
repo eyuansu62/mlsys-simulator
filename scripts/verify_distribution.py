@@ -35,7 +35,46 @@ assert all(callable(getattr(mlsys_sim, name)) for name in (
     "write_load_report", "simulate_dag", "run_dag_candidates", "write_dag_report",
     "validate_constraints", "evaluate_simulation_constraints", "evaluate_dag_constraints",
     "run_candidate_screening", "write_screening_report", "import_course_calibration",
-    "write_course_calibration_report", "apply_course_calibration", "run_calibrated_chapter1"))
+    "write_course_calibration_report", "apply_course_calibration", "run_calibrated_chapter1",
+    "validate_closed_loop_spec", "generate_request_stream", "closed_loop_policy_sha256",
+    "predict_closed_loop", "validate_closed_loop", "collect_closed_loop"))
+from mlsys_sim.load_validation_report import write_closed_loop_study_report
+from mlsys_sim.vllm_sla_worker import formal_server_evidence
+assert callable(write_closed_loop_study_report) and callable(formal_server_evidence)
+assert "torch" not in sys.modules and "vllm" not in sys.modules
+finite = {"schema_version": 1, "study_id": "installed-fixture", "cohort": "baseline",
+          "concurrency_grid": [1, 2], "requests_per_run": 4, "replications": 1, "seed": 42,
+          "think_ms": 0, "input_lengths": [2], "output_tokens": 2, "timeout_ms": 100, "max_run_ms": 1000}
+finite_prediction = mlsys_sim.predict_closed_loop(Experiment(
+    calibration=CalibrationSpec(backend="synthetic", prefill_ms=2, decode_ms=1)), finite)
+assert all(row["result"]["counts"]["completed"] == 4 and row["resources_drained"]
+           for row in finite_prediction["runs"])
+assert mlsys_sim.generate_request_stream(finite)["request_stream_sha256"]
+class FixtureClock:
+    now = 1000000000
+    def __call__(self): return self.now
+class FeedbackBackend:
+    source = {"kind": "test_fixture", "reference": "installed-wheel CPU feedback protocol"}
+    def __init__(self, clock): self.clock, self.active = clock, {}
+    def add_request(self, request):
+        self.active[request["request_id"]] = 0
+        return request["request_id"]
+    def has_unfinished_requests(self): return bool(self.active)
+    def abort_requests(self, names):
+        for name in names: self.active.pop(name, None)
+    def step(self):
+        self.clock.now += 1000000
+        rows = []
+        for name in list(self.active):
+            count = self.active[name] + 1
+            self.active[name] = count
+            rows.append({"native_request_id": name, "finished": count == 2, "output_tokens_actual": count})
+            if count == 2: del self.active[name]
+        return rows
+feedback_clock = FixtureClock()
+feedback = mlsys_sim.collect_closed_loop(FeedbackBackend(feedback_clock), finite, 2, clock_ns=feedback_clock)
+assert feedback["completed_count"] == 4 and feedback["offered_count"] == 4
+assert feedback["source"]["kind"] == "test_fixture" and feedback["timing_boundary"] == "runtime_API_feedback_v1"
 plugins = [item for item in entry_points(group="vllm.general_plugins") if item.name == "mlsys_internal_capture"]
 assert len(plugins) == 1
 plugins[0].load()()
@@ -236,7 +275,8 @@ def verify(dist: Path) -> dict:
                        "capacity", "capacity_worker", "vllm_capacity_adapter"):
             assert f"mlsys_sim/{module}.py" in names
         for module in ("course_roofline", "workload", "load_sweep", "event_driver", "dag",
-                       "constraints", "screening", "course_calibration"):
+                       "constraints", "screening", "course_calibration", "load_validation",
+                       "closed_loop_capture", "load_validation_report", "vllm_sla_worker"):
             assert f"mlsys_sim/{module}.py" in names
         assert not any(name.startswith(("tests/", "sample-runs/", "work/")) for name in names)
         assert archive.testzip() is None
@@ -300,6 +340,21 @@ def verify(dist: Path) -> dict:
                          "docs/joint-constraints.md", "docs/candidate-screening.md",
                          "docs/course-calibration.md", "docs/course-constraints-and-calibration.md",
                          "examples/course/course-calibration.fixture.json",
+                         "tests/test_closed_loop_capture.py", "tests/test_load_validation.py",
+                         "tests/test_load_validation_report.py", "tests/test_server_request_evidence.py",
+                         "tests/test_vllm_sla_worker.py", "tests/test_course_sla_analysis.py",
+                         "tests/test_course_sla_freeze.py", "docs/closed-loop-validation.md",
+                         "scripts/analyze_course_sla_study.py", "scripts/freeze_course_sla_commitment.py",
+                         "tests/test_course_sla_published.py",
+                         "docs/course-sla-9070xt-20261111/README.md",
+                         "docs/course-sla-9070xt-20261111/report.json",
+                         "docs/course-sla-9070xt-20261111/summary.json",
+                         "docs/course-sla-9070xt-20261111/cells.csv",
+                         "docs/course-sla-9070xt-20261111/report.html",
+                         "docs/course-sla-9070xt-20261111/baseline-latency.svg",
+                         "docs/course-sla-9070xt-20261111/cohort-throughput.svg",
+                         "docs/course-sla-9070xt-20261111/holdout-e2e.svg",
+                         "examples/course/9070-sla/frozen-commitment/freeze-receipt.json",
                          "tests/test_native_pp_retention_budget.py",
                          "tests/test_rocm_workspace_worker.py",
                          "tests/test_rocm_workspace_stage_domain.py",
@@ -339,6 +394,7 @@ def verify(dist: Path) -> dict:
         for source in (Path(__file__).resolve().parents[1] / "examples/v1_6").glob("*.json"):
             (qwen_inputs / source.name).write_bytes(source.read_bytes())
         run([str(python), "-I", "-c", SMOKE_CODE], outside, env)
+        run([str(python), "-I", "-m", "mlsys_sim.vllm_sla_worker", "--help"], outside, env)
         course_inputs = outside / "course-inputs"
         course_inputs.mkdir()
         for source in (Path(__file__).resolve().parents[1] / "examples/course").glob("*.json"):
@@ -736,6 +792,7 @@ def verify(dist: Path) -> dict:
             "installed_exact_stage_repeats_and_lazy_capacity_adapter": "passed",
             "installed_course_chapter1_workload_load_and_dag": "passed",
             "installed_joint_constraints_screening_and_course_calibration": "passed",
+            "installed_finite_closed_loop_and_lazy_sla_worker": "passed",
             "installed_calibration_comparison_holdout": "passed"}
 
 
