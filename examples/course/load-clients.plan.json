@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "workload": {
+    "schema_version": 1,
+    "seed": 42,
+    "request_prefix": "closed-loop-lesson",
+    "arrival": {"process": "closed_loop", "duration_ms": 5000, "max_requests": 2000, "think_ms": 0},
+    "tokens": {"input": {"min": 16, "max": 64}, "output": 1}
+  },
+  "concurrency_grid": [1, 2, 4, 8, 16],
+  "replications": 3,
+  "drain_ms": 1000,
+  "min_completed_samples": 100,
+  "service_time": {"kind": "empirical_step_scale", "samples": [0.7, 0.8, 1.0, 1.2, 1.3]},
+  "slo": {"p99_e2e_ms": 30, "p99_ttft_ms": 30}
+}

@@ -1,12 +1,15 @@
-# Version 1.15 capability matrix
+# Version 1.16 capability matrix
 
-This table describes the version 1.15 software scope. Available fixture demonstrations
+This table describes the version 1.16 software scope. Available fixture demonstrations
 and unit tests do not establish AMD hardware accuracy. User-supplied reference
 packages are external evidence with their own timing and model-coverage limits.
 
 | Capability | Software status | Supported scope and evidence boundary |
 | --- | --- | --- |
 | Six inputs and strict configuration | Implemented | JSON/TOML, JSONL workload, relative references; optional installed PyYAML |
+| Course Chapter 1 report | Implemented, nominal only | Explicit full-square counting, matrix/vector roofs, 18 shapes/54 components, reconciliation and same-source SVG/CSV/HTML; legacy causal model unchanged and unconfirmed hardware remains pending |
+| Seeded workload and load scan | Implemented | Poisson/periodic open loop, actual-feedback closed loop, declared synthetic service variability, all repetitions and empirical SLO/stability brackets; no universal stability claim |
+| DAG and heterogeneous model pools | Implemented | Actual predecessor completion releases children; separate models/TP/PP/replicas/KV/Profiles on exclusive devices, one causal timeline, failure propagation, resource-drain-qualified candidate ranking and offline replay |
 | Qwen3 geometry and HF import | Implemented | Independent residual/query widths, tied vocabulary storage, Q/K and final Norm, strict unquantized full-attention config (quantized configs are rejected and pointed at an explicit storage declaration) and architecture fingerprints |
 | C01 macro performance model | Implemented | Shape-aware Dense MHA/GQA costs; analytical parameters are uncalibrated |
 | C02 memory planning | Implemented | Per-rank physical budget, fixed KV pool, logical blocks and labeled Workspace source |

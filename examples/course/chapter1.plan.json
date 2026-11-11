@@ -1,0 +1,152 @@
+{
+  "schema_version": 1,
+  "protocol": "hello_mlsys_ch1_nominal_v1",
+  "experiment_id": "qwen3_nominal_18",
+  "calibration": {
+    "version": "nominal",
+    "eta": 1.0,
+    "t_fixed_ms": 0.0
+  },
+  "course_source": {
+    "repository": "amdjiahangpan/hello-mlsys",
+    "commit_sha": "7df2dae493eb30c0f7e845b6d587b905288c0d7a",
+    "path": "docs/part1-modeling/chapter1/index.md",
+    "sha256": "0c0c01a90d35b1b107cc88ccd2c48e776de141bb698356d4b8696baa401ec231"
+  },
+  "hardware": {
+    "id": "rx9070xt",
+    "name": "RX 9070 XT",
+    "status": "course_nominal",
+    "matrix_tflops": 195.0,
+    "vector_tflops": 48.7,
+    "bandwidth_gbps": 640.0,
+    "source": "Hello MLSys chapter 1 declared nominal inputs; not independently measured specifications"
+  },
+  "pending_hardware": {
+    "id": "w7900d",
+    "name": "W7900D",
+    "status": "pending_parameters",
+    "matrix_tflops": null,
+    "vector_tflops": null,
+    "bandwidth_gbps": null,
+    "source": "Hello MLSys chapter 1: parameters pending confirmation"
+  },
+  "axes": {
+    "prefill_lengths": [
+      128,
+      512,
+      2048
+    ],
+    "decode_batch_sizes": [
+      1,
+      4,
+      16
+    ],
+    "decode_context": 1024
+  },
+  "counting": {
+    "prefill_attention": "full_square",
+    "prefill_lm_head": "omitted",
+    "bf16_bytes": 2,
+    "decode_context_includes_current": true,
+    "prefill_gemm_activation_bytes_per_layer_hidden": 28.0,
+    "decode_gemm_activation_bytes_per_layer_hidden": 0.0,
+    "elementwise_flops_per_layer_hidden": 8.0,
+    "elementwise_bytes_per_layer_hidden": 4.0
+  },
+  "models": [
+    {
+      "id": "qwen3_0_6b",
+      "name": "Qwen3-0.6B",
+      "revision": "course-7df2dae493eb-geometry",
+      "source": "https://github.com/amdjiahangpan/hello-mlsys/blob/7df2dae493eb30c0f7e845b6d587b905288c0d7a/docs/part0-intro/chapter0/index.md",
+      "hf_config": {
+        "architectures": [
+          "Qwen3ForCausalLM"
+        ],
+        "model_type": "qwen3",
+        "num_hidden_layers": 28,
+        "hidden_size": 1024,
+        "intermediate_size": 3072,
+        "num_attention_heads": 16,
+        "num_key_value_heads": 8,
+        "head_dim": 128,
+        "vocab_size": 151936,
+        "tie_word_embeddings": true,
+        "torch_dtype": "bfloat16",
+        "hidden_act": "silu",
+        "attention_bias": false,
+        "attention_dropout": 0.0,
+        "use_cache": true,
+        "use_sliding_window": false,
+        "sliding_window": null,
+        "rms_norm_eps": 1e-06,
+        "rope_theta": 1000000,
+        "max_position_embeddings": 40960,
+        "rope_scaling": null
+      }
+    },
+    {
+      "id": "qwen3_1_7b",
+      "name": "Qwen3-1.7B",
+      "revision": "course-7df2dae493eb-geometry",
+      "source": "https://github.com/amdjiahangpan/hello-mlsys/blob/7df2dae493eb30c0f7e845b6d587b905288c0d7a/docs/part0-intro/chapter0/index.md",
+      "hf_config": {
+        "architectures": [
+          "Qwen3ForCausalLM"
+        ],
+        "model_type": "qwen3",
+        "num_hidden_layers": 28,
+        "hidden_size": 2048,
+        "intermediate_size": 6144,
+        "num_attention_heads": 16,
+        "num_key_value_heads": 8,
+        "head_dim": 128,
+        "vocab_size": 151936,
+        "tie_word_embeddings": true,
+        "torch_dtype": "bfloat16",
+        "hidden_act": "silu",
+        "attention_bias": false,
+        "attention_dropout": 0.0,
+        "use_cache": true,
+        "use_sliding_window": false,
+        "sliding_window": null,
+        "rms_norm_eps": 1e-06,
+        "rope_theta": 1000000,
+        "max_position_embeddings": 40960,
+        "rope_scaling": null
+      }
+    },
+    {
+      "id": "qwen3_4b",
+      "name": "Qwen3-4B",
+      "revision": "course-7df2dae493eb-geometry",
+      "source": "https://github.com/amdjiahangpan/hello-mlsys/blob/7df2dae493eb30c0f7e845b6d587b905288c0d7a/docs/part0-intro/chapter0/index.md",
+      "hf_config": {
+        "architectures": [
+          "Qwen3ForCausalLM"
+        ],
+        "model_type": "qwen3",
+        "num_hidden_layers": 36,
+        "hidden_size": 2560,
+        "intermediate_size": 9728,
+        "num_attention_heads": 32,
+        "num_key_value_heads": 8,
+        "head_dim": 128,
+        "vocab_size": 151936,
+        "tie_word_embeddings": true,
+        "torch_dtype": "bfloat16",
+        "hidden_act": "silu",
+        "attention_bias": false,
+        "attention_dropout": 0.0,
+        "use_cache": true,
+        "use_sliding_window": false,
+        "sliding_window": null,
+        "rms_norm_eps": 1e-06,
+        "rope_theta": 1000000,
+        "max_position_embeddings": 40960,
+        "rope_scaling": null
+      }
+    }
+  ]
+}

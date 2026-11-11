@@ -1,4 +1,42 @@
-# V1.14.0 软件与限定真机验证记录
+# V1.16.0 软件与限定真机验证记录
+
+日期：2026-11-11  
+环境：Python 3.14.3，macOS，CPU 执行  
+版本：1.16.0
+
+## 1.16 课程实验闭环
+
+新增三个显式教学入口，复用原有单组、TP/PP、多副本、缓存、swap 与混批引擎。
+普通 `predict` / `simulate` 的默认计数与输出契约保留。八个原有示例的完整结果、
+请求和事件序列与 v1.15.0 基线逐字节一致，包含 R2×TP2×PP2 组合。
+
+| 实验 | CPU 模拟结果 | 验收边界 |
+| --- | --- | --- |
+| 第1章 18点 | 3模型×6形状、54组件；0.6B Prefill512 Attention AI=341.333333，matrix ridge=304.6875，判为compute；0.6B/1.7B Decode Attention AI=2，4B为4 | 显式 full-square 课程口径；普通服务模型继续使用 causal triangle。保留近似表差异与公式推导，不反拟合效率强行对齐 |
+| Poisson速率扫描 | 25/50/75/100/125 rps，各3次；最大观测SLO通过点25 rps；稳定/过载观测区间100→125 rps，网格分辨率25 rps | 有限窗口、所有seed保留、经验分位数；不是普适稳定性定理 |
+| 闭环client扫描 | 1/2/4/8/16 clients，各3次；最大观测SLO通过点2 clients，区间2→4，分辨率2 | 下一请求由真实终态反馈释放；client数不是batch上限 |
+| 52节点32B/7B DAG | 三候选均完成并排空；BF16 TP2+small R2为22924.280ms，INT4 single+small R3为24380.265ms，FP8 single+small R3为29665.989ms | 固定人工教学轨迹、声明式模型/四卡参数下的预测；不是实采Claude轨迹或W7900D实测排名 |
+
+三个DAG候选共享Trace SHA256：
+`1012da76e80906009d3b637e8d8dab7f2d1b3668887a6bffa1b6e757845a2559`。
+任务makespan与PP反馈/DMA资源排空时间分别报告；未排空或发生执行错误的候选不排名。
+
+HTML、CSV、JSON和SVG由公开CLI生成；第1章包含四图、公式核对与当前预测时间戳。
+已逐图检查Roofline编号、未确认W7900D的AI位置图、batching/Prefill曲线、
+负载P99/SLO图和候选DAG时间线。W7900D参数未知时明确pending，不伪造屋顶或时间。
+Timing、Native PP、Workspace及各replica Profile的实际执行使用捕获字节快照，
+避免文件短暂替换后恢复造成配置哈希与执行输入不一致；报告保留原路径、原始字节和SHA。
+
+完整使用方式见[课程工作流](course-workflows.md)。上述数值来自教学模型，
+所有报告保持 `hardware_validated=false`；本轮未新增GPU实测或精度结论。
+最终本地全套1313项CPU回归通过，4项因环境条件跳过；两项loopback HTTP检查
+另行补跑通过，另两项需要Linux原生C++环境，由跨Python CI执行。
+Ruff、mypy（59个源文件）、源码编译、sdist/wheel构建、Twine和仓库外安装包
+API/CLI smoke均通过。独立复审另验证完整三类Profile×两副本的临时替换、
+删除源后的离线重放和DAG计划首次捕获边界。远程结果以对应提交的GitHub Actions为准。
+下述1.14及更早的历史观测保留其原始范围与日期。
+
+## 1.14 历史验证环境
 
 日期：2026-11-05  
 环境：Python 3.14.3，macOS，CPU 执行  

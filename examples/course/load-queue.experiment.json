@@ -1,0 +1,9 @@
+{
+  "schema_version": 1,
+  "workload": [],
+  "infra": {},
+  "strategy": {"scheduler": "fifo", "max_batch_size": 1},
+  "calibration": {"backend": "synthetic", "prefill_ms": 10, "decode_ms": 1},
+  "evaluation": {},
+  "execution": {"seed": 42, "max_simulated_ms": 60000, "max_events": 100000, "detailed_events": false}
+}

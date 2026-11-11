@@ -1,10 +1,24 @@
 # Python API
 
-Install distribution `mlsys-simulator` and import `mlsys_sim`. Version 1.15 exposes the
+Install distribution `mlsys-simulator` and import `mlsys_sim`. Version 1.16 exposes the
 simulation, profile, calibration and comparison functions through this package,
 with optional hardware collection and evidence-acceptance commands;
 `mlsys_sim.__version__` is the software version. JSON schema and Profile version
 labels are separate contracts.
+
+## Opt-in course workflows
+
+`run_chapter1(plan)` and `write_chapter1_report(report, new_directory)` provide the
+explicit Chapter 1 counting protocol and report. `generate_workload(spec,
+replication=0)` returns canonical request dictionaries and seeded provenance.
+`run_load_sweep(experiment, plan)` and `write_load_report` retain every rate/client
+point and repetition. `simulate_dag(plan)` runs one frozen dependency graph;
+`run_dag_candidates(plan)` compares placements without changing its nodes.
+`write_dag_report` writes candidate or single-run artifacts and Profile replay
+inputs. Plans can be supplied to `chapter1`, `generate-workload`, `sweep` and
+`dag` CLI commands. These new plan schemas do not alter legacy `Experiment`
+inputs. See [course workflows](course-workflows.md) for schemas, examples,
+empirical boundary definitions and source limitations.
 
 ## Simulate and predict
 
