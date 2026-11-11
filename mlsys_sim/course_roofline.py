@@ -21,6 +21,7 @@ from .schema import ModelSpec, SimulationError
 
 
 PROTOCOL = "hello_mlsys_ch1_nominal_v1"
+CALIBRATED_PROTOCOL = "hello_mlsys_ch1_eta_beta_transfer_v1"
 _MAX_BYTES = 1024 * 1024
 _COURSE_COMMIT = "7df2dae493eb30c0f7e845b6d587b905288c0d7a"
 _COURSE_PATH = "docs/part1-modeling/chapter1/index.md"
@@ -299,11 +300,94 @@ def run_chapter1(plan: dict, *, stored_at: str | None = None) -> dict:
     return report
 
 
+def run_calibrated_chapter1(plan: dict, calibration: dict, *, stored_at: str | None = None) -> dict:
+    """Explicitly transfer imported primitive coefficients to all 18 dense points.
+
+    This is a separate protocol and a domain-transfer experiment, not a claim
+    that primitive holdouts establish calibrated whole-model hardware accuracy.
+    The original nominal entry point and its returned fields stay unchanged.
+    """
+    from .course_calibration import validate_course_calibration_report
+
+    validate_course_calibration_report(calibration)
+    calibration = json.loads(_canonical(calibration))
+    report = run_chapter1(plan, stored_at=stored_at)
+    hardware, constants = plan["hardware"], calibration["nominal_constants"]
+    if (hardware["matrix_tflops"] != constants["peak_tflops"]
+            or hardware["bandwidth_gbps"] != constants["bw_gbps"]):
+        _fail("Primitive calibration and chapter plan must declare the same matrix peak and bandwidth")
+    eta, beta = calibration["coefficients"]["eta"], calibration["coefficients"]["beta"]
+    nominal_hash = report["data_sha256"]
+    identity = _sha({"plan": plan, "raw_calibration_sha256": calibration["raw_sha256"], "eta": eta, "beta": beta})[:16]
+
+    def transform(component: dict) -> None:
+        component["nominal"] = {k: component[k] for k in ("t_compute_ms", "t_memory_ms", "t_ms", "ridge", "bound")}
+        component["t_compute_ms"] /= eta
+        component["t_memory_ms"] /= beta
+        component["t_ms"] = max(component["t_compute_ms"], component["t_memory_ms"])
+        component["bound"] = "compute" if component["t_compute_ms"] >= component["t_memory_ms"] else "memory"
+        component["ridge"] *= eta / beta
+        component["eta_applied"], component["beta_applied"] = eta, beta
+
+    for point in report["points"]:
+        point["nominal_t_step_ms"] = point["t_step_ms"]
+        for component in point["components"]:
+            transform(component)
+        point["t_step_ms"] = math.fsum(c["t_ms"] for c in point["components"]) + plan["calibration"]["t_fixed_ms"]
+        tokens = point["batch_size"] if point["phase"] == "decode" else point["sequence_length"]
+        point["aggregate_tokens_per_s"] = tokens * 1000 / point["t_step_ms"]
+        point["per_request_tokens_per_s"] = (1 if point["phase"] == "decode" else tokens) * 1000 / point["t_step_ms"]
+        point["dominant_component"] = max(point["components"], key=lambda c: c["t_ms"])["component"]
+        point["calibration_version"] = calibration["calibration_id"]
+        point["formula_version"] = CALIBRATED_PROTOCOL
+        point["prediction_id"] = f"pred_ch2_{plan['experiment_id']}_{point['config_id']}_{identity}"
+        point["validation_scope"] = "primitive_to_dense_model_domain_transfer_not_hardware_validation"
+    for primitive in report["primitives"]:
+        transform(primitive)
+    report["protocol"] = report["formula_version"] = CALIBRATED_PROTOCOL
+    report["base_formula_version"] = PROTOCOL
+    report["report_id"] = f"ch1_eta_beta_{identity}"
+    report["prediction_status"] = "primitive_to_dense_domain_transfer_complete_not_whole_model_validation"
+    report["applied_calibration"] = {"calibration_id": calibration["calibration_id"], "eta": eta, "beta": beta,
+        "source_kind": calibration["source_kind"], "source": calibration["source"],
+        "raw_sha256": calibration["raw_sha256"], "import_report_sha256": calibration["data_sha256"],
+        "fitting_domain": calibration["fitting_domain"], "hardware_validated": False,
+        "launch_framework_overheads_identified": False, "whole_model_validation_established": False}
+    report["formulas"]["component_time"] = "t_ms=max(t_compute_nominal/eta,t_memory_nominal/beta); recompute bound and effective ridge"
+    report["formulas"]["effective_ridge"] = "pipeline_peak_TFLOPS*1000*eta/(bandwidth_GBps*beta)"
+    report["warnings"][0] = "η/β 从 primitive 迁移到 dense 全模型，属于域外假设；无新 GPU 实测或全模型硬件PASS。"
+    report["warnings"] += calibration["limitations"] + [
+        "同一 GEMM η 同时用于矩阵/向量计算是显式迁移假设；向量计算峰值效率并未单独识别。",
+        "课程 B/C 近似表的 reconciliation 保留 nominal 基线；不能用校准后结果反标近似表的计数正确性。",
+    ]
+    report["reconciliation"]["time_rows_scope"] = "nominal_baseline_before_eta_beta_transfer"
+    report["provenance"]["nominal_data_sha256"] = nominal_hash
+    report["provenance"]["course_calibration_raw_sha256"] = calibration["raw_sha256"]
+    report["provenance"]["course_calibration_report_sha256"] = calibration["data_sha256"]
+    report["provenance"]["formulas_sha256"] = _sha(report["formulas"])
+    report["data_sha256"] = _sha({k: v for k, v in report.items() if k != "data_sha256"})
+    return report
+
+
+def _transferred(report: dict) -> bool:
+    return report["protocol"] == CALIBRATED_PROTOCOL
+
+
+def _plot_hardware(report: dict) -> dict:
+    hardware = report["plan"]["hardware"].copy()
+    if _transferred(report):
+        calibration = report["applied_calibration"]
+        hardware["matrix_tflops"] *= calibration["eta"]
+        hardware["vector_tflops"] *= calibration["eta"]
+        hardware["bandwidth_gbps"] *= calibration["beta"]
+    return hardware
+
+
 def _svg_open(report: dict, title: str, width: int, height: int) -> list[str]:
     return [f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}" '
             f'viewBox="0 0 {width} {height}" role="img" aria-label="{escape(title, quote=True)}">',
             f'<title>{escape(title)}</title>', f'<metadata>report.json sha256={report["data_sha256"]}; '
-            f'protocol={PROTOCOL}; hardware_validated=false</metadata>',
+            f'protocol={report["protocol"]}; hardware_validated=false</metadata>',
             '<style>text{font-family:system-ui,"PingFang SC","Microsoft YaHei",sans-serif;'
             'fill:#172b3a;font-size:13px} .small{font-size:11px} .title{font-size:21px;font-weight:600}'
             '.grid{stroke:#d9e2e8;stroke-width:1} .axis{stroke:#607785;stroke-width:1}</style>',
@@ -326,7 +410,8 @@ def _marker(x: float, y: float, color: str, title: str, kind: int = 0) -> str:
 
 
 def _source_footer(report: dict, y: int) -> str:
-    return _label(32, y, f"数据：report.json · {report['data_sha256'][:16]} · nominal η=1 · 无实测点", 'class="small"')
+    mode = "primitive η/β 迁移，非全模型验证" if _transferred(report) else "nominal η=1"
+    return _label(32, y, f"数据：report.json · {report['data_sha256'][:16]} · {mode} · 无实测点", 'class="small"')
 
 
 def _ai_limits(report: dict) -> tuple[float, float]:
@@ -335,10 +420,13 @@ def _ai_limits(report: dict) -> tuple[float, float]:
 
 
 def _roofline_svg(report: dict) -> str:
-    svg = _svg_open(report, "RX 9070 XT：矩阵 / 向量双屋顶与 18 点组件", 1250, 650)
+    title = "RX 9070 XT：矩阵 / 向量双屋顶与 18 点组件"
+    if _transferred(report):
+        title += "（primitive η/β 迁移）"
+    svg = _svg_open(report, title, 1250, 650)
     x0, x1, y0, y1 = 82, 750, 95, 545
     loglo, loghi = _ai_limits(report)
-    hardware = report["plan"]["hardware"]
+    hardware = _plot_hardware(report)
     min_tf = min(c["flops"] / c["t_ms"] / 1e9 for p in report["points"] for c in p["components"])
     log_ylo = min(-1, math.floor(math.log10(min_tf)))
     log_yhi = max(math.log10(400), math.log10(max(hardware["matrix_tflops"], hardware["vector_tflops"]) * 1.5))
@@ -419,6 +507,8 @@ def _pending_svg(report: dict) -> str:
 def _curve_svg(report: dict, phase: str) -> str:
     decode = phase == "decode"
     title = "Decode batching：step 与聚合吞吐" if decode else "Prefill：序列长度与 step 下界"
+    if _transferred(report):
+        title = title.replace("下界", "预测") + "（η/β 迁移）"
     width, height = (1150 if decode else 900), 550
     svg = _svg_open(report, title, width, height)
     panels = [("t_step_ms", "单步时间（ms）", 82, 520 if decode else 840)]
@@ -463,20 +553,24 @@ def _csv(report: dict) -> str:
     fields = ["prediction_id", "stored_at", "model_name", "phase", "batch_size", "sequence_length",
               "component", "pipeline", "flops", "bytes", "ai", "ridge", "bound",
               "t_compute_ms", "t_memory_ms", "t_ms", "t_step_ms", "formula_version", "hardware_validated"]
+    if _transferred(report):
+        fields += ["nominal_t_compute_ms", "nominal_t_memory_ms", "nominal_t_ms", "nominal_bound", "eta_applied", "beta_applied"]
     writer = csv.DictWriter(buffer, fieldnames=fields)
     writer.writeheader()
     for point in report["points"]:
         for component in point["components"]:
-            writer.writerow({key: component[key] if key in component else point[key] for key in fields})
+            writer.writerow({key: component["nominal"][key.removeprefix("nominal_")] if key.startswith("nominal_")
+                             else component[key] if key in component else point[key] for key in fields})
     return buffer.getvalue()
 
 
 def _markdown(report: dict) -> str:
-    rows = ["# 第 1 章：18 点 nominal 实验报告", "", f"协议 `{PROTOCOL}`；创建于 `{report['stored_at']}`。",
+    mode = "primitive η/β 迁移" if _transferred(report) else "nominal"
+    rows = [f"# 第 1 章：18 点 {mode} 实验报告", "", f"协议 `{report['protocol']}`；创建于 `{report['stored_at']}`。",
             "", "**解析预测完成；不代表课程的历史实测、先预测后测量纪律或 W7900D 硬件验收已完成。**", ""]
     rows += [f"- {warning}" for warning in report["warnings"]]
     rows += ["", "## 计数与瓶颈", "", "![RX9070XT 双屋顶与全部18点组件](roofline-rx9070xt.svg)", "",
-             "图中保留全部54个 nominal 组件点；精确重合的 marker 会覆盖，编号与配置在右表，完整数值见 [components.csv](components.csv)。",
+             f"图中保留全部54个 {mode} 组件点；精确重合的 marker 会覆盖，编号与配置在右表，完整数值见 [components.csv](components.csv)。",
              "每个组件先选矩阵/向量峰值，取 max(compute, memory)，step 再求和；全局 AI 不用于判定。", "",
              "| 模型 | Phase | B | S / ctx | GEMM | Attention | Elementwise | Step (ms) | 聚合 token/s |",
              "| --- | --- | ---: | ---: | --- | --- | --- | ---: | ---: |"]
@@ -489,6 +583,7 @@ def _markdown(report: dict) -> str:
              "![Prefill 曲线](prefill.svg)", "", "固定 B=1；长序列的 full-square attention 计算项增长。", "",
              "## W7900D：待确认参数", "", "![W7900D 待确认，仅 AI 索引](roofline-w7900d-pending.svg)", "",
              "参数未知，无法画有数值意义的该硬件屋顶线；此图只展示同一 18 点的 AI，纵轴不是吞吐。", "",
+             *( ["η/β 迁移报告中，下表保留校准前 nominal 基线；上面的18点与曲线使用校准后时间。", ""] if _transferred(report) else []),
              "## 手算与近似表对账", "", "| 0.6B 配置 | 课程约数 ms | 本协议精确 ms | 差值 ms | 一位小数相同 |",
              "| --- | ---: | ---: | ---: | --- |"]
     for r in report["reconciliation"]["time_rows"]:
@@ -525,6 +620,18 @@ def _html(report: dict) -> str:
         [[p["model_name"], p["phase"], str(p["batch_size"]), str(p["sequence_length"]),
           *(c["bound"] for c in p["components"]), f'{p["t_step_ms"]:.6f}', f'{p["aggregate_tokens_per_s"]:.2f}']
          for p in report["points"]])
+    transfer_intro = ''
+    if _transferred(report):
+        calibration = report["applied_calibration"]
+        transfer_intro = (f'<p><strong>η={calibration["eta"]:.4f}，β={calibration["beta"]:.4f}</strong>；'
+            f'来源：{escape(calibration["source"]["label"])}（<code>{escape(calibration["source_kind"])}</code>）。'
+            'primitive 系数迁移到 dense 模型，非新真机测量；未证明全模型精度。</p>')
+        summary = table(["模型", "Phase", "B", "S / ctx", "GEMM", "Attention", "Elementwise",
+                         "Nominal ms", "迁移后 ms", "变化 %", "聚合 token/s"],
+            [[p["model_name"], p["phase"], str(p["batch_size"]), str(p["sequence_length"]),
+              *(c["bound"] for c in p["components"]), f'{p["nominal_t_step_ms"]:.6f}', f'{p["t_step_ms"]:.6f}',
+              f'{(p["t_step_ms"] / p["nominal_t_step_ms"] - 1) * 100:+.1f}', f'{p["aggregate_tokens_per_s"]:.2f}']
+             for p in report["points"]])
     reconciled = table(["0.6B 配置", "课程约数 ms", "本协议精确 ms", "差值 ms", "一位小数相同"],
         [[r["config_id"], f'{r["course_approximate_ms"]:.1f}', f'{r["nominal_ms"]:.6f}',
           f'{r["difference_ms"]:+.6f}', "是" if r["matches_one_decimal_rounding"] else "否"]
@@ -533,24 +640,28 @@ def _html(report: dict) -> str:
         [[c["component"], f'{c["flops"]:.0f}', f'{c["bytes"]:.0f}', f'{c["ai"]:.6f}', c["bound"],
           f'{c["t_compute_ms"]:.6f}', f'{c["t_memory_ms"]:.6f}', f'{c["t_ms"]:.6f}'] for c in report["primitives"]])
     warning_list = '<ul>' + ''.join(f'<li>{escape(w)}</li>' for w in report["warnings"]) + '</ul>'
+    if _transferred(report):
+        warning_list = '<details><summary>完整适用域与证据限制（展开）</summary>' + warning_list + '</details>'
     notes = report["reconciliation"]["notes"] + [report["reconciliation"]["naive_attention"]["explanation"]]
     notes_list = '<ul>' + ''.join(f'<li>{escape(w)}</li>' for w in notes) + '</ul>'
     formulas = '<dl>' + ''.join(f'<dt>{escape(k)}</dt><dd><code>{escape(v)}</code></dd>'
                                 for k, v in report["formulas"].items()) + '</dl>'
+    mode = "primitive η/β 迁移" if _transferred(report) else "nominal"
     return ('<!doctype html><html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" '
-            'content="width=device-width,initial-scale=1"><title>第1章 nominal 实验报告</title><style>'
+            f'content="width=device-width,initial-scale=1"><title>第1章 {mode} 实验报告</title><style>'
             'body{font:16px/1.65 system-ui,"PingFang SC",sans-serif;color:#172b3a;max-width:1250px;'
             'margin:32px auto;padding:0 24px}img{display:block;width:100%;height:auto}figure{margin:32px 0}'
             'a{color:#176b9b}table{border-collapse:collapse;width:100%;font-size:13px;font-variant-numeric:tabular-nums}'
             '.table{overflow-x:auto}th,td{padding:9px 10px;border-bottom:1px solid #d9e2e8;text-align:right;'
             'white-space:nowrap}th:first-child,td:first-child{text-align:left}thead{background:#f3f6f8}'
             'code,dd{overflow-wrap:anywhere}dt{font-weight:600;margin-top:16px}figcaption{color:#526775;'
-            'font-size:14px}h2{margin-top:42px}</style><h1>第1章：18点 nominal 实验报告</h1>'
-            f'<p>协议 <code>{PROTOCOL}</code>；创建于 <code>{escape(report["stored_at"])}</code>。</p>'
+            f'font-size:14px}}h2{{margin-top:42px}}</style><h1>第1章：18点 {mode} 实验报告</h1>'
+            f'<p>协议 <code>{report["protocol"]}</code>；创建于 <code>{escape(report["stored_at"])}</code>。</p>'
             '<p><strong>解析预测完成；不代表历史实测、先预测后测量纪律或 W7900D 硬件验收已完成。</strong></p>'
-            '<p><a href="report.json">JSON 底稿</a> · <a href="components.csv">组件 CSV</a> · '
+            + transfer_intro
+            + '<p><a href="report.json">JSON 底稿</a> · <a href="components.csv">组件 CSV</a> · '
             '<a href="report.md">Markdown 完整报告</a></p>' + warning_list
-            + '<h2>组件瓶颈与18点结果</h2>' + picture("roofline-rx9070xt.svg", "双屋顶：保留全部54个 nominal 组件点；精确重合位置覆盖，编号与配置见右侧表。")
+            + '<h2>组件瓶颈与18点结果</h2>' + picture("roofline-rx9070xt.svg", f"双屋顶：保留全部54个 {mode} 组件点；精确重合位置覆盖，编号与配置见右侧表。")
             + '<p>每个组件选择矩阵/向量峰值，取 max(compute, memory)，step 再求和。全局 AI 只供展示。</p>'
             + summary + '<p>Prefill token/s 是输入处理率；decode token/s 是生成速率，不能混作服务吞吐。</p>'
             + picture("batching.svg", "固定 ctx 后 batching 复用 GEMM 权重；KV 扫描仍随 B 增长。")
@@ -558,6 +669,7 @@ def _html(report: dict) -> str:
             + '<h2>W7900D：待确认参数</h2>'
             + picture("roofline-w7900d-pending.svg", "参数未知，无硬件屋顶线；仅标18点的 AI，纵轴不是吞吐。")
             + '<h2>手算与近似表对账</h2><p>差异属于公式、流量假设与近似表口径，不标作硬件测量误差或校准通过。</p>'
+            + ('<p>此表为校准前nominal基线；18点结果与曲线使用校准后时间。</p>' if _transferred(report) else '')
             + reconciled + notes_list + '<h2>Primitive 直觉练习</h2>' + primitives
             + '<h2>可复现公式与来源</h2>' + formulas
             + f'<p>report data SHA256：<code>{report["data_sha256"]}</code>。图、表、CSV 均来自同一 report 对象。'
@@ -573,7 +685,8 @@ def write_chapter1_report(report: dict, out: Path) -> dict[str, Path]:
     timestamp. The data hash protects against accidentally mixing separate runs.
     """
     _canonical(report)
-    if not isinstance(report, dict) or report.get("protocol") != PROTOCOL or report.get("point_count") != 18:
+    if (not isinstance(report, dict) or report.get("protocol") not in (PROTOCOL, CALIBRATED_PROTOCOL)
+            or report.get("point_count") != 18):
         _fail("Expected an intact chapter 1 report")
     payload = {key: value for key, value in report.items() if key != "data_sha256"}
     if report.get("data_sha256") != _sha(payload):

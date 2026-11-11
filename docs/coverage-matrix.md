@@ -1,12 +1,15 @@
-# Version 1.16 capability matrix
+# Version 1.17 capability matrix
 
-This table describes the version 1.16 software scope. Available fixture demonstrations
+This table describes the version 1.17 software scope. Available fixture demonstrations
 and unit tests do not establish AMD hardware accuracy. User-supplied reference
 packages are external evidence with their own timing and model-coverage limits.
 
 | Capability | Software status | Supported scope and evidence boundary |
 | --- | --- | --- |
 | Six inputs and strict configuration | Implemented | JSON/TOML, JSONL workload, relative references; optional installed PyYAML |
+| Joint capacity/latency/throughput constraints | Implemented, opt-in | Each physical rank's peak budget, requested quantiles and explicit rate denominator; missing/insufficient evidence stays UNKNOWN and failed runs cannot pass |
+| Fixed-workload candidate screening | Implemented, opt-in | Ordinary runs, every load repetition or heterogeneous DAG/pool assessments; all candidate outcomes retained, PASS-only ranking, exact Profile bytes and offline replay |
+| Course eta/beta import and calibrated report | Implemented adapter | Explicit fit membership, source/ratio checks, preserved diagnostics and analytical-only patch; nominal reports and whole-stage Profiles remain separate, no hardware promotion |
 | Course Chapter 1 report | Implemented, nominal only | Explicit full-square counting, matrix/vector roofs, 18 shapes/54 components, reconciliation and same-source SVG/CSV/HTML; legacy causal model unchanged and unconfirmed hardware remains pending |
 | Seeded workload and load scan | Implemented | Poisson/periodic open loop, actual-feedback closed loop, declared synthetic service variability, all repetitions and empirical SLO/stability brackets; no universal stability claim |
 | DAG and heterogeneous model pools | Implemented | Actual predecessor completion releases children; separate models/TP/PP/replicas/KV/Profiles on exclusive devices, one causal timeline, failure propagation, resource-drain-qualified candidate ranking and offline replay |

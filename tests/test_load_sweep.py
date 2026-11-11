@@ -3,6 +3,7 @@
 from copy import deepcopy
 from dataclasses import asdict, replace
 import csv
+import hashlib
 import json
 from pathlib import Path
 import tempfile
@@ -20,6 +21,7 @@ import mlsys_sim.profiles as profiles
 from mlsys_sim.schema import (
     CalibrationSpec, DeviceSpec, Experiment, InfraSpec, RequestSpec, SimulationError, StrategySpec,
 )
+from mlsys_sim.workload import canonical_sha256
 
 
 def experiment(**strategy):
@@ -37,6 +39,59 @@ def plan(clients=False):
 
 
 class LoadSweepTests(unittest.TestCase):
+    def test_unconfigured_joint_constraints_preserve_frozen_report_and_artifact_bytes(self):
+        report = run_load_sweep(experiment(), plan())
+        self.assertEqual(canonical_sha256(report), "c253058f63cb5df105de138fe195652d72242a2c26be763efb92f84b0d05f0e6")
+        self.assertEqual(hashlib.sha256(load_sweep._csv(report).encode()).hexdigest(),
+                         "3e6971df4b66a88793715a965674ef436c391b5a0314a6fad900d68ba5b37242")
+        self.assertEqual(hashlib.sha256(load_sweep._html(report).encode()).hexdigest(),
+                         "59064421c860e5779505c2ef3cc2ffd517e051a4d9182cdd109db61897796314")
+
+    def test_joint_constraints_add_window_throughput_without_redefining_legacy_slo(self):
+        spec = plan()
+        spec["rate_grid_rps"] = [25, 50, 100]
+        spec["constraints"] = {"schema_version": 1, "min_completed_samples": 2, "memory": {},
+                               "latency": {"p99_e2e_ms": 30},
+                               "throughput": {"basis": "measurement_window", "min_requests_per_s": 60}}
+        report = run_load_sweep(experiment(), spec)
+        self.assertEqual([point["slo_pass"] for point in report["points"]], [True, True, True])
+        self.assertEqual([point["joint_pass"] for point in report["points"]], [False, False, True])
+        self.assertEqual(report["boundaries"]["sla_max_observed"], 100)
+        self.assertEqual(report["boundaries"]["joint_max_observed"], 100)
+        self.assertEqual(report["points"][0]["constraint_assessment"]["verdict"], "FAIL")
+        with tempfile.TemporaryDirectory() as temp:
+            write_load_report(report, Path(temp) / "joint")
+            html = (Path(temp) / "joint/report.html").read_text()
+            self.assertIn("无量纲余量", html)
+            with (Path(temp) / "joint/points.csv").open() as stream:
+                rows = list(csv.DictReader(stream))
+            self.assertEqual(rows[0]["constraint_verdict"], "FAIL")
+            self.assertEqual(rows[-1]["joint_verdict"], "PASS")
+
+    def test_joint_all_replications_must_pass_and_unknown_is_not_accepted(self):
+        spec = plan()
+        spec["rate_grid_rps"] = [100]
+        spec["slo"] = {"p99_e2e_ms": 1000}
+        spec["constraints"] = {"schema_version": 1, "min_completed_samples": 2,
+                               "throughput": {"basis": "measurement_window", "min_requests_per_s": 95}}
+        durations = iter((10, 15))
+        def varying_replication(exp):
+            return simulate(replace(exp, calibration=replace(exp.calibration, prefill_ms=next(durations))))
+        with patch("mlsys_sim.load_sweep.simulate", side_effect=varying_replication):
+            report = run_load_sweep(experiment(), spec)
+        point = report["points"][0]
+        self.assertTrue(point["slo_pass"])
+        self.assertEqual(point["classification"], "observed_stable")
+        self.assertEqual([run["constraint_assessment"]["verdict"] for run in point["runs"]], ["PASS", "FAIL"])
+        self.assertEqual(point["joint_verdict"], "FAIL")
+        self.assertEqual(report["boundaries"]["sla_max_observed"], 100)
+        self.assertIsNone(report["boundaries"]["joint_max_observed"])
+        spec["constraints"]["min_completed_samples"] = 100
+        unknown = run_load_sweep(experiment(), spec)
+        self.assertEqual(unknown["points"][0]["constraint_assessment"]["verdict"], "UNKNOWN")
+        self.assertIsNone(unknown["points"][0]["joint_pass"])
+        self.assertIsNone(unknown["boundaries"]["joint_max_observed"])
+
     def test_hand_computed_periodic_stable_and_overloaded(self):
         spec = plan()
         before = deepcopy(spec)
@@ -301,6 +356,15 @@ class LoadSweepTests(unittest.TestCase):
                             for point in result["points"] for run in point["runs"]))
         self.assertTrue(any(run["result"]["prefix_cache"]["hit_requests"] > 0
                             for point in result["points"] for run in point["runs"]))
+        spec["constraints"] = {"schema_version": 1, "min_completed_samples": 2,
+                               "memory": {"max_budget_fraction": .99},
+                               "latency": {"p99_ttft_ms": 100, "p99_e2e_ms": 1000},
+                               "throughput": {"basis": "elapsed", "min_output_tokens_per_s": 0}}
+        constrained = run_load_sweep(exp, spec)
+        for before, after in zip(result["points"], constrained["points"]):
+            self.assertEqual(after["constraint_assessment"]["verdict"], "PASS")
+            self.assertEqual([item["requests"] for item in before["runs"]],
+                             [item["requests"] for item in after["runs"]])
 
     def test_artifacts_share_samples_and_refuse_overwrite(self):
         report = run_load_sweep(experiment(), plan())

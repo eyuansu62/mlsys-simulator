@@ -14,6 +14,7 @@ import tempfile
 from typing import Any
 
 from .capacity import _bind_inputs, _profile_inputs
+from .constraints import _limiting, _verdict, evaluate_simulation_constraints, validate_constraints
 from .engine import simulate
 from .schema import Experiment, RequestSpec, SimulationError, StepEstimate
 from .state import SimulationResult, TERMINAL
@@ -37,8 +38,10 @@ def _invalid(message: str) -> None:
 def validate_load_plan(plan: dict) -> dict:
     _keys(plan, {"schema_version", "workload", "replications", "drain_ms", "slo"},
           {"rate_grid_rps", "concurrency_grid", "min_completed_samples", "service_time",
-           "backlog_growth_tolerance"}, "load plan")
+           "backlog_growth_tolerance", "constraints"}, "load plan")
     _integer(plan["schema_version"], "schema_version", 1, 1)
+    if "constraints" in plan:
+        validate_constraints(plan["constraints"])
     if ("rate_grid_rps" in plan) == ("concurrency_grid" in plan):
         _invalid("Exactly one of rate_grid_rps or concurrency_grid is required")
     clients = "concurrency_grid" in plan
@@ -408,6 +411,7 @@ def _run_bound_sweep(experiment: Experiment, plan: dict, profile_inputs: list[di
     evaluation = replace(experiment.evaluation, measurement_window_ms=duration,
                          drain=True, max_drain_ms=float(plan["drain_ms"]))
     points: list[dict] = []
+    constraints = plan.get("constraints")
     total_events = 0
     for point_index, value in enumerate(plan[grid_key]):
         runs: list[dict] = []
@@ -430,9 +434,14 @@ def _run_bound_sweep(experiment: Experiment, plan: dict, profile_inputs: list[di
             total_events += result.result["events_processed"]
             if total_events > MAX_SWEEP_EVENTS:
                 _invalid(f"Report events exceed total sweep bound {MAX_SWEEP_EVENTS}; reduce duration/load or disable detailed_events")
-            runs.append({"replication": replication, "summary": _summary(result, duration, plan, closed_loop=clients),
-                         "workload": generated, "result": result.result, "requests": result.requests,
-                         "events": result.events})
+            entry: dict[str, Any] = {"replication": replication,
+                                     "summary": _summary(result, duration, plan, closed_loop=clients),
+                                     "workload": generated, "result": result.result, "requests": result.requests,
+                                     "events": result.events}
+            if constraints is not None:
+                entry["constraint_assessment"] = evaluate_simulation_constraints(result, constraints)
+                entry["joint_verdict"] = _joint_verdict(entry["summary"], entry["constraint_assessment"])
+            runs.append(entry)
         samples: dict[str, list[float]] = {metric: [] for metric in _METRICS.values()}
         for run in runs:
             for row in run["requests"]:
@@ -459,6 +468,19 @@ def _run_bound_sweep(experiment: Experiment, plan: dict, profile_inputs: list[di
                        "throughput_observed_range": [min(run["result"]["throughput"]["requests_per_s"] for run in runs),
                                                      max(run["result"]["throughput"]["requests_per_s"] for run in runs)],
                        "runs": runs})
+        if constraints is not None:
+            checks = []
+            for run in runs:
+                for check in run["constraint_assessment"]["checks"]:
+                    checks.append({**deepcopy(check), "scope": {**check["scope"], "replication": run["replication"]}})
+            assessment = {"verdict": _verdict([run["constraint_assessment"]["verdict"] for run in runs]),
+                          "checks": checks, "limiting_constraints": _limiting(checks),
+                          "replication_verdicts": [{"replication": run["replication"],
+                                                    "verdict": run["constraint_assessment"]["verdict"]} for run in runs],
+                          "metric_contract": {"aggregation": "every declared replication must PASS independently"}}
+            joint = _verdict([run["joint_verdict"] for run in runs])
+            points[-1].update(constraint_assessment=assessment, joint_verdict=joint,
+                              joint_pass=True if joint == "PASS" else False if joint == "FAIL" else None)
     accepted = [point for point in points if point["slo_pass"] is True and
                 point["classification"] in {"observed_stable", "observed_completed"}]
     stable = [point for point in points if point["classification"] == "observed_stable"]
@@ -472,7 +494,7 @@ def _run_bound_sweep(experiment: Experiment, plan: dict, profile_inputs: list[di
         if left["slo_pass"] is True and right["slo_pass"] is False:
             slo_brackets.append({"pass": left[axis], "fail": right[axis],
                                  "resolution": right[axis] - left[axis], "axis": axis})
-    return {"schema_version": 1, "sweep_version": SWEEP_VERSION, "backend": "simulated",
+    report: dict[str, Any] = {"schema_version": 1, "sweep_version": SWEEP_VERSION, "backend": "simulated",
             "hardware_validated": False, "experiment_sha256": canonical_sha256(asdict(experiment)),
             "profile_inputs": [{**item, "artifact_path": f"inputs/profile-{index:03d}.json"}
                                for index, item in enumerate(profile_inputs)],
@@ -509,22 +531,52 @@ def _run_bound_sweep(experiment: Experiment, plan: dict, profile_inputs: list[di
                             "SLA boundary is observed grid only; no interpolation or extrapolation",
                             "Empirical service scaling is IID synthetic phase-batch/stage timing, not request-level variance",
                             "Low sample counts do not establish a reliable tail; all run counts remain visible"]}
+    if constraints is not None:
+        joint_points = [point for point in points if point["joint_verdict"] == "PASS"]
+        report["boundaries"].update({
+            "joint_max_observed": joint_points[-1][axis] if joint_points else None,
+            "joint_pass_fail_brackets": [{"pass": left[axis], "fail": right[axis],
+                                          "resolution": right[axis] - left[axis], "axis": axis}
+                                         for left, right in zip(points, points[1:])
+                                         if left["joint_verdict"] == "PASS" and right["joint_verdict"] == "FAIL"],
+            "joint_nonmonotonic": any(left["joint_verdict"] == "FAIL" and right["joint_verdict"] == "PASS"
+                                      for left, right in zip(points, points[1:]))})
+    return report
+
+
+def _joint_verdict(summary: dict, assessment: dict) -> str:
+    if (summary["slo_pass"] is False or summary["classification"] in {"observed_failure", "observed_overloaded"}
+            or assessment["verdict"] == "FAIL"):
+        return "FAIL"
+    if summary["slo_pass"] is None or assessment["verdict"] == "UNKNOWN":
+        return "UNKNOWN"
+    return "PASS"
 
 
 def _csv(report: dict) -> str:
     output = io.StringIO(newline="")
     writer = csv.writer(output)
-    writer.writerow(["offered_rps", "clients", "replication", "classification", "slo_pass",
-                     "eligible", "completed", "cohort_requests_per_s", "window_completed_requests_per_s",
-                     "ttft_p99_ms", "tpot_p99_ms", "e2e_p99_ms"])
+    joint = "constraints" in report["plan"]
+    columns = ["offered_rps", "clients", "replication", "classification", "slo_pass",
+               "eligible", "completed", "cohort_requests_per_s", "window_completed_requests_per_s",
+               "ttft_p99_ms", "tpot_p99_ms", "e2e_p99_ms"]
+    if joint:
+        columns.extend(["constraint_verdict", "joint_verdict", "minimum_normalized_headroom"])
+    writer.writerow(columns)
     for point in report["points"]:
         for run in point["runs"]:
             row = run["summary"]
-            writer.writerow([point["offered_rps"], point["clients"], run["replication"], row["classification"],
-                             row["slo_pass"], row["eligible_requests"], row["completed_samples"],
-                             row["throughput"]["requests_per_s"], row["window_completed_requests_per_s"],
-                             row["latency_ms"]["ttft"]["p99"],
-                             row["latency_ms"]["tpot"]["p99"], row["latency_ms"]["end_to_end"]["p99"]])
+            values = [point["offered_rps"], point["clients"], run["replication"], row["classification"],
+                      row["slo_pass"], row["eligible_requests"], row["completed_samples"],
+                      row["throughput"]["requests_per_s"], row["window_completed_requests_per_s"],
+                      row["latency_ms"]["ttft"]["p99"],
+                      row["latency_ms"]["tpot"]["p99"], row["latency_ms"]["end_to_end"]["p99"]]
+            if joint:
+                assessment = run["constraint_assessment"]
+                limiting = assessment["limiting_constraints"]
+                values.extend([assessment["verdict"], run["joint_verdict"],
+                               limiting[0]["normalized_headroom"] if limiting else None])
+            writer.writerow(values)
     return output.getvalue()
 
 
@@ -617,6 +669,7 @@ def _html(report: dict) -> str:
             "—" if p99 is None else f"{p99:.6g}", point["replication_slo_outcomes"])) + "</tr>")
     thresholds = escape(json.dumps(report["plan"]["slo"], ensure_ascii=False))
     boundaries = escape(json.dumps(report["boundaries"], ensure_ascii=False, indent=2))
+    joint = _constraints_html(report) if "constraints" in report["plan"] else ""
     figures = "\n".join(f'<figure><img src="{metric}.svg" alt="{escape(label)}"/>'
                          f'<figcaption>{escape(label)}；全部重复均保留，n 为相应指标样本数（吞吐图为完成请求数）。</figcaption></figure>'
                          for metric, label in (("throughput", "窗口内完成吞吐"), ("ttft", "首 token 经验 P99"),
@@ -636,9 +689,28 @@ figcaption{{color:#526273;font-size:14px}}pre{{white-space:pre-wrap;background:#
 原模拟器包含 drain 的到达队列吞吐另保留在 CSV / JSON，不等同于设备稳态服务率。</p>
 <table><thead><tr><th>{axis}</th><th>有限观察判据</th><th>SLO 通过</th><th>完成 n</th>
 <th>窗口吞吐 req/s</th><th>E2E P99 ms</th><th>各重复 SLO</th></tr></thead><tbody>{''.join(rows)}</tbody></table>
-{figures}<h2>观察到的边界</h2><p>仅报告相邻网格 bracket 和实际观察到的最大通过点，不插值、不外推。
+{joint}{figures}<h2>观察到的边界</h2><p>仅报告相邻网格 bracket 和实际观察到的最大通过点，不插值、不外推。
 随机曲线可非单调；有限时间中的排队增长和 drain 完成情况不是数学稳定性证明。
 闭环 client 数表示在线用户，独立于调度器 max_batch_size。</p><pre>{boundaries}</pre>
 <p>可审计源：<a href="report.json">完整报告与生成请求</a>、<a href="points.csv">逐重复指标 CSV</a>、
 <code>runs/</code> 下逐次原结果、事件及 provenance。经验分位数采用 (n−1)q 的线性插值。</p>
 </html>'''
+
+
+def _constraints_html(report: dict) -> str:
+    parts = ["<h2>显存、延迟与吞吐联合约束</h2><p>旧 SLO 结果保留原含义；joint 仅在每个重复均满足全部约束、"
+             "旧 SLO 通过且未观察到过载时通过。UNKNOWN 不获得合格名次。余量统一为无量纲值，越接近或小于 0 越限制。</p>"]
+    for point in report["points"]:
+        label = point["clients"] if point["clients"] is not None else point["offered_rps"]
+        parts.append(f'<details><summary>负载 {escape(str(label))} · joint {point["joint_verdict"]} · '
+                     f'约束 {point["constraint_assessment"]["verdict"]}</summary>')
+        parts.append("<table><thead><tr><th>检查</th><th>范围</th><th>实值</th><th>关系</th><th>界限</th>"
+                     "<th>单位</th><th>无量纲余量</th><th>判定</th><th>说明</th></tr></thead><tbody>")
+        for check in point["constraint_assessment"]["checks"]:
+            values = [check["id"], json.dumps(check["scope"], ensure_ascii=False), check["actual"],
+                      check["operator"], check["limit"], check["unit"], check["normalized_headroom"],
+                      check["verdict"], check["reason"]]
+            parts.append("<tr>" + "".join(f"<td>{escape(str(value)) if value is not None else '—'}</td>"
+                                         for value in values) + "</tr>")
+        parts.append("</tbody></table></details>")
+    return "\n".join(parts)

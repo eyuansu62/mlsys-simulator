@@ -1,0 +1,335 @@
+{
+  "test_fixture": true,
+  "environment": {
+    "timestamp_utc": "2026-01-01T00:00:00",
+    "python": "test-fixture",
+    "torch": "test-fixture",
+    "rocm": "test-fixture",
+    "os": "hand-calculated fixture; no hardware was sampled",
+    "gpu": "test-fixture-no-gpu",
+    "gpu_arch": {
+      "test-fixture": "not-measured"
+    },
+    "vram_gib": 1.0,
+    "driver": "test-fixture"
+  },
+  "config": {
+    "seed": 42,
+    "protocol": "test fixture only: warmup10 x 50 x 3, event+sync shape; no sampling performed"
+  },
+  "nominal_constants": {
+    "peak_tflops": 195.0,
+    "bw_gbps": 640.0,
+    "ridge": 304.7
+  },
+  "calibration": {
+    "gemm": {
+      "2048^3": {
+        "flops": 17179869184,
+        "bytes": 25165824,
+        "ai": 682.7,
+        "t_comp_ms": 0.0881,
+        "t_mem_ms": 0.03932,
+        "t_nom_ms": 0.0881,
+        "binding": "compute",
+        "median_ms": 0.35241,
+        "per_round_ms": [
+          0.34536,
+          0.35241,
+          0.35946
+        ],
+        "ratio_meas_over_nom": 4.0,
+        "fit": false,
+        "eta_point": 0.25
+      },
+      "4096^3": {
+        "flops": 137438953472,
+        "bytes": 100663296,
+        "ai": 1365.3,
+        "t_comp_ms": 0.70482,
+        "t_mem_ms": 0.15729,
+        "t_nom_ms": 0.70482,
+        "binding": "compute",
+        "median_ms": 1.40963,
+        "per_round_ms": [
+          1.38144,
+          1.40963,
+          1.43782
+        ],
+        "ratio_meas_over_nom": 2.0,
+        "fit": true,
+        "eta_point": 0.5
+      },
+      "5120^3": {
+        "flops": 268435456000,
+        "bytes": 157286400,
+        "ai": 1706.7,
+        "t_comp_ms": 1.37659,
+        "t_mem_ms": 0.24576,
+        "t_nom_ms": 1.37659,
+        "binding": "compute",
+        "median_ms": 2.75318,
+        "per_round_ms": [
+          2.69812,
+          2.75318,
+          2.80824
+        ],
+        "ratio_meas_over_nom": 2.0,
+        "fit": true,
+        "eta_point": 0.5
+      },
+      "8192^3": {
+        "flops": 1099511627776,
+        "bytes": 402653184,
+        "ai": 2730.7,
+        "t_comp_ms": 5.63852,
+        "t_mem_ms": 0.62915,
+        "t_nom_ms": 5.63852,
+        "binding": "compute",
+        "median_ms": 14.0963,
+        "per_round_ms": [
+          13.81437,
+          14.0963,
+          14.37823
+        ],
+        "ratio_meas_over_nom": 2.5,
+        "fit": false,
+        "eta_point": 0.4
+      }
+    },
+    "ln": {
+      "2048x1024": {
+        "flops": 8388608,
+        "bytes": 8388608,
+        "ai": 1.0,
+        "t_comp_ms": 4e-05,
+        "t_mem_ms": 0.01311,
+        "t_nom_ms": 0.01311,
+        "binding": "memory",
+        "median_ms": 0.02621,
+        "per_round_ms": [
+          0.02569,
+          0.02621,
+          0.02673
+        ],
+        "ratio_meas_over_nom": 2.0,
+        "fit": false,
+        "beta_point": 0.5001
+      },
+      "8192x4096": {
+        "flops": 134217728,
+        "bytes": 134217728,
+        "ai": 1.0,
+        "t_comp_ms": 0.00069,
+        "t_mem_ms": 0.20972,
+        "t_nom_ms": 0.20972,
+        "binding": "memory",
+        "median_ms": 0.26214,
+        "per_round_ms": [
+          0.2569,
+          0.26214,
+          0.26738
+        ],
+        "ratio_meas_over_nom": 1.25,
+        "fit": true,
+        "beta_point": 0.8
+      }
+    },
+    "softmax": {
+      "4096x4096": {
+        "flops": 67108864,
+        "bytes": 67108864,
+        "ai": 1.0,
+        "t_comp_ms": 0.00034,
+        "t_mem_ms": 0.10486,
+        "t_nom_ms": 0.10486,
+        "binding": "memory",
+        "median_ms": 0.08389,
+        "per_round_ms": [
+          0.08221,
+          0.08389,
+          0.08557
+        ],
+        "ratio_meas_over_nom": 0.8,
+        "fit": false,
+        "beta_point": 1.2499
+      },
+      "8192x4096": {
+        "flops": 134217728,
+        "bytes": 134217728,
+        "ai": 1.0,
+        "t_comp_ms": 0.00069,
+        "t_mem_ms": 0.20972,
+        "t_nom_ms": 0.20972,
+        "binding": "memory",
+        "median_ms": 0.26214,
+        "per_round_ms": [
+          0.2569,
+          0.26214,
+          0.26738
+        ],
+        "ratio_meas_over_nom": 1.25,
+        "fit": true,
+        "beta_point": 0.8
+      }
+    }
+  },
+  "fit": {
+    "stored_at": "2026-01-01T00:00:00Z",
+    "eta": 0.5,
+    "beta": 0.8,
+    "eta_formula": "test fixture: sum(t_comp_ms)/sum(median_ms), selected GEMM only",
+    "beta_formula": "test fixture: sum(t_mem_ms)/sum(median_ms), selected streaming memory only",
+    "fit_points": {
+      "eta": [
+        "4096^3",
+        "5120^3"
+      ],
+      "beta": [
+        "ln_8192x4096",
+        "softmax_8192x4096"
+      ]
+    },
+    "eta_points": {
+      "2048^3": 0.25,
+      "4096^3": 0.5,
+      "5120^3": 0.5,
+      "8192^3": 0.4
+    },
+    "beta_points": {
+      "ln_2048x1024": 0.5001,
+      "ln_8192x4096": 0.8,
+      "softmax_4096x4096": 1.2499,
+      "softmax_8192x4096": 0.8
+    }
+  },
+  "holdout_prediction": {
+    "stored_at": "2026-01-01T00:00:00Z",
+    "predictions_ms": {
+      "gemm_6144": 4.7575,
+      "ln_16384x4096": 0.52429,
+      "softmax_16384x4096": 0.52429,
+      "attn_mha16_s512": {
+        "t_pred_cal_ms": 0.01638,
+        "binding_by_ai": "memory",
+        "ai": 256.0
+      },
+      "attn_mha16_s1024": {
+        "t_pred_cal_ms": 0.0881,
+        "binding_by_ai": "compute",
+        "ai": 512.0
+      }
+    }
+  },
+  "holdout_measured": {
+    "gemm_6144": {
+      "flops": 463856467968,
+      "bytes": 226492416,
+      "ai": 2048.0,
+      "t_comp_ms": 2.37875,
+      "t_mem_ms": 0.35389,
+      "t_nom_ms": 2.37875,
+      "binding": "compute",
+      "median_ms": 4.85265,
+      "per_round_ms": [
+        4.7556,
+        4.85265,
+        4.9497
+      ],
+      "ratio_meas_over_nom": 2.04,
+      "fit": false,
+      "eta_point": 0.4902,
+      "t_pred_cal_ms": 4.7575,
+      "pred_err_pct": 2.0
+    },
+    "ln_16384x4096": {
+      "flops": 268435456,
+      "bytes": 268435456,
+      "ai": 1.0,
+      "t_comp_ms": 0.00138,
+      "t_mem_ms": 0.41943,
+      "t_nom_ms": 0.41943,
+      "binding": "memory",
+      "median_ms": 0.5138,
+      "per_round_ms": [
+        0.50352,
+        0.5138,
+        0.52408
+      ],
+      "ratio_meas_over_nom": 1.225,
+      "fit": false,
+      "beta_point": 0.8163,
+      "t_pred_cal_ms": 0.52429,
+      "pred_err_pct": -2.0
+    },
+    "softmax_16384x4096": {
+      "flops": 268435456,
+      "bytes": 268435456,
+      "ai": 1.0,
+      "t_comp_ms": 0.00138,
+      "t_mem_ms": 0.41943,
+      "t_nom_ms": 0.41943,
+      "binding": "memory",
+      "median_ms": 0.54002,
+      "per_round_ms": [
+        0.52922,
+        0.54002,
+        0.55082
+      ],
+      "ratio_meas_over_nom": 1.288,
+      "fit": false,
+      "beta_point": 0.7767,
+      "t_pred_cal_ms": 0.52429,
+      "pred_err_pct": 3.0
+    },
+    "attn_mha16_s512": {
+      "flops": 2147483648,
+      "bytes": 8388608,
+      "ai": 256.0,
+      "t_comp_ms": 0.01101,
+      "t_mem_ms": 0.01311,
+      "t_nom_ms": 0.01311,
+      "binding": "memory",
+      "median_ms": 0.03276,
+      "per_round_ms": [
+        0.0321,
+        0.03276,
+        0.03342
+      ],
+      "ratio_meas_over_nom": 2.499,
+      "fit": false,
+      "achieved_tflops": 65.6,
+      "achieved_bw_gbps": 256.1,
+      "t_pred_cal_ms": 0.01638,
+      "pred_err_pct": 100.0
+    },
+    "attn_mha16_s1024": {
+      "flops": 8589934592,
+      "bytes": 16777216,
+      "ai": 512.0,
+      "t_comp_ms": 0.04405,
+      "t_mem_ms": 0.02621,
+      "t_nom_ms": 0.04405,
+      "binding": "compute",
+      "median_ms": 0.13215,
+      "per_round_ms": [
+        0.12951,
+        0.13215,
+        0.13479
+      ],
+      "ratio_meas_over_nom": 3.0,
+      "fit": false,
+      "achieved_tflops": 65.0,
+      "achieved_bw_gbps": 127.0,
+      "t_pred_cal_ms": 0.0881,
+      "pred_err_pct": 50.0
+    }
+  },
+  "holdout_err_pct": {
+    "gemm_6144": 2.0,
+    "ln_16384x4096": -2.0,
+    "softmax_16384x4096": 3.0,
+    "attn_mha16_s512": 100.0,
+    "attn_mha16_s1024": 50.0
+  }
+}

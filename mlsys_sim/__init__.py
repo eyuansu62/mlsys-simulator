@@ -6,7 +6,7 @@ Changes to this import surface and the versioned data contracts are recorded
 in the changelog. Calibration provenance and hardware validation are separate.
 """
 
-__version__ = "1.16.0"
+__version__ = "1.17.0"
 
 from .config import experiment_from_dict, load_experiment, validate_experiment
 from .engine import SimulationResult, simulate
@@ -58,12 +58,25 @@ from .workspace import (WorkspaceModel, calibrate_workspace, load_workspace_data
 from .workspace_capture import WorkspaceRecorder, PinnedVllmWorkspaceObserver, collect_workspace
 from .capacity import (collect_memory_capacity, load_capacity_dataset, validate_capacity_dataset,
                        validate_memory_capacity)
-from .course_roofline import run_chapter1, write_chapter1_report
+from .course_roofline import run_chapter1, run_calibrated_chapter1, write_chapter1_report
+from .course_calibration import (import_course_calibration, write_course_calibration_report,
+                                 apply_course_calibration)
+from .constraints import (validate_constraints, evaluate_simulation_constraints, evaluate_dag_constraints)
+from .screening import run_candidate_screening, write_screening_report
 from .workload import generate_workload
 from .load_sweep import run_load_sweep, write_load_report
 from .dag import simulate_dag, run_dag_candidates, write_dag_report
 
 __all__ = [
+    "validate_constraints",
+    "evaluate_simulation_constraints",
+    "evaluate_dag_constraints",
+    "import_course_calibration",
+    "write_course_calibration_report",
+    "apply_course_calibration",
+    "run_calibrated_chapter1",
+    "run_candidate_screening",
+    "write_screening_report",
     "run_chapter1",
     "write_chapter1_report",
     "generate_workload",

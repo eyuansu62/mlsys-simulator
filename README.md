@@ -15,9 +15,12 @@ collection adapters instrument an installed Runtime separately from simulation.
 [Native PP communication calibration](docs/native-pp-communication.md) ·
 [Quantized storage](docs/quantization.md) ·
 [Course workflows](docs/course-workflows.md) ·
+[Joint constraints and course calibration](docs/course-constraints-and-calibration.md) ·
 [Workspace and capacity validation](docs/workspace-and-capacity.md) · [Contributing](CONTRIBUTING.md)
 
-**Version 1.16 software scope:** Explicit Chapter 1 nominal reporting,
+**Version 1.17 software scope:** Joint per-rank memory, latency and throughput
+constraints, candidate screening, imported course eta/beta reports and explicit
+calibrated Chapter 1 grids, alongside nominal reporting,
 seeded open/closed-loop load generation and scans, causal DAG coordination over
 heterogeneous model pools, public HSA/driver GTT synchronization-resource
 evidence and Worker-level Prefill/Decode Workspace acquisition
