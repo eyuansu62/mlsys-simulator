@@ -146,6 +146,13 @@ def _course_workflow(args: argparse.Namespace, manifest: dict) -> dict:
         result = run_load_sweep(experiment, plan)
         _workflow_profiles(manifest, args.out, result["profile_inputs"], "load_sweep")
         write_load_report(result, artifacts)
+    elif args.mode == "screen":
+        from .screening import run_candidate_screening, write_screening_report
+        result = run_candidate_screening(plan, base_dir=args.plan.parent)
+        for item in result["profile_inputs"]:
+            label = item["candidate_id"] + ("/" + item["model_id"] if "model_id" in item else "")
+            _workflow_profiles(manifest, args.out, [item], label)
+        write_screening_report(result, artifacts)
     else:
         from .dag import load_dag_plan, run_dag_candidates, simulate_dag, write_dag_report
         parsed = load_dag_plan(plan, base_dir=args.plan.parent)
@@ -158,6 +165,45 @@ def _course_workflow(args: argparse.Namespace, manifest: dict) -> dict:
     result.setdefault("status", "COMPLETED")
     result.setdefault("hardware_validated", False)
     manifest["prediction_id"] = f"{args.mode}-{hashlib.sha256(_json(result).encode()).hexdigest()[:24]}"
+    manifest["stored_at"] = datetime.now(timezone.utc).isoformat()
+    manifest["historical_prediction_before_measurement_established"] = False
+    return result
+
+
+def _course_calibration(args: argparse.Namespace, manifest: dict) -> dict:
+    """Import captured course bytes and optionally produce a calibrated grid."""
+    from .course_calibration import import_course_calibration, write_course_calibration_report
+    from .course_roofline import run_calibrated_chapter1, write_chapter1_report
+
+    with args.input.open("rb") as stream:
+        raw = stream.read(1024 * 1024 + 1)
+    if len(raw) > 1024 * 1024:
+        raise SimulationError("INVALID_COURSE_CALIBRATION", "Course calibration source exceeds 1MiB")
+    _record_input(manifest, args.input, raw)
+    source = {"kind": args.source_kind, "label": args.source_label or args.input.name}
+    if args.expected_sha256 is not None:
+        source["expected_sha256"] = args.expected_sha256
+    imported = import_course_calibration(raw, source=source)
+    captured = args.out / "inputs"
+    captured.mkdir()
+    (captured / "course-calibration.json").write_bytes(raw)
+    artifacts = args.out / "artifacts"
+    write_course_calibration_report(imported, artifacts)
+    result: dict = {"status": "COMPLETED", "kind": "import_course_calibration",
+              "hardware_validated": False, "calibration": imported,
+              "calibrated_chapter1": None,
+              "artifacts": {"calibration_report": "artifacts/report.html",
+                            "calibration_patch": "artifacts/calibration_patch.json"}}
+    if args.chapter1_plan is not None:
+        plan, plan_raw = _read_json(args.chapter1_plan)
+        _record_input(manifest, args.chapter1_plan, plan_raw)
+        _write_json(args.out / "chapter1.plan.json", plan)
+        chapter = run_calibrated_chapter1(plan, imported)
+        write_chapter1_report(chapter, artifacts / "chapter1-calibrated")
+        result["calibrated_chapter1"] = chapter
+        result["artifacts"]["chapter1_report"] = "artifacts/chapter1-calibrated/report.html"
+    manifest["course_calibration_sha256"] = hashlib.sha256(raw).hexdigest()
+    manifest["prediction_id"] = "course-calibration-" + hashlib.sha256(_json(result).encode()).hexdigest()[:24]
     manifest["stored_at"] = datetime.now(timezone.utc).isoformat()
     manifest["historical_prediction_before_measurement_established"] = False
     return result
@@ -906,8 +952,10 @@ def _execute(args: argparse.Namespace) -> dict:
     try:
         if args.mode in ("simulate", "predict"):
             result = _simulation(args, manifest)
-        elif args.mode in ("chapter1", "generate-workload", "sweep", "dag"):
+        elif args.mode in ("chapter1", "generate-workload", "sweep", "dag", "screen"):
             result = _course_workflow(args, manifest)
+        elif args.mode == "import-course-calibration":
+            result = _course_calibration(args, manifest)
         elif args.mode == "calibrate":
             result = _calibrate(args, manifest)
         elif args.mode == "validate":
@@ -934,7 +982,8 @@ def _execute(args: argparse.Namespace) -> dict:
     except (SimulationError, OSError) as exc:
         code = exc.code if isinstance(exc, SimulationError) else "IO_ERROR"
         result = {"status": "FAILED", "error_code": code, "message": str(exc)}
-        if args.mode in ("collect", "validate-hardware", "chapter1", "generate-workload", "sweep", "dag"):
+        if args.mode in ("collect", "validate-hardware", "chapter1", "generate-workload", "sweep", "dag",
+                         "screen", "import-course-calibration"):
             result["hardware_validated"] = False
             manifest["hardware_validated"] = False
         _write_json(args.out / "manifest.json", manifest)
@@ -960,10 +1009,18 @@ def _arguments(parser: argparse.ArgumentParser, mode: str) -> None:
     if mode in ("simulate", "predict"):
         parser.add_argument("--experiment", type=Path, required=True)
         return
-    if mode in ("chapter1", "generate-workload", "sweep", "dag"):
+    if mode in ("chapter1", "generate-workload", "sweep", "dag", "screen"):
         parser.add_argument("--plan", type=Path, required=True)
         if mode == "sweep":
             parser.add_argument("--experiment", type=Path, required=True)
+        return
+    if mode == "import-course-calibration":
+        parser.add_argument("--input", type=Path, required=True)
+        parser.add_argument("--chapter1-plan", type=Path)
+        parser.add_argument("--source-kind", choices=("course_external_report", "test_fixture"),
+                            default="course_external_report")
+        parser.add_argument("--source-label")
+        parser.add_argument("--expected-sha256")
         return
     if mode == "import-model":
         parser.add_argument("--kind", choices=("qwen3",), required=True)
@@ -1040,7 +1097,7 @@ def main(argv: list[str] | None = None, *, mode: str | None = None) -> int:
     try:
         parser = _Parser(description="CPU LLM simulation, calibration and validation tools")
         modes = ("simulate", "predict", "calibrate", "compare", "validate", "collect", "validate-hardware", "import-model",
-                 "chapter1", "generate-workload", "sweep", "dag")
+                 "chapter1", "generate-workload", "sweep", "dag", "screen", "import-course-calibration")
         if mode is None:
             commands = parser.add_subparsers(dest="mode", required=True, parser_class=_Parser)
             for name in modes:

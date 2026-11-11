@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "workload": {
+    "schema_version": 1,
+    "seed": 42,
+    "request_prefix": "joint-queue-lesson",
+    "arrival": {"process": "periodic", "rate_rps": 25, "duration_ms": 2000, "max_requests": 500},
+    "tokens": {"input": 16, "output": 1}
+  },
+  "rate_grid_rps": [25, 50, 75, 100, 125],
+  "replications": 2,
+  "drain_ms": 2000,
+  "min_completed_samples": 50,
+  "slo": {"p99_e2e_ms": 30},
+  "constraints": {
+    "schema_version": 1,
+    "min_completed_samples": 50,
+    "memory": {"max_budget_fraction": 0.8},
+    "latency": {"p99_ttft_ms": 30, "p99_e2e_ms": 30},
+    "throughput": {"basis": "measurement_window", "min_requests_per_s": 60, "min_output_tokens_per_s": 60}
+  }
+}

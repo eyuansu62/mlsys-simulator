@@ -32,7 +32,10 @@ assert callable(kv_pool_factory) and callable(mlsys_sim.validate_profile_repeats
 assert "torch" not in sys.modules and "vllm" not in sys.modules
 assert all(callable(getattr(mlsys_sim, name)) for name in (
     "run_chapter1", "write_chapter1_report", "generate_workload", "run_load_sweep",
-    "write_load_report", "simulate_dag", "run_dag_candidates", "write_dag_report"))
+    "write_load_report", "simulate_dag", "run_dag_candidates", "write_dag_report",
+    "validate_constraints", "evaluate_simulation_constraints", "evaluate_dag_constraints",
+    "run_candidate_screening", "write_screening_report", "import_course_calibration",
+    "write_course_calibration_report", "apply_course_calibration", "run_calibrated_chapter1"))
 plugins = [item for item in entry_points(group="vllm.general_plugins") if item.name == "mlsys_internal_capture"]
 assert len(plugins) == 1
 plugins[0].load()()
@@ -232,7 +235,8 @@ def verify(dist: Path) -> dict:
                        "pp_communication", "pp_benchmark", "pp_benchmark_worker", "workspace", "workspace_capture",
                        "capacity", "capacity_worker", "vllm_capacity_adapter"):
             assert f"mlsys_sim/{module}.py" in names
-        for module in ("course_roofline", "workload", "load_sweep", "event_driver", "dag"):
+        for module in ("course_roofline", "workload", "load_sweep", "event_driver", "dag",
+                       "constraints", "screening", "course_calibration"):
             assert f"mlsys_sim/{module}.py" in names
         assert not any(name.startswith(("tests/", "sample-runs/", "work/")) for name in names)
         assert archive.testzip() is None
@@ -291,6 +295,11 @@ def verify(dist: Path) -> dict:
                          "examples/course/dag-candidates.plan.json", "docs/course-workflows.md",
                          "docs/course-chapter1.md", "docs/load-generation-and-sweep.md",
                          "docs/dag-and-model-pools.md",
+                         "tests/test_constraints.py", "tests/test_screening.py",
+                         "tests/test_course_calibration.py", "tests/test_course_constraints_cli.py",
+                         "docs/joint-constraints.md", "docs/candidate-screening.md",
+                         "docs/course-calibration.md", "docs/course-constraints-and-calibration.md",
+                         "examples/course/course-calibration.fixture.json",
                          "tests/test_native_pp_retention_budget.py",
                          "tests/test_rocm_workspace_worker.py",
                          "tests/test_rocm_workspace_stage_domain.py",
@@ -364,6 +373,46 @@ def verify(dist: Path) -> dict:
         assert all(len(item["nodes"]) == 52 and item["resources_drained"]
                    and item["status"] == "COMPLETED" for item in candidates["candidates"])
         assert (outside / "course-dag/artifacts/report.html").is_file()
+        run([str(console), "import-course-calibration", "--input",
+             str(course_inputs / "course-calibration.fixture.json"), "--source-kind", "test_fixture",
+             "--chapter1-plan", str(course_inputs / "chapter1.plan.json"), "--out", "course-calibration"],
+             outside, env)
+        imported = json.loads((outside / "course-calibration/result.json").read_text())
+        assert imported["calibration"]["coefficients"] == {"eta": 0.5, "beta": 0.8}
+        assert imported["calibrated_chapter1"]["point_count"] == 18
+        assert imported["hardware_validated"] is False
+        assert (outside / "course-calibration/artifacts/calibration_patch.json").is_file()
+        assert (outside / "course-calibration/artifacts/chapter1-calibrated/report.html").is_file()
+        joint = {"schema_version": 1, "min_completed_samples": 1, "memory": {},
+                 "latency": {"p99_e2e_ms": 100000},
+                 "throughput": {"basis": "elapsed", "min_output_tokens_per_s": 0}}
+        tiny = {"workload": [{"request_id": "r", "arrival_ms": 0, "input_tokens": 2, "output_tokens": 2}],
+                "calibration": {"backend": "synthetic", "prefill_ms": 2, "decode_ms": 1}}
+        dag_plan = json.loads((course_inputs / "dag-candidates.plan.json").read_text())
+        dag_plan["pools"] = dag_plan.pop("candidates")[0]["pools"]
+        load_plan = json.loads((course_inputs / "load-poisson.plan.json").read_text())
+        load_plan["constraints"] = joint
+        load_plan["rate_grid_rps"] = [10, 20]
+        load_plan["workload"]["arrival"]["process"] = "periodic"
+        load_plan["service_time"] = {"kind": "deterministic"}
+        load_plan["slo"] = {"p99_e2e_ms": 100000}
+        for kind, candidate, objective in (
+            ("simulation", {"experiment": tiny}, "elapsed_ms"),
+            ("sweep", {"experiment": json.loads((course_inputs / "load-queue.experiment.json").read_text()),
+                       "load_plan": load_plan}, "worst_p99_e2e_ms"),
+            ("dag", {"dag_plan": dag_plan}, "makespan_ms"),
+        ):
+            plan = {"schema_version": 1, "kind": kind, "source": "synthetic_teaching_trace",
+                    "constraints": joint, "objective": {"metric": objective, "direction": "min"},
+                    "candidates": [{"candidate_id": "installed", **candidate}]}
+            path = course_inputs / f"installed-screen-{kind}.json"
+            path.write_text(json.dumps(plan))
+            target = f"course-screen-{kind}"
+            run([str(console), "screen", "--plan", str(path), "--out", target], outside, env)
+            selected = json.loads((outside / target / "result.json").read_text())
+            assert [item["candidate_id"] for item in selected["ranking"]] == ["installed"]
+            assert selected["hardware_validated"] is False
+            assert (outside / target / "artifacts/replay.plan.json").is_file()
         primitive_inputs = outside / "primitive-inputs"
         primitive_inputs.mkdir()
         primitive_models = outside / "v1_6"
@@ -686,6 +735,7 @@ def verify(dist: Path) -> dict:
             "installed_workspace_exact_rank_repeats": "passed",
             "installed_exact_stage_repeats_and_lazy_capacity_adapter": "passed",
             "installed_course_chapter1_workload_load_and_dag": "passed",
+            "installed_joint_constraints_screening_and_course_calibration": "passed",
             "installed_calibration_comparison_holdout": "passed"}
 
 

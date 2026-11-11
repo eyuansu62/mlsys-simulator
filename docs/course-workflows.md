@@ -1,5 +1,8 @@
 # Hello MLSys course workflows
 
+Version 1.17 adds [joint constraints and imported eta/beta reports](course-constraints-and-calibration.md)
+to the workflows below. Existing plan behavior remains available without the new fields.
+
 Version 1.16 adds three opt-in workflows for the course's Chapter 1, Chapter 7 /
 9.2 and Chapter 9.3 tasks. The existing fixed-arrival `simulate` and `predict`
 contracts, causal-attention analytical formulas, Profile identities and measured

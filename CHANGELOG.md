@@ -1,5 +1,36 @@
 # Changelog
 
+## 1.17.0 — 2026-11-11
+
+### Added
+
+- Opt-in joint constraints over existing serving evidence: per-rank peak budgets,
+  requested latency quantiles and explicit window/elapsed/task-makespan throughput.
+  Assessments retain actual values, units, sample counts, headroom and
+  PASS/FAIL/UNKNOWN outcomes, including optional DAG model-pool constraints.
+- Finite candidate screening for ordinary simulations, repeated load scans and
+  frozen DAG placements. All candidates remain visible; only jointly passing
+  candidates with available objectives enter the ranking. Profile snapshots and
+  replay retain the original bytes for timing, communication and Workspace roles.
+- Course `cal_9070xt.json` import with fitting-membership checks, published versus
+  recomputed eta/beta, original and recomputed holdout diagnostics, raw-byte
+  provenance and a guarded analytical-only configuration patch.
+- Explicit calibrated Chapter 1 reporting alongside the nominal protocol, with
+  component-level compute/bandwidth scaling, recomputed bottlenecks and
+  nominal/calibrated comparisons.
+
+### Compatibility and evidence
+
+- Existing experiments, Profile schemas and nominal workflows retain their
+  contracts. Joint load-scan results are opt-in and keep legacy SLO fields
+  separate from the joint constraint verdict.
+- Imported primitive efficiencies do not rescale whole-stage Profile latencies
+  or identify launch/framework overhead. Communication and Workspace Profile
+  selections remain independent.
+- Course source timestamps and predictions are preserved as historical claims;
+  import does not certify prior on-disk prediction storage, new hardware
+  measurements, or primitive-to-model/TP/PP generalization.
+
 ## 1.16.0 — 2026-11-11
 
 ### Added

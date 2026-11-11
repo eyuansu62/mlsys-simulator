@@ -1,6 +1,6 @@
 # Python API
 
-Install distribution `mlsys-simulator` and import `mlsys_sim`. Version 1.16 exposes the
+Install distribution `mlsys-simulator` and import `mlsys_sim`. Version 1.17 exposes the
 simulation, profile, calibration and comparison functions through this package,
 with optional hardware collection and evidence-acceptance commands;
 `mlsys_sim.__version__` is the software version. JSON schema and Profile version
@@ -19,6 +19,24 @@ inputs. Plans can be supplied to `chapter1`, `generate-workload`, `sweep` and
 `dag` CLI commands. These new plan schemas do not alter legacy `Experiment`
 inputs. See [course workflows](course-workflows.md) for schemas, examples,
 empirical boundary definitions and source limitations.
+
+`evaluate_simulation_constraints(run, spec)` and
+`evaluate_dag_constraints(result, spec, pool_specs=...)` assess joint per-rank
+memory, latency and explicitly timed throughput without rerunning the engine.
+`run_candidate_screening(plan)` and `write_screening_report` execute a fixed
+workload over candidate configurations, retaining failed/unknown candidates.
+`run_load_sweep` accepts an optional `constraints` block; old plans preserve
+their existing output contract.
+
+`import_course_calibration(raw_bytes, source=...)` reads the course's primitive
+fit, `write_course_calibration_report` saves its evidence and guarded patch,
+and `run_calibrated_chapter1(plan, calibration)` builds the separate calibrated
+grid. `apply_course_calibration(experiment, calibration, allow_test_fixture=False)`
+applies the patch explicitly to analytical experiments and rejects
+Profile/synthetic backends. Applying imported fixture coefficients requires
+the helper's explicit `allow_test_fixture=True`; this preserves the existing
+`CalibrationSpec.allow_test_fixture` contract.
+See [joint constraints and course calibration](course-constraints-and-calibration.md).
 
 ## Simulate and predict
 

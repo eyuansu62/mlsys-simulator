@@ -1,0 +1,8 @@
+{
+  "schema_version": 1,
+  "min_completed_samples": 1,
+  "memory": {"max_budget_fraction": 0.95},
+  "latency": {"p99_ttft_ms": 100, "p99_e2e_ms": 250},
+  "throughput": {"basis": "elapsed", "min_requests_per_s": 1, "min_output_tokens_per_s": 1},
+  "task": {"max_makespan_ms": 5000}
+}
