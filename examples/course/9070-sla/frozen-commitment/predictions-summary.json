@@ -1,0 +1,1736 @@
+{
+  "baseline": {
+    "spec_sha256": "45c293dcd3506de248f30604f93c3f453f14cd375ed34ac302d682606e3c11d3",
+    "identity_sha256": "cc6665e88031d64357e79faee8058a03199ac7f536927fd61a6635c59fcd3109",
+    "runs": [
+      {
+        "concurrency": 1,
+        "replication": 0,
+        "policy_sha256": "fa97af8d3673cebc195f2647058d5a03962d00e20e8efd3faa54b8d41a0452ce",
+        "request_stream_sha256": "5351e5024a88e251e6467905086f58682d9e9ff700b293808ee40c31be51f7e8",
+        "status": "COMPLETED",
+        "latency_ms": {
+          "end_to_end": {
+            "p50": 233.1953015939216,
+            "p95": 233.1953015939216,
+            "p99": 233.1953015939216
+          },
+          "itl": {
+            "p50": 14.326186216036149,
+            "p95": 14.327967528166482,
+            "p99": 14.327967528166482
+          },
+          "tpot": {
+            "p50": 14.326186216037604,
+            "p95": 14.326186216038574,
+            "p99": 14.326186216038574
+          },
+          "ttft": {
+            "p50": 18.302508353350277,
+            "p95": 18.302508353357553,
+            "p99": 18.302508353357553
+          }
+        },
+        "elapsed_ms": 233195.30159391687,
+        "throughput": {
+          "output_tokens_per_s": 68.61201701165568,
+          "requests_per_s": 4.28825106322848,
+          "window_ms": 233195.30159391687,
+          "window_rule": "zero_to_simulation_end"
+        },
+        "counts": {
+          "completed": 1000,
+          "failed": 0,
+          "not_admitted": 0,
+          "timed_out": 0,
+          "total": 1000,
+          "unfinished": 0
+        }
+      },
+      {
+        "concurrency": 1,
+        "replication": 1,
+        "policy_sha256": "c3df85d1757c6a5c9773b1ea9bf3f9c0d560baa63eb35880d99540a8dc6b6d8d",
+        "request_stream_sha256": "ff14cc8928f1ca21f95014a3ac1f0b2858bb31b501fdea2fd70ebc25f61e7846",
+        "status": "COMPLETED",
+        "latency_ms": {
+          "end_to_end": {
+            "p50": 233.1953015939216,
+            "p95": 233.1953015939216,
+            "p99": 233.1953015939216
+          },
+          "itl": {
+            "p50": 14.326186216036149,
+            "p95": 14.327967528166482,
+            "p99": 14.327967528166482
+          },
+          "tpot": {
+            "p50": 14.326186216037604,
+            "p95": 14.326186216038574,
+            "p99": 14.326186216038574
+          },
+          "ttft": {
+            "p50": 18.302508353350277,
+            "p95": 18.302508353357553,
+            "p99": 18.302508353357553
+          }
+        },
+        "elapsed_ms": 233195.30159391687,
+        "throughput": {
+          "output_tokens_per_s": 68.61201701165568,
+          "requests_per_s": 4.28825106322848,
+          "window_ms": 233195.30159391687,
+          "window_rule": "zero_to_simulation_end"
+        },
+        "counts": {
+          "completed": 1000,
+          "failed": 0,
+          "not_admitted": 0,
+          "timed_out": 0,
+          "total": 1000,
+          "unfinished": 0
+        }
+      },
+      {
+        "concurrency": 1,
+        "replication": 2,
+        "policy_sha256": "23e8d579ffcb35cce4fa267746f05591d12f5f54efbb6fbcf2a1c1527258eb3d",
+        "request_stream_sha256": "24875ed915700c2edbccd3106341978bab3355b741e771a9e207aac14476aa43",
+        "status": "COMPLETED",
+        "latency_ms": {
+          "end_to_end": {
+            "p50": 233.1953015939216,
+            "p95": 233.1953015939216,
+            "p99": 233.1953015939216
+          },
+          "itl": {
+            "p50": 14.326186216036149,
+            "p95": 14.327967528166482,
+            "p99": 14.327967528166482
+          },
+          "tpot": {
+            "p50": 14.326186216037604,
+            "p95": 14.326186216038574,
+            "p99": 14.326186216038574
+          },
+          "ttft": {
+            "p50": 18.302508353350277,
+            "p95": 18.302508353357553,
+            "p99": 18.302508353357553
+          }
+        },
+        "elapsed_ms": 233195.30159391687,
+        "throughput": {
+          "output_tokens_per_s": 68.61201701165568,
+          "requests_per_s": 4.28825106322848,
+          "window_ms": 233195.30159391687,
+          "window_rule": "zero_to_simulation_end"
+        },
+        "counts": {
+          "completed": 1000,
+          "failed": 0,
+          "not_admitted": 0,
+          "timed_out": 0,
+          "total": 1000,
+          "unfinished": 0
+        }
+      },
+      {
+        "concurrency": 2,
+        "replication": 0,
+        "policy_sha256": "c655281dcaa5f08c60df79afd9378d9e16177211e54b06800538a06de5acb024",
+        "request_stream_sha256": "5351e5024a88e251e6467905086f58682d9e9ff700b293808ee40c31be51f7e8",
+        "status": "COMPLETED",
+        "latency_ms": {
+          "end_to_end": {
+            "p50": 250.89959545641614,
+            "p95": 250.89959545642608,
+            "p99": 250.89959545642796
+          },
+          "itl": {
+            "p50": 14.400407112876564,
+            "p95": 14.403969737133593,
+            "p99": 14.403969737133593
+          },
+          "tpot": {
+            "p50": 14.400407112877778,
+            "p95": 14.400407112878286,
+            "p99": 14.400407112878383
+          },
+          "ttft": {
+            "p50": 34.89348876324948,
+            "p95": 34.89348876325312,
+            "p99": 34.89348876325312
+          }
+        },
+        "elapsed_ms": 125449.79772820913,
+        "throughput": {
+          "output_tokens_per_s": 127.54105857280452,
+          "requests_per_s": 7.971316160800282,
+          "window_ms": 125449.79772820913,
+          "window_rule": "zero_to_simulation_end"
+        },
+        "counts": {
+          "completed": 1000,
+          "failed": 0,
+          "not_admitted": 0,
+          "timed_out": 0,
+          "total": 1000,
+          "unfinished": 0
+        }
+      },
+      {
+        "concurrency": 2,
+        "replication": 1,
+        "policy_sha256": "16c40695263fca100aa21235f0dc09d80abed1f8aa07f4ba2fa5897af48b02c9",
+        "request_stream_sha256": "ff14cc8928f1ca21f95014a3ac1f0b2858bb31b501fdea2fd70ebc25f61e7846",
+        "status": "COMPLETED",
+        "latency_ms": {
+          "end_to_end": {
+            "p50": 250.89959545641614,
+            "p95": 250.89959545642608,
+            "p99": 250.89959545642796
+          },
+          "itl": {
+            "p50": 14.400407112876564,
+            "p95": 14.403969737133593,
+            "p99": 14.403969737133593
+          },
+          "tpot": {
+            "p50": 14.400407112877778,
+            "p95": 14.400407112878286,
+            "p99": 14.400407112878383
+          },
+          "ttft": {
+            "p50": 34.89348876324948,
+            "p95": 34.89348876325312,
+            "p99": 34.89348876325312
+          }
+        },
+        "elapsed_ms": 125449.79772820913,
+        "throughput": {
+          "output_tokens_per_s": 127.54105857280452,
+          "requests_per_s": 7.971316160800282,
+          "window_ms": 125449.79772820913,
+          "window_rule": "zero_to_simulation_end"
+        },
+        "counts": {
+          "completed": 1000,
+          "failed": 0,
+          "not_admitted": 0,
+          "timed_out": 0,
+          "total": 1000,
+          "unfinished": 0
+        }
+      },
+      {
+        "concurrency": 2,
+        "replication": 2,
+        "policy_sha256": "2fcc0d373b5bee1162f008bd8a141620822b99427c6398dcda21d6889f7ce892",
+        "request_stream_sha256": "24875ed915700c2edbccd3106341978bab3355b741e771a9e207aac14476aa43",
+        "status": "COMPLETED",
+        "latency_ms": {
+          "end_to_end": {
+            "p50": 250.89959545641614,
+            "p95": 250.89959545642608,
+            "p99": 250.89959545642796
+          },
+          "itl": {
+            "p50": 14.400407112876564,
+            "p95": 14.403969737133593,
+            "p99": 14.403969737133593
+          },
+          "tpot": {
+            "p50": 14.400407112877778,
+            "p95": 14.400407112878286,
+            "p99": 14.400407112878383
+          },
+          "ttft": {
+            "p50": 34.89348876324948,
+            "p95": 34.89348876325312,
+            "p99": 34.89348876325312
+          }
+        },
+        "elapsed_ms": 125449.79772820913,
+        "throughput": {
+          "output_tokens_per_s": 127.54105857280452,
+          "requests_per_s": 7.971316160800282,
+          "window_ms": 125449.79772820913,
+          "window_rule": "zero_to_simulation_end"
+        },
+        "counts": {
+          "completed": 1000,
+          "failed": 0,
+          "not_admitted": 0,
+          "timed_out": 0,
+          "total": 1000,
+          "unfinished": 0
+        }
+      },
+      {
+        "concurrency": 4,
+        "replication": 0,
+        "policy_sha256": "0216eb1df0c3d4dc4a1eda8972a1437fe89f41f8090a9232f98a0cb3c8ad281d",
+        "request_stream_sha256": "5351e5024a88e251e6467905086f58682d9e9ff700b293808ee40c31be51f7e8",
+        "status": "COMPLETED",
+        "latency_ms": {
+          "end_to_end": {
+            "p50": 286.3081831814561,
+            "p95": 286.30818318146885,
+            "p99": 286.30818318146885
+          },
+          "itl": {
+            "p50": 14.548848906561034,
+            "p95": 14.555974155067815,
+            "p99": 14.555974155069634
+          },
+          "tpot": {
+            "p50": 14.548848906560064,
+            "p95": 14.548848906561034,
+            "p99": 14.548848906561034
+          },
+          "ttft": {
+            "p50": 68.07544958305334,
+            "p95": 68.07544958305516,
+            "p99": 68.07544958305516
+          }
+        },
+        "elapsed_ms": 71577.04579536423,
+        "throughput": {
+          "output_tokens_per_s": 223.5353502258717,
+          "requests_per_s": 13.970959389116981,
+          "window_ms": 71577.04579536423,
+          "window_rule": "zero_to_simulation_end"
+        },
+        "counts": {
+          "completed": 1000,
+          "failed": 0,
+          "not_admitted": 0,
+          "timed_out": 0,
+          "total": 1000,
+          "unfinished": 0
+        }
+      },
+      {
+        "concurrency": 4,
+        "replication": 1,
+        "policy_sha256": "abb0a2bc3e59c87be316ac66de4c2942586a7d03b84093fc5c54fe0a3d447ea3",
+        "request_stream_sha256": "ff14cc8928f1ca21f95014a3ac1f0b2858bb31b501fdea2fd70ebc25f61e7846",
+        "status": "COMPLETED",
+        "latency_ms": {
+          "end_to_end": {
+            "p50": 286.3081831814561,
+            "p95": 286.30818318146885,
+            "p99": 286.30818318146885
+          },
+          "itl": {
+            "p50": 14.548848906561034,
+            "p95": 14.555974155067815,
+            "p99": 14.555974155069634
+          },
+          "tpot": {
+            "p50": 14.548848906560064,
+            "p95": 14.548848906561034,
+            "p99": 14.548848906561034
+          },
+          "ttft": {
+            "p50": 68.07544958305334,
+            "p95": 68.07544958305516,
+            "p99": 68.07544958305516
+          }
+        },
+        "elapsed_ms": 71577.04579536423,
+        "throughput": {
+          "output_tokens_per_s": 223.5353502258717,
+          "requests_per_s": 13.970959389116981,
+          "window_ms": 71577.04579536423,
+          "window_rule": "zero_to_simulation_end"
+        },
+        "counts": {
+          "completed": 1000,
+          "failed": 0,
+          "not_admitted": 0,
+          "timed_out": 0,
+          "total": 1000,
+          "unfinished": 0
+        }
+      },
+      {
+        "concurrency": 4,
+        "replication": 2,
+        "policy_sha256": "a711b68137e8ba372ba25d5feb1507ac70c7523e91a9091a196196213d23e33d",
+        "request_stream_sha256": "24875ed915700c2edbccd3106341978bab3355b741e771a9e207aac14476aa43",
+        "status": "COMPLETED",
+        "latency_ms": {
+          "end_to_end": {
+            "p50": 286.3081831814561,
+            "p95": 286.30818318146885,
+            "p99": 286.30818318146885
+          },
+          "itl": {
+            "p50": 14.548848906561034,
+            "p95": 14.555974155067815,
+            "p99": 14.555974155069634
+          },
+          "tpot": {
+            "p50": 14.548848906560064,
+            "p95": 14.548848906561034,
+            "p99": 14.548848906561034
+          },
+          "ttft": {
+            "p50": 68.07544958305334,
+            "p95": 68.07544958305516,
+            "p99": 68.07544958305516
+          }
+        },
+        "elapsed_ms": 71577.04579536423,
+        "throughput": {
+          "output_tokens_per_s": 223.5353502258717,
+          "requests_per_s": 13.970959389116981,
+          "window_ms": 71577.04579536423,
+          "window_rule": "zero_to_simulation_end"
+        },
+        "counts": {
+          "completed": 1000,
+          "failed": 0,
+          "not_admitted": 0,
+          "timed_out": 0,
+          "total": 1000,
+          "unfinished": 0
+        }
+      },
+      {
+        "concurrency": 8,
+        "replication": 0,
+        "policy_sha256": "c48a6f0af04836f9f89efe1d044e971fbc6f523e504ae2479af6a6e48a3e1714",
+        "request_stream_sha256": "5351e5024a88e251e6467905086f58682d9e9ff700b293808ee40c31be51f7e8",
+        "status": "COMPLETED",
+        "latency_ms": {
+          "end_to_end": {
+            "p50": 357.1253586315361,
+            "p95": 357.1253586315506,
+            "p99": 357.1253586315506
+          },
+          "itl": {
+            "p50": 14.845732493925425,
+            "p95": 14.859982990943536,
+            "p99": 14.859982990943536
+          },
+          "tpot": {
+            "p50": 14.845732493925365,
+            "p95": 14.845732493926334,
+            "p99": 14.845732493926334
+          },
+          "ttft": {
+            "p50": 134.4393712226556,
+            "p95": 134.43937122265925,
+            "p99": 134.43937122265925
+          }
+        },
+        "elapsed_ms": 44640.66982894242,
+        "throughput": {
+          "output_tokens_per_s": 358.4175609664918,
+          "requests_per_s": 22.401097560405738,
+          "window_ms": 44640.66982894242,
+          "window_rule": "zero_to_simulation_end"
+        },
+        "counts": {
+          "completed": 1000,
+          "failed": 0,
+          "not_admitted": 0,
+          "timed_out": 0,
+          "total": 1000,
+          "unfinished": 0
+        }
+      },
+      {
+        "concurrency": 8,
+        "replication": 1,
+        "policy_sha256": "5f093e0ab213963d365db93863914324a4b9a285ae831aa66e30ae764715d94d",
+        "request_stream_sha256": "ff14cc8928f1ca21f95014a3ac1f0b2858bb31b501fdea2fd70ebc25f61e7846",
+        "status": "COMPLETED",
+        "latency_ms": {
+          "end_to_end": {
+            "p50": 357.1253586315361,
+            "p95": 357.1253586315506,
+            "p99": 357.1253586315506
+          },
+          "itl": {
+            "p50": 14.845732493925425,
+            "p95": 14.859982990943536,
+            "p99": 14.859982990943536
+          },
+          "tpot": {
+            "p50": 14.845732493925365,
+            "p95": 14.845732493926334,
+            "p99": 14.845732493926334
+          },
+          "ttft": {
+            "p50": 134.4393712226556,
+            "p95": 134.43937122265925,
+            "p99": 134.43937122265925
+          }
+        },
+        "elapsed_ms": 44640.66982894242,
+        "throughput": {
+          "output_tokens_per_s": 358.4175609664918,
+          "requests_per_s": 22.401097560405738,
+          "window_ms": 44640.66982894242,
+          "window_rule": "zero_to_simulation_end"
+        },
+        "counts": {
+          "completed": 1000,
+          "failed": 0,
+          "not_admitted": 0,
+          "timed_out": 0,
+          "total": 1000,
+          "unfinished": 0
+        }
+      },
+      {
+        "concurrency": 8,
+        "replication": 2,
+        "policy_sha256": "2092d19c5e4385f8c14428ec041ef22d85a90f0300bc546c50600cbe27275ee9",
+        "request_stream_sha256": "24875ed915700c2edbccd3106341978bab3355b741e771a9e207aac14476aa43",
+        "status": "COMPLETED",
+        "latency_ms": {
+          "end_to_end": {
+            "p50": 357.1253586315361,
+            "p95": 357.1253586315506,
+            "p99": 357.1253586315506
+          },
+          "itl": {
+            "p50": 14.845732493925425,
+            "p95": 14.859982990943536,
+            "p99": 14.859982990943536
+          },
+          "tpot": {
+            "p50": 14.845732493925365,
+            "p95": 14.845732493926334,
+            "p99": 14.845732493926334
+          },
+          "ttft": {
+            "p50": 134.4393712226556,
+            "p95": 134.43937122265925,
+            "p99": 134.43937122265925
+          }
+        },
+        "elapsed_ms": 44640.66982894242,
+        "throughput": {
+          "output_tokens_per_s": 358.4175609664918,
+          "requests_per_s": 22.401097560405738,
+          "window_ms": 44640.66982894242,
+          "window_rule": "zero_to_simulation_end"
+        },
+        "counts": {
+          "completed": 1000,
+          "failed": 0,
+          "not_admitted": 0,
+          "timed_out": 0,
+          "total": 1000,
+          "unfinished": 0
+        }
+      },
+      {
+        "concurrency": 16,
+        "replication": 0,
+        "policy_sha256": "a124a85cf644d8da81f85ca77970c6602ffa93986565d68e24f49a37ba9ab4e0",
+        "request_stream_sha256": "5351e5024a88e251e6467905086f58682d9e9ff700b293808ee40c31be51f7e8",
+        "status": "COMPLETED",
+        "latency_ms": {
+          "end_to_end": {
+            "p50": 475.5360002958646,
+            "p95": 475.53600029587324,
+            "p99": 486.6881030518299
+          },
+          "itl": {
+            "p50": 15.444843605037022,
+            "p95": 119.0298001249721,
+            "p99": 119.0542295484338
+          },
+          "tpot": {
+            "p50": 23.767080011392682,
+            "p95": 29.254271074759405,
+            "p99": 29.254271074759405
+          },
+          "ttft": {
+            "p50": 119.02980012497301,
+            "p95": 119.0542295484338,
+            "p99": 135.1998576038456
+          }
+        },
+        "elapsed_ms": 29853.87166079582,
+        "throughput": {
+          "output_tokens_per_s": 535.9438863338868,
+          "requests_per_s": 33.496492895867924,
+          "window_ms": 29853.87166079582,
+          "window_rule": "zero_to_simulation_end"
+        },
+        "counts": {
+          "completed": 1000,
+          "failed": 0,
+          "not_admitted": 0,
+          "timed_out": 0,
+          "total": 1000,
+          "unfinished": 0
+        }
+      },
+      {
+        "concurrency": 16,
+        "replication": 1,
+        "policy_sha256": "0eacb7cd99ff0eea1d5c853426e4b9b11ae0b0c38680749b23ecf2a334222b2d",
+        "request_stream_sha256": "ff14cc8928f1ca21f95014a3ac1f0b2858bb31b501fdea2fd70ebc25f61e7846",
+        "status": "COMPLETED",
+        "latency_ms": {
+          "end_to_end": {
+            "p50": 475.5360002958646,
+            "p95": 475.53600029587324,
+            "p99": 486.6881030518299
+          },
+          "itl": {
+            "p50": 15.444843605037022,
+            "p95": 119.0298001249721,
+            "p99": 119.0542295484338
+          },
+          "tpot": {
+            "p50": 23.767080011392682,
+            "p95": 29.254271074759405,
+            "p99": 29.254271074759405
+          },
+          "ttft": {
+            "p50": 119.02980012497301,
+            "p95": 119.0542295484338,
+            "p99": 135.1998576038456
+          }
+        },
+        "elapsed_ms": 29853.87166079582,
+        "throughput": {
+          "output_tokens_per_s": 535.9438863338868,
+          "requests_per_s": 33.496492895867924,
+          "window_ms": 29853.87166079582,
+          "window_rule": "zero_to_simulation_end"
+        },
+        "counts": {
+          "completed": 1000,
+          "failed": 0,
+          "not_admitted": 0,
+          "timed_out": 0,
+          "total": 1000,
+          "unfinished": 0
+        }
+      },
+      {
+        "concurrency": 16,
+        "replication": 2,
+        "policy_sha256": "7081fb84c6ea9eb75eda2dc66ef636137470cde5fea58c4ebd891df6fa48f14c",
+        "request_stream_sha256": "24875ed915700c2edbccd3106341978bab3355b741e771a9e207aac14476aa43",
+        "status": "COMPLETED",
+        "latency_ms": {
+          "end_to_end": {
+            "p50": 475.5360002958646,
+            "p95": 475.53600029587324,
+            "p99": 486.6881030518299
+          },
+          "itl": {
+            "p50": 15.444843605037022,
+            "p95": 119.0298001249721,
+            "p99": 119.0542295484338
+          },
+          "tpot": {
+            "p50": 23.767080011392682,
+            "p95": 29.254271074759405,
+            "p99": 29.254271074759405
+          },
+          "ttft": {
+            "p50": 119.02980012497301,
+            "p95": 119.0542295484338,
+            "p99": 135.1998576038456
+          }
+        },
+        "elapsed_ms": 29853.87166079582,
+        "throughput": {
+          "output_tokens_per_s": 535.9438863338868,
+          "requests_per_s": 33.496492895867924,
+          "window_ms": 29853.87166079582,
+          "window_rule": "zero_to_simulation_end"
+        },
+        "counts": {
+          "completed": 1000,
+          "failed": 0,
+          "not_admitted": 0,
+          "timed_out": 0,
+          "total": 1000,
+          "unfinished": 0
+        }
+      },
+      {
+        "concurrency": 32,
+        "replication": 0,
+        "policy_sha256": "cf44afb9b8f2f64a21821b2a11a1565a859062c8d0de6127ce78c0b90ec210a9",
+        "request_stream_sha256": "5351e5024a88e251e6467905086f58682d9e9ff700b293808ee40c31be51f7e8",
+        "status": "COMPLETED",
+        "latency_ms": {
+          "end_to_end": {
+            "p50": 951.0720005917292,
+            "p95": 951.0720005917465,
+            "p99": 1069.9861320665475
+          },
+          "itl": {
+            "p50": 15.444843605037022,
+            "p95": 119.0298001249721,
+            "p99": 119.0542295484338
+          },
+          "tpot": {
+            "p50": 23.767080011392682,
+            "p95": 29.254271074759405,
+            "p99": 29.254271074759405
+          },
+          "ttft": {
+            "p50": 594.5658004208453,
+            "p95": 594.590229844307,
+            "p99": 632.2000401157784
+          }
+        },
+        "elapsed_ms": 29853.87166079582,
+        "throughput": {
+          "output_tokens_per_s": 535.9438863338868,
+          "requests_per_s": 33.496492895867924,
+          "window_ms": 29853.87166079582,
+          "window_rule": "zero_to_simulation_end"
+        },
+        "counts": {
+          "completed": 1000,
+          "failed": 0,
+          "not_admitted": 0,
+          "timed_out": 0,
+          "total": 1000,
+          "unfinished": 0
+        }
+      },
+      {
+        "concurrency": 32,
+        "replication": 1,
+        "policy_sha256": "d2d946b047768b35e13e93e3973ddfefb8b58219d4caef2cee07368b6c5e3ac9",
+        "request_stream_sha256": "ff14cc8928f1ca21f95014a3ac1f0b2858bb31b501fdea2fd70ebc25f61e7846",
+        "status": "COMPLETED",
+        "latency_ms": {
+          "end_to_end": {
+            "p50": 951.0720005917292,
+            "p95": 951.0720005917465,
+            "p99": 1069.9861320665475
+          },
+          "itl": {
+            "p50": 15.444843605037022,
+            "p95": 119.0298001249721,
+            "p99": 119.0542295484338
+          },
+          "tpot": {
+            "p50": 23.767080011392682,
+            "p95": 29.254271074759405,
+            "p99": 29.254271074759405
+          },
+          "ttft": {
+            "p50": 594.5658004208453,
+            "p95": 594.590229844307,
+            "p99": 632.2000401157784
+          }
+        },
+        "elapsed_ms": 29853.87166079582,
+        "throughput": {
+          "output_tokens_per_s": 535.9438863338868,
+          "requests_per_s": 33.496492895867924,
+          "window_ms": 29853.87166079582,
+          "window_rule": "zero_to_simulation_end"
+        },
+        "counts": {
+          "completed": 1000,
+          "failed": 0,
+          "not_admitted": 0,
+          "timed_out": 0,
+          "total": 1000,
+          "unfinished": 0
+        }
+      },
+      {
+        "concurrency": 32,
+        "replication": 2,
+        "policy_sha256": "14305198dce9e16259fac07251ecae7067198a0f51cdf33856b4c82067c3441a",
+        "request_stream_sha256": "24875ed915700c2edbccd3106341978bab3355b741e771a9e207aac14476aa43",
+        "status": "COMPLETED",
+        "latency_ms": {
+          "end_to_end": {
+            "p50": 951.0720005917292,
+            "p95": 951.0720005917465,
+            "p99": 1069.9861320665475
+          },
+          "itl": {
+            "p50": 15.444843605037022,
+            "p95": 119.0298001249721,
+            "p99": 119.0542295484338
+          },
+          "tpot": {
+            "p50": 23.767080011392682,
+            "p95": 29.254271074759405,
+            "p99": 29.254271074759405
+          },
+          "ttft": {
+            "p50": 594.5658004208453,
+            "p95": 594.590229844307,
+            "p99": 632.2000401157784
+          }
+        },
+        "elapsed_ms": 29853.87166079582,
+        "throughput": {
+          "output_tokens_per_s": 535.9438863338868,
+          "requests_per_s": 33.496492895867924,
+          "window_ms": 29853.87166079582,
+          "window_rule": "zero_to_simulation_end"
+        },
+        "counts": {
+          "completed": 1000,
+          "failed": 0,
+          "not_admitted": 0,
+          "timed_out": 0,
+          "total": 1000,
+          "unfinished": 0
+        }
+      },
+      {
+        "concurrency": 64,
+        "replication": 0,
+        "policy_sha256": "b5ccc4d592806b7fc5d03162d1ddd4210a71066840f3010020b9010d4e1116d2",
+        "request_stream_sha256": "5351e5024a88e251e6467905086f58682d9e9ff700b293808ee40c31be51f7e8",
+        "status": "COMPLETED",
+        "latency_ms": {
+          "end_to_end": {
+            "p50": 1902.144001183457,
+            "p95": 1902.144001183493,
+            "p99": 2021.0581326582767
+          },
+          "itl": {
+            "p50": 15.444843605037022,
+            "p95": 119.0298001249721,
+            "p99": 119.0542295484338
+          },
+          "tpot": {
+            "p50": 23.767080011392682,
+            "p95": 29.254271074759405,
+            "p99": 29.254271074759405
+          },
+          "ttft": {
+            "p50": 1545.6378010125918,
+            "p95": 1545.6622304360535,
+            "p99": 1583.111951758439
+          }
+        },
+        "elapsed_ms": 29853.87166079582,
+        "throughput": {
+          "output_tokens_per_s": 535.9438863338868,
+          "requests_per_s": 33.496492895867924,
+          "window_ms": 29853.87166079582,
+          "window_rule": "zero_to_simulation_end"
+        },
+        "counts": {
+          "completed": 1000,
+          "failed": 0,
+          "not_admitted": 0,
+          "timed_out": 0,
+          "total": 1000,
+          "unfinished": 0
+        }
+      },
+      {
+        "concurrency": 64,
+        "replication": 1,
+        "policy_sha256": "c26de68960557f004a5d4121a845d13b951fbfc74de96455c23d878426e3f7ad",
+        "request_stream_sha256": "ff14cc8928f1ca21f95014a3ac1f0b2858bb31b501fdea2fd70ebc25f61e7846",
+        "status": "COMPLETED",
+        "latency_ms": {
+          "end_to_end": {
+            "p50": 1902.144001183457,
+            "p95": 1902.144001183493,
+            "p99": 2021.0581326582767
+          },
+          "itl": {
+            "p50": 15.444843605037022,
+            "p95": 119.0298001249721,
+            "p99": 119.0542295484338
+          },
+          "tpot": {
+            "p50": 23.767080011392682,
+            "p95": 29.254271074759405,
+            "p99": 29.254271074759405
+          },
+          "ttft": {
+            "p50": 1545.6378010125918,
+            "p95": 1545.6622304360535,
+            "p99": 1583.111951758439
+          }
+        },
+        "elapsed_ms": 29853.87166079582,
+        "throughput": {
+          "output_tokens_per_s": 535.9438863338868,
+          "requests_per_s": 33.496492895867924,
+          "window_ms": 29853.87166079582,
+          "window_rule": "zero_to_simulation_end"
+        },
+        "counts": {
+          "completed": 1000,
+          "failed": 0,
+          "not_admitted": 0,
+          "timed_out": 0,
+          "total": 1000,
+          "unfinished": 0
+        }
+      },
+      {
+        "concurrency": 64,
+        "replication": 2,
+        "policy_sha256": "4da1c66e4c040c1bbb13a5ca8790c3f4bc2c9957ca10feecd70c6b32f9bf1ca8",
+        "request_stream_sha256": "24875ed915700c2edbccd3106341978bab3355b741e771a9e207aac14476aa43",
+        "status": "COMPLETED",
+        "latency_ms": {
+          "end_to_end": {
+            "p50": 1902.144001183457,
+            "p95": 1902.144001183493,
+            "p99": 2021.0581326582767
+          },
+          "itl": {
+            "p50": 15.444843605037022,
+            "p95": 119.0298001249721,
+            "p99": 119.0542295484338
+          },
+          "tpot": {
+            "p50": 23.767080011392682,
+            "p95": 29.254271074759405,
+            "p99": 29.254271074759405
+          },
+          "ttft": {
+            "p50": 1545.6378010125918,
+            "p95": 1545.6622304360535,
+            "p99": 1583.111951758439
+          }
+        },
+        "elapsed_ms": 29853.87166079582,
+        "throughput": {
+          "output_tokens_per_s": 535.9438863338868,
+          "requests_per_s": 33.496492895867924,
+          "window_ms": 29853.87166079582,
+          "window_rule": "zero_to_simulation_end"
+        },
+        "counts": {
+          "completed": 1000,
+          "failed": 0,
+          "not_admitted": 0,
+          "timed_out": 0,
+          "total": 1000,
+          "unfinished": 0
+        }
+      }
+    ]
+  },
+  "short": {
+    "spec_sha256": "09f18aa2c84d6fad8d0378de180549faa8c56613d29e5b8ae1d7b19defa607ba",
+    "identity_sha256": "cc6665e88031d64357e79faee8058a03199ac7f536927fd61a6635c59fcd3109",
+    "runs": [
+      {
+        "concurrency": 8,
+        "replication": 0,
+        "policy_sha256": "17fe33aa44128d1835272eed5d05102aca9a86be2ac87eac384a91bd51c43d5e",
+        "request_stream_sha256": "bbabb802255b56d738debb7860e53f89b1709825329e682d141882febada2401",
+        "status": "COMPLETED",
+        "latency_ms": {
+          "end_to_end": {
+            "p50": 269.28719393567735,
+            "p95": 278.07101040527414,
+            "p99": 278.0710104052814
+          },
+          "itl": {
+            "p50": 14.513899491937082,
+            "p95": 14.550543627126899,
+            "p99": 14.5647941241441
+          },
+          "tpot": {
+            "p50": 14.520006847801415,
+            "p95": 14.552579412414465,
+            "p99": 14.55257941241507
+          },
+          "ttft": {
+            "p50": 51.48709121865613,
+            "p95": 59.782319219057115,
+            "p99": 59.78231921905717
+          }
+        },
+        "elapsed_ms": 33467.65527963002,
+        "throughput": {
+          "output_tokens_per_s": 478.0735270014075,
+          "requests_per_s": 29.87959543758797,
+          "window_ms": 33467.65527963002,
+          "window_rule": "zero_to_simulation_end"
+        },
+        "counts": {
+          "completed": 1000,
+          "failed": 0,
+          "not_admitted": 0,
+          "timed_out": 0,
+          "total": 1000,
+          "unfinished": 0
+        }
+      },
+      {
+        "concurrency": 8,
+        "replication": 1,
+        "policy_sha256": "377a86b71dc556771d49ea78e980039c3f451753d79e509c7b1b8d8119c771c6",
+        "request_stream_sha256": "44de66edbf55be35c78dce77662edebc423b7f6052a08c26ed436db3340ba96c",
+        "status": "COMPLETED",
+        "latency_ms": {
+          "end_to_end": {
+            "p50": 269.28719393567735,
+            "p95": 278.0710104052814,
+            "p99": 282.4629186400657
+          },
+          "itl": {
+            "p50": 14.517971062512515,
+            "p95": 14.560722553567757,
+            "p99": 14.57700883587404
+          },
+          "tpot": {
+            "p50": 14.520006847801415,
+            "p95": 14.55257941241507,
+            "p99": 14.568865694720564
+          },
+          "ttft": {
+            "p50": 51.48709121865613,
+            "p95": 59.78231921905717,
+            "p99": 63.92993321925724
+          }
+        },
+        "elapsed_ms": 33612.588251378256,
+        "throughput": {
+          "output_tokens_per_s": 476.01213808174776,
+          "requests_per_s": 29.750758630109235,
+          "window_ms": 33612.588251378256,
+          "window_rule": "zero_to_simulation_end"
+        },
+        "counts": {
+          "completed": 1000,
+          "failed": 0,
+          "not_admitted": 0,
+          "timed_out": 0,
+          "total": 1000,
+          "unfinished": 0
+        }
+      },
+      {
+        "concurrency": 8,
+        "replication": 2,
+        "policy_sha256": "5362f8cc6ab827cc3d0724df166ec0775a8582dda1c7af78b27a18a27800fad9",
+        "request_stream_sha256": "d6ef5089136e4ba8d4531fd203d15f9e4da05de04ca63cc47fce7f4596489f48",
+        "status": "COMPLETED",
+        "latency_ms": {
+          "end_to_end": {
+            "p50": 269.28719393568826,
+            "p95": 278.0710104052814,
+            "p99": 282.46291864006344
+          },
+          "itl": {
+            "p50": 14.520006847802506,
+            "p95": 14.556650982991414,
+            "p99": 14.566829909432272
+          },
+          "tpot": {
+            "p50": 14.520006847802067,
+            "p95": 14.55257941241507,
+            "p99": 14.568865694720444
+          },
+          "ttft": {
+            "p50": 51.48709121865704,
+            "p95": 59.78231921905717,
+            "p99": 63.92993321925678
+          }
+        },
+        "elapsed_ms": 33674.074966665365,
+        "throughput": {
+          "output_tokens_per_s": 475.14297024754853,
+          "requests_per_s": 29.696435640471783,
+          "window_ms": 33674.074966665365,
+          "window_rule": "zero_to_simulation_end"
+        },
+        "counts": {
+          "completed": 1000,
+          "failed": 0,
+          "not_admitted": 0,
+          "timed_out": 0,
+          "total": 1000,
+          "unfinished": 0
+        }
+      },
+      {
+        "concurrency": 16,
+        "replication": 0,
+        "policy_sha256": "35e715c5096724fff4bcb96ec04d4da15b3d169261bbb63ae867466761014763",
+        "request_stream_sha256": "bbabb802255b56d738debb7860e53f89b1709825329e682d141882febada2401",
+        "status": "COMPLETED",
+        "latency_ms": {
+          "end_to_end": {
+            "p50": 318.6914719051947,
+            "p95": 336.2591048443645,
+            "p99": 336.25910484436463
+          },
+          "itl": {
+            "p50": 14.77583366467843,
+            "p95": 14.836907223326307,
+            "p99": 14.857265076209842
+          },
+          "tpot": {
+            "p50": 14.771762094102087,
+            "p95": 14.83690722332661,
+            "p99": 14.836907223326731
+          },
+          "ttft": {
+            "p50": 97.1150404936634,
+            "p95": 113.70549649446366,
+            "p99": 113.70549649446548
+          }
+        },
+        "elapsed_ms": 20107.21280028403,
+        "throughput": {
+          "output_tokens_per_s": 795.7343545781735,
+          "requests_per_s": 49.73339716113584,
+          "window_ms": 20107.21280028403,
+          "window_rule": "zero_to_simulation_end"
+        },
+        "counts": {
+          "completed": 1000,
+          "failed": 0,
+          "not_admitted": 0,
+          "timed_out": 0,
+          "total": 1000,
+          "unfinished": 0
+        }
+      },
+      {
+        "concurrency": 16,
+        "replication": 1,
+        "policy_sha256": "14855eb31c390d7f9a275a6edfd7ffc21983ce9a8c2597727632092c3fb94d4a",
+        "request_stream_sha256": "44de66edbf55be35c78dce77662edebc423b7f6052a08c26ed436db3340ba96c",
+        "status": "COMPLETED",
+        "latency_ms": {
+          "end_to_end": {
+            "p50": 323.08338013998946,
+            "p95": 336.2591048443644,
+            "p99": 340.65101307915666
+          },
+          "itl": {
+            "p50": 14.78804837640837,
+            "p95": 14.84097879390356,
+            "p99": 14.861336646786185
+          },
+          "tpot": {
+            "p50": 14.788048376408309,
+            "p95": 14.83690722332661,
+            "p99": 14.853193505632863
+          },
+          "ttft": {
+            "p50": 101.26265449386483,
+            "p95": 113.70549649446366,
+            "p99": 117.85311049466372
+          }
+        },
+        "elapsed_ms": 20252.145772032214,
+        "throughput": {
+          "output_tokens_per_s": 790.0397409787392,
+          "requests_per_s": 49.3774838111712,
+          "window_ms": 20252.145772032214,
+          "window_rule": "zero_to_simulation_end"
+        },
+        "counts": {
+          "completed": 1000,
+          "failed": 0,
+          "not_admitted": 0,
+          "timed_out": 0,
+          "total": 1000,
+          "unfinished": 0
+        }
+      },
+      {
+        "concurrency": 16,
+        "replication": 2,
+        "policy_sha256": "e44cb4d528955191a5a09172ed2d23cb6634ec7cd375d96703b9ce8e9d6d7568",
+        "request_stream_sha256": "d6ef5089136e4ba8d4531fd203d15f9e4da05de04ca63cc47fce7f4596489f48",
+        "status": "COMPLETED",
+        "latency_ms": {
+          "end_to_end": {
+            "p50": 323.08338013998855,
+            "p95": 336.2591048443628,
+            "p99": 340.65101307915756
+          },
+          "itl": {
+            "p50": 14.78804837640746,
+            "p95": 14.845050364478084,
+            "p99": 14.865408217362528
+          },
+          "tpot": {
+            "p50": 14.788048376408309,
+            "p95": 14.83690722332661,
+            "p99": 14.853193505632953
+          },
+          "ttft": {
+            "p50": 101.26265449386415,
+            "p95": 113.70549649446366,
+            "p99": 117.85311049466418
+          }
+        },
+        "elapsed_ms": 20313.632487319268,
+        "throughput": {
+          "output_tokens_per_s": 787.6483937566537,
+          "requests_per_s": 49.22802460979086,
+          "window_ms": 20313.632487319268,
+          "window_rule": "zero_to_simulation_end"
+        },
+        "counts": {
+          "completed": 1000,
+          "failed": 0,
+          "not_admitted": 0,
+          "timed_out": 0,
+          "total": 1000,
+          "unfinished": 0
+        }
+      },
+      {
+        "concurrency": 32,
+        "replication": 0,
+        "policy_sha256": "d1fcfc01a55cc4f6b42c076d9a1ecb85d8fb907629500c924d721f8301ccf8cb",
+        "request_stream_sha256": "bbabb802255b56d738debb7860e53f89b1709825329e682d141882febada2401",
+        "status": "COMPLETED",
+        "latency_ms": {
+          "end_to_end": {
+            "p50": 637.3829438103912,
+            "p95": 659.3424849843514,
+            "p99": 659.3424849843559
+          },
+          "itl": {
+            "p50": 14.77583366467843,
+            "p95": 14.840978793903105,
+            "p99": 14.861336646787095
+          },
+          "tpot": {
+            "p50": 14.771762094102057,
+            "p95": 14.836907223326701,
+            "p99": 14.853193505632866
+          },
+          "ttft": {
+            "p50": 416.05080663345143,
+            "p95": 437.0331708690446,
+            "p99": 437.76605357282097
+          }
+        },
+        "elapsed_ms": 20107.21280028403,
+        "throughput": {
+          "output_tokens_per_s": 795.7343545781735,
+          "requests_per_s": 49.73339716113584,
+          "window_ms": 20107.21280028403,
+          "window_rule": "zero_to_simulation_end"
+        },
+        "counts": {
+          "completed": 1000,
+          "failed": 0,
+          "not_admitted": 0,
+          "timed_out": 0,
+          "total": 1000,
+          "unfinished": 0
+        }
+      },
+      {
+        "concurrency": 32,
+        "replication": 1,
+        "policy_sha256": "67038215bd52fd5e7f3dccdf43d93391c63768a412a6a7657efb2c200d9af02b",
+        "request_stream_sha256": "44de66edbf55be35c78dce77662edebc423b7f6052a08c26ed436db3340ba96c",
+        "status": "COMPLETED",
+        "latency_ms": {
+          "end_to_end": {
+            "p50": 646.1667602799789,
+            "p95": 663.7343932191438,
+            "p99": 668.1263014539365
+          },
+          "itl": {
+            "p50": 14.78804837640837,
+            "p95": 14.84097879390356,
+            "p99": 14.861336646786185
+          },
+          "tpot": {
+            "p50": 14.788048376408309,
+            "p95": 14.83690722332661,
+            "p99": 14.853193505632863
+          },
+          "ttft": {
+            "p50": 424.590328868444,
+            "p95": 441.1807848692433,
+            "p99": 445.57269310403603
+          }
+        },
+        "elapsed_ms": 20252.145772032214,
+        "throughput": {
+          "output_tokens_per_s": 790.0397409787392,
+          "requests_per_s": 49.3774838111712,
+          "window_ms": 20252.145772032214,
+          "window_rule": "zero_to_simulation_end"
+        },
+        "counts": {
+          "completed": 1000,
+          "failed": 0,
+          "not_admitted": 0,
+          "timed_out": 0,
+          "total": 1000,
+          "unfinished": 0
+        }
+      },
+      {
+        "concurrency": 32,
+        "replication": 2,
+        "policy_sha256": "7e3cd46dd00bffd110d1fee8dbba4a2b20a773759933c0a0bab9e8bdd87098fd",
+        "request_stream_sha256": "d6ef5089136e4ba8d4531fd203d15f9e4da05de04ca63cc47fce7f4596489f48",
+        "status": "COMPLETED",
+        "latency_ms": {
+          "end_to_end": {
+            "p50": 646.1667602799735,
+            "p95": 663.7343932191434,
+            "p99": 672.5182096887256
+          },
+          "itl": {
+            "p50": 14.78804837640746,
+            "p95": 14.845050364478084,
+            "p99": 14.865408217362528
+          },
+          "tpot": {
+            "p50": 14.788048376408222,
+            "p95": 14.83690722332661,
+            "p99": 14.853193505632953
+          },
+          "ttft": {
+            "p50": 424.34603463385065,
+            "p95": 441.18078486924423,
+            "p99": 450.2088955734216
+          }
+        },
+        "elapsed_ms": 20313.632487319268,
+        "throughput": {
+          "output_tokens_per_s": 787.6483937566537,
+          "requests_per_s": 49.22802460979086,
+          "window_ms": 20313.632487319268,
+          "window_rule": "zero_to_simulation_end"
+        },
+        "counts": {
+          "completed": 1000,
+          "failed": 0,
+          "not_admitted": 0,
+          "timed_out": 0,
+          "total": 1000,
+          "unfinished": 0
+        }
+      }
+    ]
+  },
+  "long": {
+    "spec_sha256": "e2254ad45f50f0e3a6221970d5fed869d7ea780d665cc4fe822293e91c72f7d5",
+    "identity_sha256": "cc6665e88031d64357e79faee8058a03199ac7f536927fd61a6635c59fcd3109",
+    "runs": [
+      {
+        "concurrency": 8,
+        "replication": 0,
+        "policy_sha256": "b1897e2f4c694963d55b7e6b9f99cb7dba06e00d3a1ca9cf9d26e4e39ebd78a9",
+        "request_stream_sha256": "c52e493d9bf7303575bfb5c24062d0d711497e33dc4f0240ed8fc564b4c0ab6f",
+        "status": "COMPLETED",
+        "latency_ms": {
+          "end_to_end": {
+            "p50": 542.9700424885468,
+            "p95": 628.6214441574047,
+            "p99": 699.1722458292585
+          },
+          "itl": {
+            "p50": 16.141000883587367,
+            "p95": 69.78329736398337,
+            "p99": 102.82069724976049
+          },
+          "tpot": {
+            "p50": 30.696564130319892,
+            "p95": 34.962766523505344,
+            "p99": 36.78830843999849
+          },
+          "ttft": {
+            "p50": 73.20050533225367,
+            "p95": 173.60657153479406,
+            "p99": 243.90484351245001
+          }
+        },
+        "elapsed_ms": 68260.0691237123,
+        "throughput": {
+          "output_tokens_per_s": 234.39765305543608,
+          "requests_per_s": 14.649853315964755,
+          "window_ms": 68260.0691237123,
+          "window_rule": "zero_to_simulation_end"
+        },
+        "counts": {
+          "completed": 1000,
+          "failed": 0,
+          "not_admitted": 0,
+          "timed_out": 0,
+          "total": 1000,
+          "unfinished": 0
+        }
+      },
+      {
+        "concurrency": 8,
+        "replication": 1,
+        "policy_sha256": "cc2b917cf2fa1998ec97c1ef8601c550beef1613cb8acd43ab22f11c459b30d5",
+        "request_stream_sha256": "a8e7dee7bccf9c8386cf45435050706ff4a7e88de2cd487bca3be7760a7bb1e3",
+        "status": "COMPLETED",
+        "latency_ms": {
+          "end_to_end": {
+            "p50": 553.4117268020782,
+            "p95": 652.0498402040193,
+            "p99": 700.4354555133593
+          },
+          "itl": {
+            "p50": 16.148635078418465,
+            "p95": 69.90695859658808,
+            "p99": 102.88895677356777
+          },
+          "tpot": {
+            "p50": 30.809499794620933,
+            "p95": 35.571080104976176,
+            "p99": 37.60767360282489
+          },
+          "ttft": {
+            "p50": 73.46872004398392,
+            "p95": 173.87351365793893,
+            "p99": 271.35512569829575
+          }
+        },
+        "elapsed_ms": 69504.65774738952,
+        "throughput": {
+          "output_tokens_per_s": 230.20039977969583,
+          "requests_per_s": 14.38752498623099,
+          "window_ms": 69504.65774738952,
+          "window_rule": "zero_to_simulation_end"
+        },
+        "counts": {
+          "completed": 1000,
+          "failed": 0,
+          "not_admitted": 0,
+          "timed_out": 0,
+          "total": 1000,
+          "unfinished": 0
+        }
+      },
+      {
+        "concurrency": 8,
+        "replication": 2,
+        "policy_sha256": "e06d262afa76be4688d6309fee797ee0de9f9e796f1bf6cb490c53021d968deb",
+        "request_stream_sha256": "ebc2b9098ecbb1955669ac93731f99d30e96e3fad430d60215e0aece59fe70f5",
+        "status": "COMPLETED",
+        "latency_ms": {
+          "end_to_end": {
+            "p50": 556.098179098969,
+            "p95": 653.8482065682038,
+            "p99": 689.0726098280367
+          },
+          "itl": {
+            "p50": 16.147108239449153,
+            "p95": 69.91026674768364,
+            "p99": 102.89404623679002
+          },
+          "tpot": {
+            "p50": 30.97060623653154,
+            "p95": 35.946211491717705,
+            "p99": 37.77475623078458
+          },
+          "ttft": {
+            "p50": 73.71326875173872,
+            "p95": 173.86418830800213,
+            "p99": 240.69883354743956
+          }
+        },
+        "elapsed_ms": 70139.25623543345,
+        "throughput": {
+          "output_tokens_per_s": 228.1176171343118,
+          "requests_per_s": 14.257351070894488,
+          "window_ms": 70139.25623543345,
+          "window_rule": "zero_to_simulation_end"
+        },
+        "counts": {
+          "completed": 1000,
+          "failed": 0,
+          "not_admitted": 0,
+          "timed_out": 0,
+          "total": 1000,
+          "unfinished": 0
+        }
+      },
+      {
+        "concurrency": 16,
+        "replication": 0,
+        "policy_sha256": "751e528c276fbe2e21f8951295730b6ef3fd268d971287393724fd506b284f8a",
+        "request_stream_sha256": "c52e493d9bf7303575bfb5c24062d0d711497e33dc4f0240ed8fc564b4c0ab6f",
+        "status": "COMPLETED",
+        "latency_ms": {
+          "end_to_end": {
+            "p50": 907.9705041490524,
+            "p95": 1052.5845383315536,
+            "p99": 1313.6845159281768
+          },
+          "itl": {
+            "p50": 38.89708656768926,
+            "p95": 105.11123003894681,
+            "p99": 137.20612713164883
+          },
+          "tpot": {
+            "p50": 52.2913935303819,
+            "p95": 59.426858109516274,
+            "p99": 61.826476280164535
+          },
+          "ttft": {
+            "p50": 109.80001226663262,
+            "p95": 248.20775170763986,
+            "p99": 547.5655277848543
+          }
+        },
+        "elapsed_ms": 57267.66689373892,
+        "throughput": {
+          "output_tokens_per_s": 279.38976507788,
+          "requests_per_s": 17.4618603173675,
+          "window_ms": 57267.66689373892,
+          "window_rule": "zero_to_simulation_end"
+        },
+        "counts": {
+          "completed": 1000,
+          "failed": 0,
+          "not_admitted": 0,
+          "timed_out": 0,
+          "total": 1000,
+          "unfinished": 0
+        }
+      },
+      {
+        "concurrency": 16,
+        "replication": 1,
+        "policy_sha256": "026aeec18edb1492f7fcb88f401b68f7cac94d6d6574aa6405715bb64899c13b",
+        "request_stream_sha256": "a8e7dee7bccf9c8386cf45435050706ff4a7e88de2cd487bca3be7760a7bb1e3",
+        "status": "COMPLETED",
+        "latency_ms": {
+          "end_to_end": {
+            "p50": 927.8879477415808,
+            "p95": 1066.4592524846857,
+            "p99": 1181.1906109647489
+          },
+          "itl": {
+            "p50": 39.028903665104735,
+            "p95": 104.99722606280557,
+            "p99": 137.06845715152667
+          },
+          "tpot": {
+            "p50": 53.70359210032451,
+            "p95": 61.0096895717578,
+            "p99": 63.670911671867366
+          },
+          "ttft": {
+            "p50": 110.38911763442593,
+            "p95": 241.16298581919938,
+            "p99": 409.634119753216
+          }
+        },
+        "elapsed_ms": 57893.745728495414,
+        "throughput": {
+          "output_tokens_per_s": 276.3683675786894,
+          "requests_per_s": 17.273022973668088,
+          "window_ms": 57893.745728495414,
+          "window_rule": "zero_to_simulation_end"
+        },
+        "counts": {
+          "completed": 1000,
+          "failed": 0,
+          "not_admitted": 0,
+          "timed_out": 0,
+          "total": 1000,
+          "unfinished": 0
+        }
+      },
+      {
+        "concurrency": 16,
+        "replication": 2,
+        "policy_sha256": "5566cd67cf564e14a4f132d25f9cb2fce05e394ec85614987223dee789c4fa84",
+        "request_stream_sha256": "ebc2b9098ecbb1955669ac93731f99d30e96e3fad430d60215e0aece59fe70f5",
+        "status": "COMPLETED",
+        "latency_ms": {
+          "end_to_end": {
+            "p50": 929.0409198781508,
+            "p95": 1080.8369899296267,
+            "p99": 1233.7524499200879
+          },
+          "itl": {
+            "p50": 39.028903665104735,
+            "p95": 105.12802526757878,
+            "p99": 137.07787265848583
+          },
+          "tpot": {
+            "p50": 53.58891649146089,
+            "p95": 60.85932528363646,
+            "p99": 64.2799385887262
+          },
+          "ttft": {
+            "p50": 110.6415550101683,
+            "p95": 243.1751160573367,
+            "p99": 545.1985489162483
+          }
+        },
+        "elapsed_ms": 58670.88570787953,
+        "throughput": {
+          "output_tokens_per_s": 272.70766082624846,
+          "requests_per_s": 17.04422880164053,
+          "window_ms": 58670.88570787953,
+          "window_rule": "zero_to_simulation_end"
+        },
+        "counts": {
+          "completed": 1000,
+          "failed": 0,
+          "not_admitted": 0,
+          "timed_out": 0,
+          "total": 1000,
+          "unfinished": 0
+        }
+      },
+      {
+        "concurrency": 32,
+        "replication": 0,
+        "policy_sha256": "bc9d4433d9d9f6cfd2cd7026ad6b8b3fbbdd495cd9a7777c8944fc47cfe7c44c",
+        "request_stream_sha256": "c52e493d9bf7303575bfb5c24062d0d711497e33dc4f0240ed8fc564b4c0ab6f",
+        "status": "COMPLETED",
+        "latency_ms": {
+          "end_to_end": {
+            "p50": 1809.2322798788227,
+            "p95": 2003.3568588948717,
+            "p99": 2219.689758956409
+          },
+          "itl": {
+            "p50": 38.89975853587748,
+            "p95": 104.99188212642184,
+            "p99": 137.1997653026192
+          },
+          "tpot": {
+            "p50": 52.38896156773262,
+            "p95": 58.9434657521531,
+            "p99": 62.37797662896741
+          },
+          "ttft": {
+            "p50": 1018.4399288320055,
+            "p95": 1206.9389678635682,
+            "p99": 1479.4917469159154
+          }
+        },
+        "elapsed_ms": 57077.41032985377,
+        "throughput": {
+          "output_tokens_per_s": 280.3210570965824,
+          "requests_per_s": 17.5200660685364,
+          "window_ms": 57077.41032985377,
+          "window_rule": "zero_to_simulation_end"
+        },
+        "counts": {
+          "completed": 1000,
+          "failed": 0,
+          "not_admitted": 0,
+          "timed_out": 0,
+          "total": 1000,
+          "unfinished": 0
+        }
+      },
+      {
+        "concurrency": 32,
+        "replication": 1,
+        "policy_sha256": "ea68a985c9bd75cb37f3f03721beb0779fd8e18215dcbc2c865471f0266220a4",
+        "request_stream_sha256": "a8e7dee7bccf9c8386cf45435050706ff4a7e88de2cd487bca3be7760a7bb1e3",
+        "status": "COMPLETED",
+        "latency_ms": {
+          "end_to_end": {
+            "p50": 1846.4829416095163,
+            "p95": 2057.306476475841,
+            "p99": 2199.498807097396
+          },
+          "itl": {
+            "p50": 39.02915813826439,
+            "p95": 104.99571194749565,
+            "p99": 137.06693031256145
+          },
+          "tpot": {
+            "p50": 53.627051796896495,
+            "p95": 60.46077890603253,
+            "p99": 63.69567945615502
+          },
+          "ttft": {
+            "p50": 1032.3273820085806,
+            "p95": 1217.6188834244585,
+            "p99": 1422.5476596899753
+          }
+        },
+        "elapsed_ms": 57720.709652304016,
+        "throughput": {
+          "output_tokens_per_s": 277.1968691372687,
+          "requests_per_s": 17.324804321079295,
+          "window_ms": 57720.709652304016,
+          "window_rule": "zero_to_simulation_end"
+        },
+        "counts": {
+          "completed": 1000,
+          "failed": 0,
+          "not_admitted": 0,
+          "timed_out": 0,
+          "total": 1000,
+          "unfinished": 0
+        }
+      },
+      {
+        "concurrency": 32,
+        "replication": 2,
+        "policy_sha256": "efdd0c363329706423396bbc67160013529e5006a1a614dbf9e7d06953e535e3",
+        "request_stream_sha256": "ebc2b9098ecbb1955669ac93731f99d30e96e3fad430d60215e0aece59fe70f5",
+        "status": "COMPLETED",
+        "latency_ms": {
+          "end_to_end": {
+            "p50": 1860.511681441425,
+            "p95": 2061.366030336223,
+            "p99": 2246.8877945231966
+          },
+          "itl": {
+            "p50": 39.0289036651011,
+            "p95": 105.05056181236709,
+            "p99": 137.07405556106823
+          },
+          "tpot": {
+            "p50": 53.63450040157065,
+            "p95": 60.683829849533595,
+            "p99": 63.47743215286467
+          },
+          "ttft": {
+            "p50": 1053.4670981305735,
+            "p95": 1235.645171752048,
+            "p99": 1428.2837826265168
+          }
+        },
+        "elapsed_ms": 58610.551057740224,
+        "throughput": {
+          "output_tokens_per_s": 272.98839050732676,
+          "requests_per_s": 17.061774406707922,
+          "window_ms": 58610.551057740224,
+          "window_rule": "zero_to_simulation_end"
+        },
+        "counts": {
+          "completed": 1000,
+          "failed": 0,
+          "not_admitted": 0,
+          "timed_out": 0,
+          "total": 1000,
+          "unfinished": 0
+        }
+      }
+    ]
+  }
+}

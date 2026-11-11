@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "study_id": "course9070sla20261111",
+  "concurrency_grid": [
+    8,
+    16,
+    32
+  ],
+  "requests_per_run": 1000,
+  "replications": 3,
+  "seed": 20261111,
+  "think_ms": 0,
+  "output_tokens": 16,
+  "timeout_ms": 10000,
+  "max_run_ms": 600000,
+  "prompt_token_id": 100,
+  "cohort": "long",
+  "input_lengths": [
+    512,
+    1024
+  ]
+}

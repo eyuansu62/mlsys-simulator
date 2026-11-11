@@ -1,10 +1,35 @@
 # Python API
 
-Install distribution `mlsys-simulator` and import `mlsys_sim`. Version 1.17 exposes the
+Install distribution `mlsys-simulator` and import `mlsys_sim`. Version 1.18 exposes the
 simulation, profile, calibration and comparison functions through this package,
 with optional hardware collection and evidence-acceptance commands;
 `mlsys_sim.__version__` is the software version. JSON schema and Profile version
 labels are separate contracts.
+
+## Independent finite closed-loop studies
+
+`generate_request_stream(spec, replication=0)` freezes request IDs and categorical
+input lengths without inventing arrival times. `predict_closed_loop(experiment,
+spec)` releases replacement clients after simulated terminal feedback and ends
+after exactly the declared request cohort plus drain. It does not change the
+duration-limited `run_load_sweep` contract.
+
+`collect_closed_loop(backend, spec, concurrency, replication=0)` drives an explicit
+synchronous Runtime backend. Its timestamps are **Runtime API feedback**, not
+server-token readiness. The optional `python -m mlsys_sim.vllm_sla_worker` entry
+uses the pinned ROCm/vLLM Runtime and a separate Scheduler hook to obtain actual
+server-token events. It imports GPU dependencies only when explicitly invoked.
+
+`validate_closed_loop(predictions, observations, contract)` pairs all declared
+cells by frozen workload policy and request stream, permits their endogenous
+arrivals to differ, and preserves acquisition, prediction-error and SLA results.
+It never refits or replays measured arrivals into the predictor. A joint SLA
+failure at a deliberately overloaded point is distinct from a capture failure
+or an inaccurate prediction.
+
+`mlsys_sim.load_validation_report.write_closed_loop_study_report(study, out)`
+writes sanitized HTML/Markdown, CSV, JSON and SVG from one study snapshot.
+See [closed-loop validation](closed-loop-validation.md) for the protocol.
 
 ## Opt-in course workflows
 

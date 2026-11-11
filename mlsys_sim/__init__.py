@@ -6,7 +6,7 @@ Changes to this import surface and the versioned data contracts are recorded
 in the changelog. Calibration provenance and hardware validation are separate.
 """
 
-__version__ = "1.17.0"
+__version__ = "1.18.0"
 
 from .config import experiment_from_dict, load_experiment, validate_experiment
 from .engine import SimulationResult, simulate
@@ -63,11 +63,20 @@ from .course_calibration import (import_course_calibration, write_course_calibra
                                  apply_course_calibration)
 from .constraints import (validate_constraints, evaluate_simulation_constraints, evaluate_dag_constraints)
 from .screening import run_candidate_screening, write_screening_report
+from .load_validation import (validate_closed_loop_spec, generate_request_stream,
+                              closed_loop_policy_sha256, predict_closed_loop, validate_closed_loop)
+from .closed_loop_capture import collect_closed_loop
 from .workload import generate_workload
 from .load_sweep import run_load_sweep, write_load_report
 from .dag import simulate_dag, run_dag_candidates, write_dag_report
 
 __all__ = [
+    "validate_closed_loop_spec",
+    "generate_request_stream",
+    "closed_loop_policy_sha256",
+    "predict_closed_loop",
+    "validate_closed_loop",
+    "collect_closed_loop",
     "validate_constraints",
     "evaluate_simulation_constraints",
     "evaluate_dag_constraints",

@@ -115,13 +115,16 @@ class _EmptyMemory:
 
 
 def normalize_runtime_trace(experiment: Experiment, raw: dict, *,
-                            allow_test_fixture: bool = False) -> dict:
+                            allow_test_fixture: bool = False,
+                            include_request_evidence: bool = False) -> dict:
     """Normalize server-ready events without rewriting the supplied experiment.
 
     Arrivals and completed output counts must match the replay workload exactly.
     Use ``RuntimeTraceRecorder.replay_experiment`` explicitly when constructing
     a conditional replay from actual arrival/output observations.
     """
+    if type(include_request_evidence) is not bool:
+        _fail("include_request_evidence must be boolean")
     validate_experiment(experiment)
     trace = _object(raw, {"schema_version", "kind", "source", "timing_boundary",
                           "observed_until_ms", "events"}, {"identity", "notes"}, "runtime trace")
@@ -238,12 +241,26 @@ def normalize_runtime_trace(experiment: Experiment, raw: dict, *,
         "notes": {"collector_timing_boundary": trace["timing_boundary"],
                   "observed_until_ms": end, "server_token_events": True,
                   "request_status_counts": report.result["counts"]}}
-    return {"status": "COMPLETED", "kind": "runtime_trace_collection", "source": source,
+    bundle = {"status": "COMPLETED", "kind": "runtime_trace_collection", "source": source,
         "experiment": asdict(experiment), "observation": observation,
         "raw_records": deepcopy(trace["events"]), "hardware_validated": False,
         "timing_boundary": trace["timing_boundary"], "canonical_comparable": True,
         "limitations": ["Trace identities and runtime policy are declared evidence, not remote attestation.",
                         "No stage time or Workspace is inferred from request events."]}
+    if include_request_evidence:
+        # This view carries observed request timing, never the facade's zero
+        # compute counters or empty-memory placeholders as physical observations.
+        fields = ("status", "error_code", "counts", "admitted_count", "completion_rate_denominator",
+                  "completion_rate", "evaluation_count", "cohort_completion_rate", "latency_ms",
+                  "throughput", "goodput", "sla_satisfied", "simulated_ms", "events_processed")
+        result = {key: deepcopy(report.result[key]) for key in fields}
+        result.update(backend="observed_server_trace", hardware_validated=False, memory=[],
+                      observed_elapsed_ms=end, physical_memory_status="not_observed")
+        bundle["request_evidence"] = {"result": result, "requests": deepcopy(report.requests),
+                                      "events": deepcopy(trace["events"]),
+                                      "timing_boundary": trace["timing_boundary"],
+                                      "physical_memory_status": "not_observed"}
+    return bundle
 
 
 class RuntimeTraceRecorder:

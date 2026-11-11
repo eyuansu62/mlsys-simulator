@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "prediction_frozen_at": "REMOTE_RECEIPT_PENDING",
+  "min_completed_samples": 1000,
+  "timing_boundary": "server_token_ready_v1",
+  "max_relative_error": {
+    "ttft_p99_ms": 0.25,
+    "tpot_p99_ms": 0.25,
+    "end_to_end_p99_ms": 0.25,
+    "elapsed_output_tokens_per_s": 0.15
+  },
+  "constraints": {
+    "schema_version": 1,
+    "min_completed_samples": 1000,
+    "latency": {
+      "p99_e2e_ms": 500,
+      "p99_ttft_ms": 500,
+      "p99_tpot_ms": 50
+    },
+    "throughput": {
+      "basis": "elapsed",
+      "min_output_tokens_per_s": 20
+    }
+  }
+}

@@ -16,9 +16,12 @@ collection adapters instrument an installed Runtime separately from simulation.
 [Quantized storage](docs/quantization.md) ·
 [Course workflows](docs/course-workflows.md) ·
 [Joint constraints and course calibration](docs/course-constraints-and-calibration.md) ·
+[Independent closed-loop validation](docs/closed-loop-validation.md) ·
 [Workspace and capacity validation](docs/workspace-and-capacity.md) · [Contributing](CONTRIBUTING.md)
 
-**Version 1.17 software scope:** Joint per-rank memory, latency and throughput
+**Version 1.18 software scope:** Frozen finite-cohort closed-loop predictions,
+completion-feedback collection, independent server-token validation and
+sanitized course reports, alongside joint per-rank memory, latency and throughput
 constraints, candidate screening, imported course eta/beta reports and explicit
 calibrated Chapter 1 grids, alongside nominal reporting,
 seeded open/closed-loop load generation and scans, causal DAG coordination over
@@ -46,6 +49,13 @@ For the course, start with the [six runnable workflows](docs/course-workflows.md
 Reports contain HTML/CSV/SVG and explicit prediction provenance. The 52-node
 32B/7B candidate example is a frozen synthetic teaching trace; empirical load
 boundaries and declared hardware rates do not establish real deployment accuracy.
+
+The [RX9070XT/Qwen3-4B course study](docs/course-sla-9070xt-20261111/README.md)
+retains 39 fresh-Runtime cohorts and 39,000 completed requests after a remote
+prediction-hash commitment. Collection passed, but the imported primitive model
+missed its preregistered accuracy targets: its predicted safe client cap was 16,
+while the largest observed baseline grid point passing all three repeats was 4.
+All failed SLA and held-out outcomes remain in the report; no refitting was done.
 
 The 1.12 limited live validation added complete requested-storage Workspace
 attribution at two single-card prefill shapes, fresh-process physical KV-pool

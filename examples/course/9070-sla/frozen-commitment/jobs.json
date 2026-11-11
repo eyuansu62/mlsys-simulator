@@ -1,0 +1,197 @@
+[
+  {
+    "cohort": "baseline",
+    "concurrency": 1,
+    "replication": 0
+  },
+  {
+    "cohort": "baseline",
+    "concurrency": 16,
+    "replication": 0
+  },
+  {
+    "cohort": "baseline",
+    "concurrency": 64,
+    "replication": 0
+  },
+  {
+    "cohort": "baseline",
+    "concurrency": 2,
+    "replication": 0
+  },
+  {
+    "cohort": "baseline",
+    "concurrency": 32,
+    "replication": 0
+  },
+  {
+    "cohort": "baseline",
+    "concurrency": 4,
+    "replication": 0
+  },
+  {
+    "cohort": "baseline",
+    "concurrency": 8,
+    "replication": 0
+  },
+  {
+    "cohort": "baseline",
+    "concurrency": 32,
+    "replication": 1
+  },
+  {
+    "cohort": "baseline",
+    "concurrency": 1,
+    "replication": 1
+  },
+  {
+    "cohort": "baseline",
+    "concurrency": 4,
+    "replication": 1
+  },
+  {
+    "cohort": "baseline",
+    "concurrency": 8,
+    "replication": 1
+  },
+  {
+    "cohort": "baseline",
+    "concurrency": 64,
+    "replication": 1
+  },
+  {
+    "cohort": "baseline",
+    "concurrency": 16,
+    "replication": 1
+  },
+  {
+    "cohort": "baseline",
+    "concurrency": 2,
+    "replication": 1
+  },
+  {
+    "cohort": "baseline",
+    "concurrency": 16,
+    "replication": 2
+  },
+  {
+    "cohort": "baseline",
+    "concurrency": 32,
+    "replication": 2
+  },
+  {
+    "cohort": "baseline",
+    "concurrency": 8,
+    "replication": 2
+  },
+  {
+    "cohort": "baseline",
+    "concurrency": 4,
+    "replication": 2
+  },
+  {
+    "cohort": "baseline",
+    "concurrency": 64,
+    "replication": 2
+  },
+  {
+    "cohort": "baseline",
+    "concurrency": 1,
+    "replication": 2
+  },
+  {
+    "cohort": "baseline",
+    "concurrency": 2,
+    "replication": 2
+  },
+  {
+    "cohort": "short",
+    "concurrency": 32,
+    "replication": 2
+  },
+  {
+    "cohort": "short",
+    "concurrency": 32,
+    "replication": 1
+  },
+  {
+    "cohort": "short",
+    "concurrency": 8,
+    "replication": 0
+  },
+  {
+    "cohort": "long",
+    "concurrency": 8,
+    "replication": 0
+  },
+  {
+    "cohort": "short",
+    "concurrency": 16,
+    "replication": 0
+  },
+  {
+    "cohort": "long",
+    "concurrency": 16,
+    "replication": 1
+  },
+  {
+    "cohort": "short",
+    "concurrency": 16,
+    "replication": 2
+  },
+  {
+    "cohort": "long",
+    "concurrency": 32,
+    "replication": 2
+  },
+  {
+    "cohort": "short",
+    "concurrency": 32,
+    "replication": 0
+  },
+  {
+    "cohort": "long",
+    "concurrency": 8,
+    "replication": 1
+  },
+  {
+    "cohort": "long",
+    "concurrency": 16,
+    "replication": 0
+  },
+  {
+    "cohort": "short",
+    "concurrency": 8,
+    "replication": 2
+  },
+  {
+    "cohort": "long",
+    "concurrency": 32,
+    "replication": 0
+  },
+  {
+    "cohort": "long",
+    "concurrency": 32,
+    "replication": 1
+  },
+  {
+    "cohort": "long",
+    "concurrency": 16,
+    "replication": 2
+  },
+  {
+    "cohort": "short",
+    "concurrency": 8,
+    "replication": 1
+  },
+  {
+    "cohort": "short",
+    "concurrency": 16,
+    "replication": 1
+  },
+  {
+    "cohort": "long",
+    "concurrency": 8,
+    "replication": 2
+  }
+]

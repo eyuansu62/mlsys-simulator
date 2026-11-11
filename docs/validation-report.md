@@ -1,4 +1,47 @@
-# V1.17.0 软件与限定真机验证记录
+# V1.18.0 软件与限定真机验证记录
+
+日期：2026-11-11  
+环境：本地Python3.14.3/macOS CPU；真机Python3.14.8/ROCm SDK10.1.0  
+版本：1.18.0
+
+## 1.18 9070XT P99/SLA闭环课程研究
+
+在用户授权的RX9070XT/gfx1201、实际17,095,983,104bytes上完成Qwen3-4B BF16
+单卡同步eager MRv1研究。实际vLLM0.29.1.dev0+g98dff2a81.d20261002，Torch2.13.0+
+rocm10.1.0、HIP71626385、amdgpu6.16.13。既有模型只读挂载，checkpoint文件集合与
+每个文件的内容SHA在每次正式加载前核对。每个单元fresh Runtime，未触碰其它服务。
+
+全研究预测、SLA、误差阈值、样本与任务顺序先固定。慢链路下采用测前SHA承诺：
+完整预测本地留档，真机于2026-11-11 07:32:21.597972UTC收到raw/canonical哈希和
+固定输入/源码后写独立回执SHA256
+`8a04caf27814ac43ee7ad21a4a9d783b1b58b24c15f118d31760c96bf0bd171f`。
+正式执行07:35:22至09:00:50UTC；结束后仅用冻结输入和代码CPU重算完整预测，
+两种哈希均精确揭示一致，没有回放实测到达、改参、重采或选有利重复。
+
+| 项目 | 完整结果 |
+| --- | --- |
+| 样本 | 39/39单元、39个独立Runtime、39,000完成请求、624,000正式输出tokens；无失败/超时/缺测 |
+| 场景 | 基线256tokens×C1/2/4/8/16/32/64；短64/128、长512/1024等权分类留出×C8/16/32，每点3次、每次1000请求、固定16输出 |
+| 采集与精度 | 39/39采集检查PASS；39/39至少一精度目标FAIL，P99 TTFT/TPOT/E2E分别27/0/5个单元达到25%目标，elapsed吞吐0个达到15%目标 |
+| SLA | P99 E2E/TTFT≤500ms、TPOT≤50ms、聚合elapsed输出≥20tokens/s；判定29/39一致，10个false-safe单元 |
+| 安全并发 | 预测基线cap16；实测三次均通过的最大已观测点4，通过/失败区间4→8，不插值 |
+| 留出 | 短C8保留PASS/FAIL/PASS，两个留出网格均无三次全部通过点；未根据基线实测补测低并发，不将其容量写成0 |
+| 保全 | 完整原始私有归档24,323,009bytes，SHA256 d47878c5058eab8308765ec8c23165d1f70f2c8c029841ad458bb2b7ccc2f94e；本次容器及本地临时SSH凭据已清理，共享模型/其它服务保留 |
+
+时延由真实Scheduler enqueue到EngineCore token-ready/finish计算；API反馈只用于
+真实client补位，两个时间通道分开。warmup完整排空且逻辑KV恢复后才正式采样，
+Runner阶段计时hook在正式采集前关闭，未把instrumented stage成本混入正式指标。
+吞吐是固定N cohort加必要排空的elapsed口径，不是稳态到达率；本轮不认证HTTP客户端
+SLA、逐kernel归因、完整物理显存或广域硬件精度。primitive→whole-model迁移及
+native/simulator切块粒度差异如实保留。结论为阴性，hardware_validated=false。
+
+完整图文、逐重复CSV与脱敏数据见[课程报告](course-sla-9070xt-20261111/README.md)。
+软件验证：干净git tree归档中1454项CPU回归通过，4项本地环境跳过；两项loopback HTTP
+另行补跑通过。Ruff、mypy（68个源文件）、源码编译、sdist/wheel、Twine及仓库外
+安装包API/CLI smoke通过。独立审计核对39单元、全部样本分母、误差、SLA分类、
+预测dual SHA和公开隐私边界。远程结果以最终提交对应GitHub Actions回执为准。
+
+## 1.17 历史验证环境
 
 日期：2026-11-11  
 环境：Python 3.14.3，macOS，CPU 执行  

@@ -1,0 +1,208 @@
+{
+  "schema_version": 1,
+  "kind": "closed_loop_study_report",
+  "status": "COMPLETED",
+  "study_id": "course9070sla20261111",
+  "study_sha256": "ef378f0a181265b85b6dd466c61036ec1cee9da5741b6a01595f460494526818",
+  "evidence_kind": "measured",
+  "hardware_validated": false,
+  "expected_cells": 39,
+  "observed_cells": 39,
+  "missing_cells": 0,
+  "censored_cells": 0,
+  "acquisition_verdict": "PASS",
+  "acquisition_counts": {
+    "PASS": 39
+  },
+  "prediction_error_verdict": "FAIL",
+  "prediction_error_counts": {
+    "FAIL": 39
+  },
+  "sla_agreement": {
+    "agree": 29,
+    "known": 39,
+    "unknown": 0,
+    "false_safe_or_unconfirmed": 10,
+    "false_safe_observed_fail": 10,
+    "predicted_pass_observed_unknown": 0
+  },
+  "cohorts": {
+    "baseline": {
+      "points": [
+        {
+          "concurrency": 1,
+          "observed_sla_verdict": "PASS",
+          "observed_all_repetitions_pass": true,
+          "observed_repetition_verdicts": [
+            "PASS",
+            "PASS",
+            "PASS"
+          ]
+        },
+        {
+          "concurrency": 2,
+          "observed_sla_verdict": "PASS",
+          "observed_all_repetitions_pass": true,
+          "observed_repetition_verdicts": [
+            "PASS",
+            "PASS",
+            "PASS"
+          ]
+        },
+        {
+          "concurrency": 4,
+          "observed_sla_verdict": "PASS",
+          "observed_all_repetitions_pass": true,
+          "observed_repetition_verdicts": [
+            "PASS",
+            "PASS",
+            "PASS"
+          ]
+        },
+        {
+          "concurrency": 8,
+          "observed_sla_verdict": "FAIL",
+          "observed_all_repetitions_pass": false,
+          "observed_repetition_verdicts": [
+            "FAIL",
+            "FAIL",
+            "FAIL"
+          ]
+        },
+        {
+          "concurrency": 16,
+          "observed_sla_verdict": "FAIL",
+          "observed_all_repetitions_pass": false,
+          "observed_repetition_verdicts": [
+            "FAIL",
+            "FAIL",
+            "FAIL"
+          ]
+        },
+        {
+          "concurrency": 32,
+          "observed_sla_verdict": "FAIL",
+          "observed_all_repetitions_pass": false,
+          "observed_repetition_verdicts": [
+            "FAIL",
+            "FAIL",
+            "FAIL"
+          ]
+        },
+        {
+          "concurrency": 64,
+          "observed_sla_verdict": "FAIL",
+          "observed_all_repetitions_pass": false,
+          "observed_repetition_verdicts": [
+            "FAIL",
+            "FAIL",
+            "FAIL"
+          ]
+        }
+      ],
+      "largest_observed_safe_grid_point": 4,
+      "safe_grid_nonmonotonic": false,
+      "required_repetitions": 3,
+      "interpolated": false,
+      "global_capacity_established": false
+    },
+    "short": {
+      "points": [
+        {
+          "concurrency": 8,
+          "observed_sla_verdict": "FAIL",
+          "observed_all_repetitions_pass": false,
+          "observed_repetition_verdicts": [
+            "PASS",
+            "FAIL",
+            "PASS"
+          ]
+        },
+        {
+          "concurrency": 16,
+          "observed_sla_verdict": "FAIL",
+          "observed_all_repetitions_pass": false,
+          "observed_repetition_verdicts": [
+            "FAIL",
+            "FAIL",
+            "FAIL"
+          ]
+        },
+        {
+          "concurrency": 32,
+          "observed_sla_verdict": "FAIL",
+          "observed_all_repetitions_pass": false,
+          "observed_repetition_verdicts": [
+            "FAIL",
+            "FAIL",
+            "FAIL"
+          ]
+        }
+      ],
+      "largest_observed_safe_grid_point": null,
+      "safe_grid_nonmonotonic": false,
+      "required_repetitions": 3,
+      "interpolated": false,
+      "global_capacity_established": false
+    },
+    "long": {
+      "points": [
+        {
+          "concurrency": 8,
+          "observed_sla_verdict": "FAIL",
+          "observed_all_repetitions_pass": false,
+          "observed_repetition_verdicts": [
+            "FAIL",
+            "FAIL",
+            "FAIL"
+          ]
+        },
+        {
+          "concurrency": 16,
+          "observed_sla_verdict": "FAIL",
+          "observed_all_repetitions_pass": false,
+          "observed_repetition_verdicts": [
+            "FAIL",
+            "FAIL",
+            "FAIL"
+          ]
+        },
+        {
+          "concurrency": 32,
+          "observed_sla_verdict": "FAIL",
+          "observed_all_repetitions_pass": false,
+          "observed_repetition_verdicts": [
+            "FAIL",
+            "FAIL",
+            "FAIL"
+          ]
+        }
+      ],
+      "largest_observed_safe_grid_point": null,
+      "safe_grid_nonmonotonic": false,
+      "required_repetitions": 3,
+      "interpolated": false,
+      "global_capacity_established": false
+    }
+  },
+  "no_refit": true,
+  "no_best_repeat_selection": true,
+  "range_definition": "available repetition min–max, not a confidence interval; individual repetitions retained",
+  "limitations": [
+    "有意扫描过载：SLA FAIL 不自动表示采集失败，也不自动表示预测精度失败；三类证据分别汇总。",
+    "每个点保留所有预定重复，不选择最佳 seed，不平均掩盖失败；纵向范围为可用重复的 min–max，不是置信区间。",
+    "缺失、样本不足或删失的重复不画成0，也不补插值；逐重复表保留其数值、样本数与失败原因。",
+    "有限 cohort 吞吐=实际发出 token / 含必要 drain 的 elapsed；不是稳态到达率或队列稳定性证明。",
+    "延迟采用冻结契约的时间边界；server token-ready 指标不是HTTP客户端/网络端到端延迟。",
+    "相对误差沿用验证器的 abs(predicted−measured)/measured，分母是实测值；零分母未定义时留空，不改阈值或重拟合。",
+    "最大已观测安全点仅为当前网格内所有预定重复 SLA PASS 的点，不是全局容量或连续安全区间。",
+    "冻结收据用于承诺预测SHA，完整原始预测可本地留档；本 renderer 只展示输入的收据/源码哈希，不验证远端收据真实性。",
+    "所有输出 hardware_validated=false；measured 表示输入的采集来源声明，不等于广域硬件精度认证。",
+    "Imported primitive efficiencies are an explicit transfer to the whole4B model, not a new whole-model timing fit.",
+    "All preregistered failures, overloads, low samples and unknowns remain; no parameter, threshold, seed or heldout point was retuned.",
+    "The native/simulator chunking granularity differs for long requests; matching top-level token limits is not proof of identical scheduler internals.",
+    "No per-kernel profile, power/clock trace or complete physical-memory proof was collected; raw allocator observations cannot uniquely explain residuals.",
+    "Complete raw predictions are locally archived; their full SHA commitments were received by the measurement host before collection and exactly revealed after it.",
+    "Server-token SLA and finite cohort throughput do not establish HTTP transport SLA or general workload/hardware accuracy."
+  ]
+}
