@@ -30,6 +30,9 @@ assert "vllm" not in sys.modules, "Optional serving dependency was imported eage
 from mlsys_sim.vllm_capacity_adapter import kv_pool_factory
 assert callable(kv_pool_factory) and callable(mlsys_sim.validate_profile_repeats)
 assert "torch" not in sys.modules and "vllm" not in sys.modules
+assert all(callable(getattr(mlsys_sim, name)) for name in (
+    "run_chapter1", "write_chapter1_report", "generate_workload", "run_load_sweep",
+    "write_load_report", "simulate_dag", "run_dag_candidates", "write_dag_report"))
 plugins = [item for item in entry_points(group="vllm.general_plugins") if item.name == "mlsys_internal_capture"]
 assert len(plugins) == 1
 plugins[0].load()()
@@ -229,6 +232,8 @@ def verify(dist: Path) -> dict:
                        "pp_communication", "pp_benchmark", "pp_benchmark_worker", "workspace", "workspace_capture",
                        "capacity", "capacity_worker", "vllm_capacity_adapter"):
             assert f"mlsys_sim/{module}.py" in names
+        for module in ("course_roofline", "workload", "load_sweep", "event_driver", "dag"):
+            assert f"mlsys_sim/{module}.py" in names
         assert not any(name.startswith(("tests/", "sample-runs/", "work/")) for name in names)
         assert archive.testzip() is None
     with tarfile.open(sdists[0]) as archive:
@@ -277,6 +282,15 @@ def verify(dist: Path) -> dict:
                          "scripts/rocm_workspace_audit/kfd_event_audit.py",
                          "tests/test_workspace_repeats.py", "tests/test_workspace_repeat_cli.py",
                          "tests/test_quantized_workspace.py", "docs/quantization.md",
+                         "tests/test_course_cli.py", "tests/test_course_roofline.py",
+                         "tests/test_workload_generation.py", "tests/test_load_sweep.py",
+                         "tests/test_event_driver.py", "tests/test_dag.py",
+                         "examples/course/chapter1.plan.json", "examples/course/load-workload.spec.json",
+                         "examples/course/load-poisson.plan.json", "examples/course/load-clients.plan.json",
+                         "examples/course/load-queue.experiment.json", "examples/course/dag-fork-join.plan.json",
+                         "examples/course/dag-candidates.plan.json", "docs/course-workflows.md",
+                         "docs/course-chapter1.md", "docs/load-generation-and-sweep.md",
+                         "docs/dag-and-model-pools.md",
                          "tests/test_native_pp_retention_budget.py",
                          "tests/test_rocm_workspace_worker.py",
                          "tests/test_rocm_workspace_stage_domain.py",
@@ -316,6 +330,40 @@ def verify(dist: Path) -> dict:
         for source in (Path(__file__).resolve().parents[1] / "examples/v1_6").glob("*.json"):
             (qwen_inputs / source.name).write_bytes(source.read_bytes())
         run([str(python), "-I", "-c", SMOKE_CODE], outside, env)
+        course_inputs = outside / "course-inputs"
+        course_inputs.mkdir()
+        for source in (Path(__file__).resolve().parents[1] / "examples/course").glob("*.json"):
+            (course_inputs / source.name).write_bytes(source.read_bytes())
+        run([str(console), "chapter1", "--plan", str(course_inputs / "chapter1.plan.json"),
+             "--out", "course-chapter1"], outside, env)
+        chapter = json.loads((outside / "course-chapter1/result.json").read_text())
+        assert chapter["point_count"] == 18 and chapter["hardware_validated"] is False
+        assert len(list((outside / "course-chapter1/artifacts").glob("*.svg"))) == 4
+        run([str(console), "generate-workload", "--plan", str(course_inputs / "load-workload.spec.json"),
+             "--out", "course-workload"], outside, env)
+        generated = json.loads((outside / "course-workload/result.json").read_text())
+        assert generated["requests"] and generated["provenance"]["seed"] == 42
+        for axis in ("poisson", "clients"):
+            path = course_inputs / f"load-{axis}.plan.json"
+            plan = json.loads(path.read_text())
+            plan["replications"], plan["min_completed_samples"] = 1, 1
+            plan["workload"]["arrival"].update(duration_ms=1000, max_requests=256)
+            plan["rate_grid_rps" if axis == "poisson" else "concurrency_grid"] = [25, 50] if axis == "poisson" else [1, 2]
+            path.write_text(json.dumps(plan))
+            target = f"course-{axis}"
+            run([str(console), "sweep", "--experiment", str(course_inputs / "load-queue.experiment.json"),
+                 "--plan", str(path), "--out", target], outside, env)
+            sweep = json.loads((outside / target / "result.json").read_text())
+            assert len(sweep["points"]) == 2 and sweep["hardware_validated"] is False
+            assert (outside / target / "artifacts/report.html").is_file()
+        run([str(console), "dag", "--plan", str(course_inputs / "dag-candidates.plan.json"),
+             "--out", "course-dag"], outside, env)
+        candidates = json.loads((outside / "course-dag/result.json").read_text())
+        assert len(candidates["candidates"]) == len(candidates["ranking"]) == 3
+        assert len({item["trace_sha256"] for item in candidates["candidates"]}) == 1
+        assert all(len(item["nodes"]) == 52 and item["resources_drained"]
+                   and item["status"] == "COMPLETED" for item in candidates["candidates"])
+        assert (outside / "course-dag/artifacts/report.html").is_file()
         primitive_inputs = outside / "primitive-inputs"
         primitive_inputs.mkdir()
         primitive_models = outside / "v1_6"
@@ -637,6 +685,7 @@ def verify(dist: Path) -> dict:
             "installed_workspace_calibration_and_capacity_brackets": "passed",
             "installed_workspace_exact_rank_repeats": "passed",
             "installed_exact_stage_repeats_and_lazy_capacity_adapter": "passed",
+            "installed_course_chapter1_workload_load_and_dag": "passed",
             "installed_calibration_comparison_holdout": "passed"}
 
 

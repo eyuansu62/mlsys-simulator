@@ -1,5 +1,11 @@
 # Version 1.9 software specification
 
+This document records the original serving-core contract. Later opt-in teaching
+workflows are specified in [course workflows](course-workflows.md): the explicit
+Chapter 1 counting protocol, seeded open/closed-loop load scans, and dependency
+DAGs over independent heterogeneous model pools. Their separate plan schemas do
+not add fields to the original request schema or change its fixed-arrival semantics.
+
 The CPU simulator separates system events, performance/communication models and
 calibration data. It has no required third-party runtime dependency and performs
 no real GPU execution. This specification describes supported software behavior;

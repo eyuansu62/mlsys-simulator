@@ -1,5 +1,31 @@
 # Changelog
 
+## 1.16.0 — 2026-11-11
+
+### Added
+
+- An explicit Chapter 1 nominal protocol: full-square Attention, matrix/vector
+  roofs, 18 model/shape points, component fields, formula reconciliation,
+  prediction provenance and Chinese HTML/Markdown with same-source SVG/CSV.
+- Seeded Poisson/periodic workloads and actual-feedback closed-loop scans,
+  optional synthetic service-time scales, independent repetitions, empirical
+  quantiles and observed SLO/stability brackets. All seeds and failures remain.
+- A causal event adapter and frozen DAG coordinator over heterogeneous model
+  pools with independent TP/PP, replicas, KV, cache/swap and Profiles. Reports
+  distinguish task makespan from resource drain; partial candidates do not rank.
+- Runnable course examples, including a declared 52-node 32B/7B teaching trace
+  and three four-card placements, plus exact Profile snapshots/offline replay.
+
+### Compatibility and evidence
+
+- Existing fixed-arrival simulation, causal analytical counting, request/config
+  schemas and Profile identities remain unchanged. New workflows are opt-in.
+- The course's approximate tables and naive-Attention asymptote have visible
+  reconciliation; no efficiency is invented to force a numerical match.
+- W7900D parameters remain unconfirmed and the example DAG is synthetic.
+  Empirical finite-horizon boundaries are not universal stability limits. No
+  new GPU accuracy, semantic quality or historical pre-measurement claim is made.
+
 ## 1.15.0 — 2026-11-06
 
 ### Fixed

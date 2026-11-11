@@ -1,0 +1,1588 @@
+{
+  "nodes": [
+    {
+      "node_id": "planner",
+      "model_id": "32B",
+      "input_tokens": 512,
+      "output_tokens": 24,
+      "dependencies": [],
+      "release_ms": 0.0,
+      "priority": 0,
+      "timeout_ms": null,
+      "prompt_token_ids": [],
+      "cache_namespace": ""
+    },
+    {
+      "node_id": "search-00",
+      "model_id": "7B",
+      "input_tokens": 512,
+      "output_tokens": 16,
+      "dependencies": [
+        "planner"
+      ],
+      "release_ms": 0.0,
+      "priority": 0,
+      "timeout_ms": null,
+      "prompt_token_ids": [],
+      "cache_namespace": ""
+    },
+    {
+      "node_id": "analyze-00",
+      "model_id": "7B",
+      "input_tokens": 512,
+      "output_tokens": 16,
+      "dependencies": [
+        "search-00"
+      ],
+      "release_ms": 0.0,
+      "priority": 0,
+      "timeout_ms": null,
+      "prompt_token_ids": [],
+      "cache_namespace": ""
+    },
+    {
+      "node_id": "reason-00",
+      "model_id": "32B",
+      "input_tokens": 512,
+      "output_tokens": 16,
+      "dependencies": [
+        "analyze-00"
+      ],
+      "release_ms": 0.0,
+      "priority": 0,
+      "timeout_ms": null,
+      "prompt_token_ids": [],
+      "cache_namespace": ""
+    },
+    {
+      "node_id": "verify-00",
+      "model_id": "7B",
+      "input_tokens": 512,
+      "output_tokens": 16,
+      "dependencies": [
+        "reason-00"
+      ],
+      "release_ms": 0.0,
+      "priority": 0,
+      "timeout_ms": null,
+      "prompt_token_ids": [],
+      "cache_namespace": ""
+    },
+    {
+      "node_id": "summarize-00",
+      "model_id": "7B",
+      "input_tokens": 512,
+      "output_tokens": 16,
+      "dependencies": [
+        "verify-00"
+      ],
+      "release_ms": 0.0,
+      "priority": 0,
+      "timeout_ms": null,
+      "prompt_token_ids": [],
+      "cache_namespace": ""
+    },
+    {
+      "node_id": "report-00",
+      "model_id": "32B",
+      "input_tokens": 512,
+      "output_tokens": 16,
+      "dependencies": [
+        "summarize-00"
+      ],
+      "release_ms": 0.0,
+      "priority": 0,
+      "timeout_ms": null,
+      "prompt_token_ids": [],
+      "cache_namespace": ""
+    },
+    {
+      "node_id": "search-01",
+      "model_id": "7B",
+      "input_tokens": 640,
+      "output_tokens": 20,
+      "dependencies": [
+        "planner"
+      ],
+      "release_ms": 0.0,
+      "priority": 0,
+      "timeout_ms": null,
+      "prompt_token_ids": [],
+      "cache_namespace": ""
+    },
+    {
+      "node_id": "analyze-01",
+      "model_id": "7B",
+      "input_tokens": 640,
+      "output_tokens": 20,
+      "dependencies": [
+        "search-01"
+      ],
+      "release_ms": 0.0,
+      "priority": 0,
+      "timeout_ms": null,
+      "prompt_token_ids": [],
+      "cache_namespace": ""
+    },
+    {
+      "node_id": "reason-01",
+      "model_id": "32B",
+      "input_tokens": 640,
+      "output_tokens": 20,
+      "dependencies": [
+        "analyze-01"
+      ],
+      "release_ms": 0.0,
+      "priority": 0,
+      "timeout_ms": null,
+      "prompt_token_ids": [],
+      "cache_namespace": ""
+    },
+    {
+      "node_id": "verify-01",
+      "model_id": "7B",
+      "input_tokens": 640,
+      "output_tokens": 20,
+      "dependencies": [
+        "reason-01"
+      ],
+      "release_ms": 0.0,
+      "priority": 0,
+      "timeout_ms": null,
+      "prompt_token_ids": [],
+      "cache_namespace": ""
+    },
+    {
+      "node_id": "summarize-01",
+      "model_id": "7B",
+      "input_tokens": 640,
+      "output_tokens": 20,
+      "dependencies": [
+        "verify-01"
+      ],
+      "release_ms": 0.0,
+      "priority": 0,
+      "timeout_ms": null,
+      "prompt_token_ids": [],
+      "cache_namespace": ""
+    },
+    {
+      "node_id": "report-01",
+      "model_id": "32B",
+      "input_tokens": 640,
+      "output_tokens": 20,
+      "dependencies": [
+        "summarize-01"
+      ],
+      "release_ms": 0.0,
+      "priority": 0,
+      "timeout_ms": null,
+      "prompt_token_ids": [],
+      "cache_namespace": ""
+    },
+    {
+      "node_id": "search-02",
+      "model_id": "7B",
+      "input_tokens": 768,
+      "output_tokens": 24,
+      "dependencies": [
+        "planner"
+      ],
+      "release_ms": 0.0,
+      "priority": 0,
+      "timeout_ms": null,
+      "prompt_token_ids": [],
+      "cache_namespace": ""
+    },
+    {
+      "node_id": "analyze-02",
+      "model_id": "7B",
+      "input_tokens": 768,
+      "output_tokens": 24,
+      "dependencies": [
+        "search-02"
+      ],
+      "release_ms": 0.0,
+      "priority": 0,
+      "timeout_ms": null,
+      "prompt_token_ids": [],
+      "cache_namespace": ""
+    },
+    {
+      "node_id": "reason-02",
+      "model_id": "32B",
+      "input_tokens": 768,
+      "output_tokens": 24,
+      "dependencies": [
+        "analyze-02"
+      ],
+      "release_ms": 0.0,
+      "priority": 0,
+      "timeout_ms": null,
+      "prompt_token_ids": [],
+      "cache_namespace": ""
+    },
+    {
+      "node_id": "verify-02",
+      "model_id": "7B",
+      "input_tokens": 768,
+      "output_tokens": 24,
+      "dependencies": [
+        "reason-02"
+      ],
+      "release_ms": 0.0,
+      "priority": 0,
+      "timeout_ms": null,
+      "prompt_token_ids": [],
+      "cache_namespace": ""
+    },
+    {
+      "node_id": "summarize-02",
+      "model_id": "7B",
+      "input_tokens": 768,
+      "output_tokens": 24,
+      "dependencies": [
+        "verify-02"
+      ],
+      "release_ms": 0.0,
+      "priority": 0,
+      "timeout_ms": null,
+      "prompt_token_ids": [],
+      "cache_namespace": ""
+    },
+    {
+      "node_id": "report-02",
+      "model_id": "32B",
+      "input_tokens": 768,
+      "output_tokens": 24,
+      "dependencies": [
+        "summarize-02"
+      ],
+      "release_ms": 0.0,
+      "priority": 0,
+      "timeout_ms": null,
+      "prompt_token_ids": [],
+      "cache_namespace": ""
+    },
+    {
+      "node_id": "search-03",
+      "model_id": "7B",
+      "input_tokens": 512,
+      "output_tokens": 28,
+      "dependencies": [
+        "planner"
+      ],
+      "release_ms": 0.0,
+      "priority": 0,
+      "timeout_ms": null,
+      "prompt_token_ids": [],
+      "cache_namespace": ""
+    },
+    {
+      "node_id": "analyze-03",
+      "model_id": "7B",
+      "input_tokens": 512,
+      "output_tokens": 28,
+      "dependencies": [
+        "search-03"
+      ],
+      "release_ms": 0.0,
+      "priority": 0,
+      "timeout_ms": null,
+      "prompt_token_ids": [],
+      "cache_namespace": ""
+    },
+    {
+      "node_id": "reason-03",
+      "model_id": "32B",
+      "input_tokens": 512,
+      "output_tokens": 28,
+      "dependencies": [
+        "analyze-03"
+      ],
+      "release_ms": 0.0,
+      "priority": 0,
+      "timeout_ms": null,
+      "prompt_token_ids": [],
+      "cache_namespace": ""
+    },
+    {
+      "node_id": "verify-03",
+      "model_id": "7B",
+      "input_tokens": 512,
+      "output_tokens": 28,
+      "dependencies": [
+        "reason-03"
+      ],
+      "release_ms": 0.0,
+      "priority": 0,
+      "timeout_ms": null,
+      "prompt_token_ids": [],
+      "cache_namespace": ""
+    },
+    {
+      "node_id": "summarize-03",
+      "model_id": "7B",
+      "input_tokens": 512,
+      "output_tokens": 28,
+      "dependencies": [
+        "verify-03"
+      ],
+      "release_ms": 0.0,
+      "priority": 0,
+      "timeout_ms": null,
+      "prompt_token_ids": [],
+      "cache_namespace": ""
+    },
+    {
+      "node_id": "report-03",
+      "model_id": "32B",
+      "input_tokens": 512,
+      "output_tokens": 28,
+      "dependencies": [
+        "summarize-03"
+      ],
+      "release_ms": 0.0,
+      "priority": 0,
+      "timeout_ms": null,
+      "prompt_token_ids": [],
+      "cache_namespace": ""
+    },
+    {
+      "node_id": "search-04",
+      "model_id": "7B",
+      "input_tokens": 640,
+      "output_tokens": 16,
+      "dependencies": [
+        "planner"
+      ],
+      "release_ms": 0.0,
+      "priority": 0,
+      "timeout_ms": null,
+      "prompt_token_ids": [],
+      "cache_namespace": ""
+    },
+    {
+      "node_id": "analyze-04",
+      "model_id": "7B",
+      "input_tokens": 640,
+      "output_tokens": 16,
+      "dependencies": [
+        "search-04"
+      ],
+      "release_ms": 0.0,
+      "priority": 0,
+      "timeout_ms": null,
+      "prompt_token_ids": [],
+      "cache_namespace": ""
+    },
+    {
+      "node_id": "reason-04",
+      "model_id": "32B",
+      "input_tokens": 640,
+      "output_tokens": 16,
+      "dependencies": [
+        "analyze-04"
+      ],
+      "release_ms": 0.0,
+      "priority": 0,
+      "timeout_ms": null,
+      "prompt_token_ids": [],
+      "cache_namespace": ""
+    },
+    {
+      "node_id": "verify-04",
+      "model_id": "7B",
+      "input_tokens": 640,
+      "output_tokens": 16,
+      "dependencies": [
+        "reason-04"
+      ],
+      "release_ms": 0.0,
+      "priority": 0,
+      "timeout_ms": null,
+      "prompt_token_ids": [],
+      "cache_namespace": ""
+    },
+    {
+      "node_id": "summarize-04",
+      "model_id": "7B",
+      "input_tokens": 640,
+      "output_tokens": 16,
+      "dependencies": [
+        "verify-04"
+      ],
+      "release_ms": 0.0,
+      "priority": 0,
+      "timeout_ms": null,
+      "prompt_token_ids": [],
+      "cache_namespace": ""
+    },
+    {
+      "node_id": "report-04",
+      "model_id": "32B",
+      "input_tokens": 640,
+      "output_tokens": 16,
+      "dependencies": [
+        "summarize-04"
+      ],
+      "release_ms": 0.0,
+      "priority": 0,
+      "timeout_ms": null,
+      "prompt_token_ids": [],
+      "cache_namespace": ""
+    },
+    {
+      "node_id": "search-05",
+      "model_id": "7B",
+      "input_tokens": 768,
+      "output_tokens": 20,
+      "dependencies": [
+        "planner"
+      ],
+      "release_ms": 0.0,
+      "priority": 0,
+      "timeout_ms": null,
+      "prompt_token_ids": [],
+      "cache_namespace": ""
+    },
+    {
+      "node_id": "analyze-05",
+      "model_id": "7B",
+      "input_tokens": 768,
+      "output_tokens": 20,
+      "dependencies": [
+        "search-05"
+      ],
+      "release_ms": 0.0,
+      "priority": 0,
+      "timeout_ms": null,
+      "prompt_token_ids": [],
+      "cache_namespace": ""
+    },
+    {
+      "node_id": "reason-05",
+      "model_id": "32B",
+      "input_tokens": 768,
+      "output_tokens": 20,
+      "dependencies": [
+        "analyze-05"
+      ],
+      "release_ms": 0.0,
+      "priority": 0,
+      "timeout_ms": null,
+      "prompt_token_ids": [],
+      "cache_namespace": ""
+    },
+    {
+      "node_id": "verify-05",
+      "model_id": "7B",
+      "input_tokens": 768,
+      "output_tokens": 20,
+      "dependencies": [
+        "reason-05"
+      ],
+      "release_ms": 0.0,
+      "priority": 0,
+      "timeout_ms": null,
+      "prompt_token_ids": [],
+      "cache_namespace": ""
+    },
+    {
+      "node_id": "summarize-05",
+      "model_id": "7B",
+      "input_tokens": 768,
+      "output_tokens": 20,
+      "dependencies": [
+        "verify-05"
+      ],
+      "release_ms": 0.0,
+      "priority": 0,
+      "timeout_ms": null,
+      "prompt_token_ids": [],
+      "cache_namespace": ""
+    },
+    {
+      "node_id": "report-05",
+      "model_id": "32B",
+      "input_tokens": 768,
+      "output_tokens": 20,
+      "dependencies": [
+        "summarize-05"
+      ],
+      "release_ms": 0.0,
+      "priority": 0,
+      "timeout_ms": null,
+      "prompt_token_ids": [],
+      "cache_namespace": ""
+    },
+    {
+      "node_id": "search-06",
+      "model_id": "7B",
+      "input_tokens": 512,
+      "output_tokens": 24,
+      "dependencies": [
+        "planner"
+      ],
+      "release_ms": 0.0,
+      "priority": 0,
+      "timeout_ms": null,
+      "prompt_token_ids": [],
+      "cache_namespace": ""
+    },
+    {
+      "node_id": "analyze-06",
+      "model_id": "7B",
+      "input_tokens": 512,
+      "output_tokens": 24,
+      "dependencies": [
+        "search-06"
+      ],
+      "release_ms": 0.0,
+      "priority": 0,
+      "timeout_ms": null,
+      "prompt_token_ids": [],
+      "cache_namespace": ""
+    },
+    {
+      "node_id": "reason-06",
+      "model_id": "32B",
+      "input_tokens": 512,
+      "output_tokens": 24,
+      "dependencies": [
+        "analyze-06"
+      ],
+      "release_ms": 0.0,
+      "priority": 0,
+      "timeout_ms": null,
+      "prompt_token_ids": [],
+      "cache_namespace": ""
+    },
+    {
+      "node_id": "verify-06",
+      "model_id": "7B",
+      "input_tokens": 512,
+      "output_tokens": 24,
+      "dependencies": [
+        "reason-06"
+      ],
+      "release_ms": 0.0,
+      "priority": 0,
+      "timeout_ms": null,
+      "prompt_token_ids": [],
+      "cache_namespace": ""
+    },
+    {
+      "node_id": "summarize-06",
+      "model_id": "7B",
+      "input_tokens": 512,
+      "output_tokens": 24,
+      "dependencies": [
+        "verify-06"
+      ],
+      "release_ms": 0.0,
+      "priority": 0,
+      "timeout_ms": null,
+      "prompt_token_ids": [],
+      "cache_namespace": ""
+    },
+    {
+      "node_id": "report-06",
+      "model_id": "32B",
+      "input_tokens": 512,
+      "output_tokens": 24,
+      "dependencies": [
+        "summarize-06"
+      ],
+      "release_ms": 0.0,
+      "priority": 0,
+      "timeout_ms": null,
+      "prompt_token_ids": [],
+      "cache_namespace": ""
+    },
+    {
+      "node_id": "search-07",
+      "model_id": "7B",
+      "input_tokens": 640,
+      "output_tokens": 28,
+      "dependencies": [
+        "planner"
+      ],
+      "release_ms": 0.0,
+      "priority": 0,
+      "timeout_ms": null,
+      "prompt_token_ids": [],
+      "cache_namespace": ""
+    },
+    {
+      "node_id": "analyze-07",
+      "model_id": "7B",
+      "input_tokens": 640,
+      "output_tokens": 28,
+      "dependencies": [
+        "search-07"
+      ],
+      "release_ms": 0.0,
+      "priority": 0,
+      "timeout_ms": null,
+      "prompt_token_ids": [],
+      "cache_namespace": ""
+    },
+    {
+      "node_id": "reason-07",
+      "model_id": "32B",
+      "input_tokens": 640,
+      "output_tokens": 28,
+      "dependencies": [
+        "analyze-07"
+      ],
+      "release_ms": 0.0,
+      "priority": 0,
+      "timeout_ms": null,
+      "prompt_token_ids": [],
+      "cache_namespace": ""
+    },
+    {
+      "node_id": "verify-07",
+      "model_id": "7B",
+      "input_tokens": 640,
+      "output_tokens": 28,
+      "dependencies": [
+        "reason-07"
+      ],
+      "release_ms": 0.0,
+      "priority": 0,
+      "timeout_ms": null,
+      "prompt_token_ids": [],
+      "cache_namespace": ""
+    },
+    {
+      "node_id": "summarize-07",
+      "model_id": "7B",
+      "input_tokens": 640,
+      "output_tokens": 28,
+      "dependencies": [
+        "verify-07"
+      ],
+      "release_ms": 0.0,
+      "priority": 0,
+      "timeout_ms": null,
+      "prompt_token_ids": [],
+      "cache_namespace": ""
+    },
+    {
+      "node_id": "report-07",
+      "model_id": "32B",
+      "input_tokens": 640,
+      "output_tokens": 28,
+      "dependencies": [
+        "summarize-07"
+      ],
+      "release_ms": 0.0,
+      "priority": 0,
+      "timeout_ms": null,
+      "prompt_token_ids": [],
+      "cache_namespace": ""
+    },
+    {
+      "node_id": "join",
+      "model_id": "32B",
+      "input_tokens": 1024,
+      "output_tokens": 32,
+      "dependencies": [
+        "report-00",
+        "report-01",
+        "report-02",
+        "report-03",
+        "report-04",
+        "report-05",
+        "report-06",
+        "report-07"
+      ],
+      "release_ms": 0.0,
+      "priority": 0,
+      "timeout_ms": null,
+      "prompt_token_ids": [],
+      "cache_namespace": ""
+    },
+    {
+      "node_id": "critic",
+      "model_id": "7B",
+      "input_tokens": 768,
+      "output_tokens": 24,
+      "dependencies": [
+        "join"
+      ],
+      "release_ms": 0.0,
+      "priority": 0,
+      "timeout_ms": null,
+      "prompt_token_ids": [],
+      "cache_namespace": ""
+    },
+    {
+      "node_id": "final",
+      "model_id": "32B",
+      "input_tokens": 1024,
+      "output_tokens": 32,
+      "dependencies": [
+        "critic"
+      ],
+      "release_ms": 0.0,
+      "priority": 0,
+      "timeout_ms": null,
+      "prompt_token_ids": [],
+      "cache_namespace": ""
+    }
+  ],
+  "pools": [],
+  "candidates": [
+    {
+      "candidate_id": "bf16-tp2-small-r2",
+      "pools": [
+        {
+          "model_id": "32B",
+          "experiment": {
+            "workload": [],
+            "infra": {
+              "devices": [
+                {
+                  "id": "gpu0",
+                  "memory_bytes": 51539607552,
+                  "compute_tflops": 100,
+                  "memory_bandwidth_gbps": 800,
+                  "name": "course-48GiB-declared-performance-assumption"
+                },
+                {
+                  "id": "gpu1",
+                  "memory_bytes": 51539607552,
+                  "compute_tflops": 100,
+                  "memory_bandwidth_gbps": 800,
+                  "name": "course-48GiB-declared-performance-assumption"
+                }
+              ],
+              "link_bandwidth_gbps": 20,
+              "link_latency_us": 10,
+              "topology": "single-node-uncontended"
+            },
+            "strategy": {
+              "model": {
+                "name": "course32B-dense-declared-geometry",
+                "num_layers": 64,
+                "hidden_size": 5120,
+                "intermediate_size": 27648,
+                "num_attention_heads": 40,
+                "num_kv_heads": 8,
+                "head_dim": 128,
+                "vocab_size": 152064,
+                "weight_bytes": 2,
+                "kv_bytes": 2.0,
+                "activation_bytes": 2.0,
+                "revision": "teaching-geometry-v1-not-an-official-model-revision",
+                "weight_dtype": "bfloat16",
+                "kv_dtype": "bfloat16",
+                "activation_dtype": "bfloat16",
+                "tie_word_embeddings": false,
+                "qk_norm": false,
+                "final_norm": true,
+                "weight_dequant": "none",
+                "architecture_config_sha256": ""
+              },
+              "tensor_parallel_size": 2,
+              "pipeline_parallel_size": 1,
+              "stage_layers": [],
+              "replicas": 1,
+              "scheduler": "continuous_batching",
+              "max_batch_size": 8,
+              "max_batch_tokens": 4096,
+              "preemption": "recompute",
+              "max_preemptions_per_request": 100,
+              "memory": {
+                "kv_block_tokens": 16,
+                "kv_pool_bytes": 8589934592,
+                "workspace_base_bytes": 268435456,
+                "workspace_bytes_per_token": 16384,
+                "graph_bytes": 0,
+                "runtime_bytes": 1073741824,
+                "communication_buffer_bytes": 0,
+                "other_bytes": 0,
+                "safety_margin_bytes": 1073741824,
+                "guard_blocks": 0,
+                "cpu_swap_bytes": 0,
+                "swap_d2h_bandwidth_gbps": 12.0,
+                "swap_h2d_bandwidth_gbps": 12.0,
+                "swap_latency_us": 10.0
+              },
+              "pipeline_microbatch_size": 1,
+              "pipeline_max_inflight_microbatches": 8,
+              "pipeline_feedback_latency_us": 0.0,
+              "pipeline_p2p": true,
+              "pipeline_transport": "full_hidden",
+              "pipeline_transport_max_tokens": 0,
+              "swap_fallback": "none",
+              "prefix_cache": false,
+              "prefix_cache_max_blocks": 128,
+              "chunked_prefill": true,
+              "prefill_chunk_tokens": 512,
+              "mixed_batching": true,
+              "replica_routing": "least_loaded"
+            },
+            "calibration": {
+              "backend": "analytical",
+              "profile_version": "uncalibrated-v1",
+              "compute_efficiency": 0.5,
+              "bandwidth_efficiency": 0.5,
+              "launch_overhead_us": 2.0,
+              "framework_overhead_us": 5.0,
+              "prefill_ms": 10.0,
+              "decode_ms": 1.0,
+              "recompute_ms": 10.0,
+              "mixed_ms": 10.0,
+              "dequant_flops_per_weight": 1.0,
+              "profile_path": null,
+              "replica_profile_paths": [],
+              "allow_extrapolation": false,
+              "allow_test_fixture": false,
+              "runtime_name": "unspecified",
+              "runtime_version": "unspecified",
+              "driver_version": "unspecified",
+              "rocm_version": "unspecified",
+              "rccl_version": "unspecified",
+              "timing_boundary": "step_includes_output_and_sampling_v1",
+              "runtime_config_sha256": "",
+              "native_pp_communication_profile_path": null,
+              "replica_native_pp_communication_profile_paths": [],
+              "native_pp_communication_profile_version": "",
+              "native_pp_communication_allow_extrapolation": false,
+              "workspace_profile_path": null,
+              "replica_workspace_profile_paths": [],
+              "workspace_profile_version": ""
+            },
+            "evaluation": {
+              "ttft_sla_ms": null,
+              "tpot_sla_ms": null,
+              "measurement_window_ms": null,
+              "drain": true,
+              "max_drain_ms": null
+            },
+            "execution": {
+              "seed": 42,
+              "max_simulated_ms": 180000,
+              "max_events": 1000000,
+              "detailed_events": true,
+              "initial_state": "empty_cache",
+              "warmup": []
+            },
+            "schema_version": 1
+          },
+          "role": "planner-and-reasoning"
+        },
+        {
+          "model_id": "7B",
+          "experiment": {
+            "workload": [],
+            "infra": {
+              "devices": [
+                {
+                  "id": "gpu2",
+                  "memory_bytes": 51539607552,
+                  "compute_tflops": 100,
+                  "memory_bandwidth_gbps": 800,
+                  "name": "course-48GiB-declared-performance-assumption"
+                },
+                {
+                  "id": "gpu3",
+                  "memory_bytes": 51539607552,
+                  "compute_tflops": 100,
+                  "memory_bandwidth_gbps": 800,
+                  "name": "course-48GiB-declared-performance-assumption"
+                }
+              ],
+              "link_bandwidth_gbps": 20,
+              "link_latency_us": 10,
+              "topology": "single-node-uncontended"
+            },
+            "strategy": {
+              "model": {
+                "name": "course7B-dense-declared-geometry",
+                "num_layers": 28,
+                "hidden_size": 3584,
+                "intermediate_size": 18944,
+                "num_attention_heads": 28,
+                "num_kv_heads": 4,
+                "head_dim": 128,
+                "vocab_size": 152064,
+                "weight_bytes": 1,
+                "kv_bytes": 2.0,
+                "activation_bytes": 2.0,
+                "revision": "teaching-geometry-v1-not-an-official-model-revision",
+                "weight_dtype": "float8_e4m3",
+                "kv_dtype": "bfloat16",
+                "activation_dtype": "bfloat16",
+                "tie_word_embeddings": false,
+                "qk_norm": false,
+                "final_norm": true,
+                "weight_dequant": "fused",
+                "architecture_config_sha256": ""
+              },
+              "tensor_parallel_size": 1,
+              "pipeline_parallel_size": 1,
+              "stage_layers": [],
+              "replicas": 2,
+              "scheduler": "continuous_batching",
+              "max_batch_size": 8,
+              "max_batch_tokens": 4096,
+              "preemption": "recompute",
+              "max_preemptions_per_request": 100,
+              "memory": {
+                "kv_block_tokens": 16,
+                "kv_pool_bytes": 32212254720,
+                "workspace_base_bytes": 268435456,
+                "workspace_bytes_per_token": 16384,
+                "graph_bytes": 0,
+                "runtime_bytes": 1073741824,
+                "communication_buffer_bytes": 0,
+                "other_bytes": 0,
+                "safety_margin_bytes": 1073741824,
+                "guard_blocks": 0,
+                "cpu_swap_bytes": 0,
+                "swap_d2h_bandwidth_gbps": 12.0,
+                "swap_h2d_bandwidth_gbps": 12.0,
+                "swap_latency_us": 10.0
+              },
+              "pipeline_microbatch_size": 1,
+              "pipeline_max_inflight_microbatches": 8,
+              "pipeline_feedback_latency_us": 0.0,
+              "pipeline_p2p": true,
+              "pipeline_transport": "full_hidden",
+              "pipeline_transport_max_tokens": 0,
+              "swap_fallback": "none",
+              "prefix_cache": false,
+              "prefix_cache_max_blocks": 128,
+              "chunked_prefill": true,
+              "prefill_chunk_tokens": 512,
+              "mixed_batching": true,
+              "replica_routing": "least_loaded"
+            },
+            "calibration": {
+              "backend": "analytical",
+              "profile_version": "uncalibrated-v1",
+              "compute_efficiency": 0.5,
+              "bandwidth_efficiency": 0.5,
+              "launch_overhead_us": 2.0,
+              "framework_overhead_us": 5.0,
+              "prefill_ms": 10.0,
+              "decode_ms": 1.0,
+              "recompute_ms": 10.0,
+              "mixed_ms": 10.0,
+              "dequant_flops_per_weight": 1.0,
+              "profile_path": null,
+              "replica_profile_paths": [],
+              "allow_extrapolation": false,
+              "allow_test_fixture": false,
+              "runtime_name": "unspecified",
+              "runtime_version": "unspecified",
+              "driver_version": "unspecified",
+              "rocm_version": "unspecified",
+              "rccl_version": "unspecified",
+              "timing_boundary": "step_includes_output_and_sampling_v1",
+              "runtime_config_sha256": "",
+              "native_pp_communication_profile_path": null,
+              "replica_native_pp_communication_profile_paths": [],
+              "native_pp_communication_profile_version": "",
+              "native_pp_communication_allow_extrapolation": false,
+              "workspace_profile_path": null,
+              "replica_workspace_profile_paths": [],
+              "workspace_profile_version": ""
+            },
+            "evaluation": {
+              "ttft_sla_ms": null,
+              "tpot_sla_ms": null,
+              "measurement_window_ms": null,
+              "drain": true,
+              "max_drain_ms": null
+            },
+            "execution": {
+              "seed": 42,
+              "max_simulated_ms": 180000,
+              "max_events": 1000000,
+              "detailed_events": true,
+              "initial_state": "empty_cache",
+              "warmup": []
+            },
+            "schema_version": 1
+          },
+          "role": "retrieval-and-verification"
+        }
+      ]
+    },
+    {
+      "candidate_id": "fp8-single-small-r3",
+      "pools": [
+        {
+          "model_id": "32B",
+          "experiment": {
+            "workload": [],
+            "infra": {
+              "devices": [
+                {
+                  "id": "gpu0",
+                  "memory_bytes": 51539607552,
+                  "compute_tflops": 100,
+                  "memory_bandwidth_gbps": 800,
+                  "name": "course-48GiB-declared-performance-assumption"
+                }
+              ],
+              "link_bandwidth_gbps": 20,
+              "link_latency_us": 10,
+              "topology": "single-node-uncontended"
+            },
+            "strategy": {
+              "model": {
+                "name": "course32B-dense-declared-geometry",
+                "num_layers": 64,
+                "hidden_size": 5120,
+                "intermediate_size": 27648,
+                "num_attention_heads": 40,
+                "num_kv_heads": 8,
+                "head_dim": 128,
+                "vocab_size": 152064,
+                "weight_bytes": 1,
+                "kv_bytes": 2.0,
+                "activation_bytes": 2.0,
+                "revision": "teaching-geometry-v1-not-an-official-model-revision",
+                "weight_dtype": "float8_e4m3",
+                "kv_dtype": "bfloat16",
+                "activation_dtype": "bfloat16",
+                "tie_word_embeddings": false,
+                "qk_norm": false,
+                "final_norm": true,
+                "weight_dequant": "fused",
+                "architecture_config_sha256": ""
+              },
+              "tensor_parallel_size": 1,
+              "pipeline_parallel_size": 1,
+              "stage_layers": [],
+              "replicas": 1,
+              "scheduler": "continuous_batching",
+              "max_batch_size": 8,
+              "max_batch_tokens": 4096,
+              "preemption": "recompute",
+              "max_preemptions_per_request": 100,
+              "memory": {
+                "kv_block_tokens": 16,
+                "kv_pool_bytes": 5368709120,
+                "workspace_base_bytes": 268435456,
+                "workspace_bytes_per_token": 16384,
+                "graph_bytes": 0,
+                "runtime_bytes": 1073741824,
+                "communication_buffer_bytes": 0,
+                "other_bytes": 0,
+                "safety_margin_bytes": 1073741824,
+                "guard_blocks": 0,
+                "cpu_swap_bytes": 0,
+                "swap_d2h_bandwidth_gbps": 12.0,
+                "swap_h2d_bandwidth_gbps": 12.0,
+                "swap_latency_us": 10.0
+              },
+              "pipeline_microbatch_size": 1,
+              "pipeline_max_inflight_microbatches": 8,
+              "pipeline_feedback_latency_us": 0.0,
+              "pipeline_p2p": true,
+              "pipeline_transport": "full_hidden",
+              "pipeline_transport_max_tokens": 0,
+              "swap_fallback": "none",
+              "prefix_cache": false,
+              "prefix_cache_max_blocks": 128,
+              "chunked_prefill": true,
+              "prefill_chunk_tokens": 512,
+              "mixed_batching": true,
+              "replica_routing": "least_loaded"
+            },
+            "calibration": {
+              "backend": "analytical",
+              "profile_version": "uncalibrated-v1",
+              "compute_efficiency": 0.5,
+              "bandwidth_efficiency": 0.5,
+              "launch_overhead_us": 2.0,
+              "framework_overhead_us": 5.0,
+              "prefill_ms": 10.0,
+              "decode_ms": 1.0,
+              "recompute_ms": 10.0,
+              "mixed_ms": 10.0,
+              "dequant_flops_per_weight": 1.0,
+              "profile_path": null,
+              "replica_profile_paths": [],
+              "allow_extrapolation": false,
+              "allow_test_fixture": false,
+              "runtime_name": "unspecified",
+              "runtime_version": "unspecified",
+              "driver_version": "unspecified",
+              "rocm_version": "unspecified",
+              "rccl_version": "unspecified",
+              "timing_boundary": "step_includes_output_and_sampling_v1",
+              "runtime_config_sha256": "",
+              "native_pp_communication_profile_path": null,
+              "replica_native_pp_communication_profile_paths": [],
+              "native_pp_communication_profile_version": "",
+              "native_pp_communication_allow_extrapolation": false,
+              "workspace_profile_path": null,
+              "replica_workspace_profile_paths": [],
+              "workspace_profile_version": ""
+            },
+            "evaluation": {
+              "ttft_sla_ms": null,
+              "tpot_sla_ms": null,
+              "measurement_window_ms": null,
+              "drain": true,
+              "max_drain_ms": null
+            },
+            "execution": {
+              "seed": 42,
+              "max_simulated_ms": 180000,
+              "max_events": 1000000,
+              "detailed_events": true,
+              "initial_state": "empty_cache",
+              "warmup": []
+            },
+            "schema_version": 1
+          },
+          "role": "planner-and-reasoning"
+        },
+        {
+          "model_id": "7B",
+          "experiment": {
+            "workload": [],
+            "infra": {
+              "devices": [
+                {
+                  "id": "gpu1",
+                  "memory_bytes": 51539607552,
+                  "compute_tflops": 100,
+                  "memory_bandwidth_gbps": 800,
+                  "name": "course-48GiB-declared-performance-assumption"
+                },
+                {
+                  "id": "gpu2",
+                  "memory_bytes": 51539607552,
+                  "compute_tflops": 100,
+                  "memory_bandwidth_gbps": 800,
+                  "name": "course-48GiB-declared-performance-assumption"
+                },
+                {
+                  "id": "gpu3",
+                  "memory_bytes": 51539607552,
+                  "compute_tflops": 100,
+                  "memory_bandwidth_gbps": 800,
+                  "name": "course-48GiB-declared-performance-assumption"
+                }
+              ],
+              "link_bandwidth_gbps": 20,
+              "link_latency_us": 10,
+              "topology": "single-node-uncontended"
+            },
+            "strategy": {
+              "model": {
+                "name": "course7B-dense-declared-geometry",
+                "num_layers": 28,
+                "hidden_size": 3584,
+                "intermediate_size": 18944,
+                "num_attention_heads": 28,
+                "num_kv_heads": 4,
+                "head_dim": 128,
+                "vocab_size": 152064,
+                "weight_bytes": 1,
+                "kv_bytes": 2.0,
+                "activation_bytes": 2.0,
+                "revision": "teaching-geometry-v1-not-an-official-model-revision",
+                "weight_dtype": "float8_e4m3",
+                "kv_dtype": "bfloat16",
+                "activation_dtype": "bfloat16",
+                "tie_word_embeddings": false,
+                "qk_norm": false,
+                "final_norm": true,
+                "weight_dequant": "fused",
+                "architecture_config_sha256": ""
+              },
+              "tensor_parallel_size": 1,
+              "pipeline_parallel_size": 1,
+              "stage_layers": [],
+              "replicas": 3,
+              "scheduler": "continuous_batching",
+              "max_batch_size": 8,
+              "max_batch_tokens": 4096,
+              "preemption": "recompute",
+              "max_preemptions_per_request": 100,
+              "memory": {
+                "kv_block_tokens": 16,
+                "kv_pool_bytes": 32212254720,
+                "workspace_base_bytes": 268435456,
+                "workspace_bytes_per_token": 16384,
+                "graph_bytes": 0,
+                "runtime_bytes": 1073741824,
+                "communication_buffer_bytes": 0,
+                "other_bytes": 0,
+                "safety_margin_bytes": 1073741824,
+                "guard_blocks": 0,
+                "cpu_swap_bytes": 0,
+                "swap_d2h_bandwidth_gbps": 12.0,
+                "swap_h2d_bandwidth_gbps": 12.0,
+                "swap_latency_us": 10.0
+              },
+              "pipeline_microbatch_size": 1,
+              "pipeline_max_inflight_microbatches": 8,
+              "pipeline_feedback_latency_us": 0.0,
+              "pipeline_p2p": true,
+              "pipeline_transport": "full_hidden",
+              "pipeline_transport_max_tokens": 0,
+              "swap_fallback": "none",
+              "prefix_cache": false,
+              "prefix_cache_max_blocks": 128,
+              "chunked_prefill": true,
+              "prefill_chunk_tokens": 512,
+              "mixed_batching": true,
+              "replica_routing": "least_loaded"
+            },
+            "calibration": {
+              "backend": "analytical",
+              "profile_version": "uncalibrated-v1",
+              "compute_efficiency": 0.5,
+              "bandwidth_efficiency": 0.5,
+              "launch_overhead_us": 2.0,
+              "framework_overhead_us": 5.0,
+              "prefill_ms": 10.0,
+              "decode_ms": 1.0,
+              "recompute_ms": 10.0,
+              "mixed_ms": 10.0,
+              "dequant_flops_per_weight": 1.0,
+              "profile_path": null,
+              "replica_profile_paths": [],
+              "allow_extrapolation": false,
+              "allow_test_fixture": false,
+              "runtime_name": "unspecified",
+              "runtime_version": "unspecified",
+              "driver_version": "unspecified",
+              "rocm_version": "unspecified",
+              "rccl_version": "unspecified",
+              "timing_boundary": "step_includes_output_and_sampling_v1",
+              "runtime_config_sha256": "",
+              "native_pp_communication_profile_path": null,
+              "replica_native_pp_communication_profile_paths": [],
+              "native_pp_communication_profile_version": "",
+              "native_pp_communication_allow_extrapolation": false,
+              "workspace_profile_path": null,
+              "replica_workspace_profile_paths": [],
+              "workspace_profile_version": ""
+            },
+            "evaluation": {
+              "ttft_sla_ms": null,
+              "tpot_sla_ms": null,
+              "measurement_window_ms": null,
+              "drain": true,
+              "max_drain_ms": null
+            },
+            "execution": {
+              "seed": 42,
+              "max_simulated_ms": 180000,
+              "max_events": 1000000,
+              "detailed_events": true,
+              "initial_state": "empty_cache",
+              "warmup": []
+            },
+            "schema_version": 1
+          },
+          "role": "retrieval-and-verification"
+        }
+      ]
+    },
+    {
+      "candidate_id": "int4-single-small-r3",
+      "pools": [
+        {
+          "model_id": "32B",
+          "experiment": {
+            "workload": [],
+            "infra": {
+              "devices": [
+                {
+                  "id": "gpu0",
+                  "memory_bytes": 51539607552,
+                  "compute_tflops": 100,
+                  "memory_bandwidth_gbps": 800,
+                  "name": "course-48GiB-declared-performance-assumption"
+                }
+              ],
+              "link_bandwidth_gbps": 20,
+              "link_latency_us": 10,
+              "topology": "single-node-uncontended"
+            },
+            "strategy": {
+              "model": {
+                "name": "course32B-dense-declared-geometry",
+                "num_layers": 64,
+                "hidden_size": 5120,
+                "intermediate_size": 27648,
+                "num_attention_heads": 40,
+                "num_kv_heads": 8,
+                "head_dim": 128,
+                "vocab_size": 152064,
+                "weight_bytes": 0.515625,
+                "kv_bytes": 2.0,
+                "activation_bytes": 2.0,
+                "revision": "teaching-geometry-v1-not-an-official-model-revision",
+                "weight_dtype": "auto",
+                "kv_dtype": "bfloat16",
+                "activation_dtype": "bfloat16",
+                "tie_word_embeddings": false,
+                "qk_norm": false,
+                "final_norm": true,
+                "weight_dequant": "fused",
+                "architecture_config_sha256": ""
+              },
+              "tensor_parallel_size": 1,
+              "pipeline_parallel_size": 1,
+              "stage_layers": [],
+              "replicas": 1,
+              "scheduler": "continuous_batching",
+              "max_batch_size": 8,
+              "max_batch_tokens": 4096,
+              "preemption": "recompute",
+              "max_preemptions_per_request": 100,
+              "memory": {
+                "kv_block_tokens": 16,
+                "kv_pool_bytes": 12884901888,
+                "workspace_base_bytes": 268435456,
+                "workspace_bytes_per_token": 16384,
+                "graph_bytes": 0,
+                "runtime_bytes": 1073741824,
+                "communication_buffer_bytes": 0,
+                "other_bytes": 0,
+                "safety_margin_bytes": 1073741824,
+                "guard_blocks": 0,
+                "cpu_swap_bytes": 0,
+                "swap_d2h_bandwidth_gbps": 12.0,
+                "swap_h2d_bandwidth_gbps": 12.0,
+                "swap_latency_us": 10.0
+              },
+              "pipeline_microbatch_size": 1,
+              "pipeline_max_inflight_microbatches": 8,
+              "pipeline_feedback_latency_us": 0.0,
+              "pipeline_p2p": true,
+              "pipeline_transport": "full_hidden",
+              "pipeline_transport_max_tokens": 0,
+              "swap_fallback": "none",
+              "prefix_cache": false,
+              "prefix_cache_max_blocks": 128,
+              "chunked_prefill": true,
+              "prefill_chunk_tokens": 512,
+              "mixed_batching": true,
+              "replica_routing": "least_loaded"
+            },
+            "calibration": {
+              "backend": "analytical",
+              "profile_version": "uncalibrated-v1",
+              "compute_efficiency": 0.5,
+              "bandwidth_efficiency": 0.5,
+              "launch_overhead_us": 2.0,
+              "framework_overhead_us": 5.0,
+              "prefill_ms": 10.0,
+              "decode_ms": 1.0,
+              "recompute_ms": 10.0,
+              "mixed_ms": 10.0,
+              "dequant_flops_per_weight": 1.0,
+              "profile_path": null,
+              "replica_profile_paths": [],
+              "allow_extrapolation": false,
+              "allow_test_fixture": false,
+              "runtime_name": "unspecified",
+              "runtime_version": "unspecified",
+              "driver_version": "unspecified",
+              "rocm_version": "unspecified",
+              "rccl_version": "unspecified",
+              "timing_boundary": "step_includes_output_and_sampling_v1",
+              "runtime_config_sha256": "",
+              "native_pp_communication_profile_path": null,
+              "replica_native_pp_communication_profile_paths": [],
+              "native_pp_communication_profile_version": "",
+              "native_pp_communication_allow_extrapolation": false,
+              "workspace_profile_path": null,
+              "replica_workspace_profile_paths": [],
+              "workspace_profile_version": ""
+            },
+            "evaluation": {
+              "ttft_sla_ms": null,
+              "tpot_sla_ms": null,
+              "measurement_window_ms": null,
+              "drain": true,
+              "max_drain_ms": null
+            },
+            "execution": {
+              "seed": 42,
+              "max_simulated_ms": 180000,
+              "max_events": 1000000,
+              "detailed_events": true,
+              "initial_state": "empty_cache",
+              "warmup": []
+            },
+            "schema_version": 1
+          },
+          "role": "planner-and-reasoning"
+        },
+        {
+          "model_id": "7B",
+          "experiment": {
+            "workload": [],
+            "infra": {
+              "devices": [
+                {
+                  "id": "gpu1",
+                  "memory_bytes": 51539607552,
+                  "compute_tflops": 100,
+                  "memory_bandwidth_gbps": 800,
+                  "name": "course-48GiB-declared-performance-assumption"
+                },
+                {
+                  "id": "gpu2",
+                  "memory_bytes": 51539607552,
+                  "compute_tflops": 100,
+                  "memory_bandwidth_gbps": 800,
+                  "name": "course-48GiB-declared-performance-assumption"
+                },
+                {
+                  "id": "gpu3",
+                  "memory_bytes": 51539607552,
+                  "compute_tflops": 100,
+                  "memory_bandwidth_gbps": 800,
+                  "name": "course-48GiB-declared-performance-assumption"
+                }
+              ],
+              "link_bandwidth_gbps": 20,
+              "link_latency_us": 10,
+              "topology": "single-node-uncontended"
+            },
+            "strategy": {
+              "model": {
+                "name": "course7B-dense-declared-geometry",
+                "num_layers": 28,
+                "hidden_size": 3584,
+                "intermediate_size": 18944,
+                "num_attention_heads": 28,
+                "num_kv_heads": 4,
+                "head_dim": 128,
+                "vocab_size": 152064,
+                "weight_bytes": 1,
+                "kv_bytes": 2.0,
+                "activation_bytes": 2.0,
+                "revision": "teaching-geometry-v1-not-an-official-model-revision",
+                "weight_dtype": "float8_e4m3",
+                "kv_dtype": "bfloat16",
+                "activation_dtype": "bfloat16",
+                "tie_word_embeddings": false,
+                "qk_norm": false,
+                "final_norm": true,
+                "weight_dequant": "fused",
+                "architecture_config_sha256": ""
+              },
+              "tensor_parallel_size": 1,
+              "pipeline_parallel_size": 1,
+              "stage_layers": [],
+              "replicas": 3,
+              "scheduler": "continuous_batching",
+              "max_batch_size": 8,
+              "max_batch_tokens": 4096,
+              "preemption": "recompute",
+              "max_preemptions_per_request": 100,
+              "memory": {
+                "kv_block_tokens": 16,
+                "kv_pool_bytes": 32212254720,
+                "workspace_base_bytes": 268435456,
+                "workspace_bytes_per_token": 16384,
+                "graph_bytes": 0,
+                "runtime_bytes": 1073741824,
+                "communication_buffer_bytes": 0,
+                "other_bytes": 0,
+                "safety_margin_bytes": 1073741824,
+                "guard_blocks": 0,
+                "cpu_swap_bytes": 0,
+                "swap_d2h_bandwidth_gbps": 12.0,
+                "swap_h2d_bandwidth_gbps": 12.0,
+                "swap_latency_us": 10.0
+              },
+              "pipeline_microbatch_size": 1,
+              "pipeline_max_inflight_microbatches": 8,
+              "pipeline_feedback_latency_us": 0.0,
+              "pipeline_p2p": true,
+              "pipeline_transport": "full_hidden",
+              "pipeline_transport_max_tokens": 0,
+              "swap_fallback": "none",
+              "prefix_cache": false,
+              "prefix_cache_max_blocks": 128,
+              "chunked_prefill": true,
+              "prefill_chunk_tokens": 512,
+              "mixed_batching": true,
+              "replica_routing": "least_loaded"
+            },
+            "calibration": {
+              "backend": "analytical",
+              "profile_version": "uncalibrated-v1",
+              "compute_efficiency": 0.5,
+              "bandwidth_efficiency": 0.5,
+              "launch_overhead_us": 2.0,
+              "framework_overhead_us": 5.0,
+              "prefill_ms": 10.0,
+              "decode_ms": 1.0,
+              "recompute_ms": 10.0,
+              "mixed_ms": 10.0,
+              "dequant_flops_per_weight": 1.0,
+              "profile_path": null,
+              "replica_profile_paths": [],
+              "allow_extrapolation": false,
+              "allow_test_fixture": false,
+              "runtime_name": "unspecified",
+              "runtime_version": "unspecified",
+              "driver_version": "unspecified",
+              "rocm_version": "unspecified",
+              "rccl_version": "unspecified",
+              "timing_boundary": "step_includes_output_and_sampling_v1",
+              "runtime_config_sha256": "",
+              "native_pp_communication_profile_path": null,
+              "replica_native_pp_communication_profile_paths": [],
+              "native_pp_communication_profile_version": "",
+              "native_pp_communication_allow_extrapolation": false,
+              "workspace_profile_path": null,
+              "replica_workspace_profile_paths": [],
+              "workspace_profile_version": ""
+            },
+            "evaluation": {
+              "ttft_sla_ms": null,
+              "tpot_sla_ms": null,
+              "measurement_window_ms": null,
+              "drain": true,
+              "max_drain_ms": null
+            },
+            "execution": {
+              "seed": 42,
+              "max_simulated_ms": 180000,
+              "max_events": 1000000,
+              "detailed_events": true,
+              "initial_state": "empty_cache",
+              "warmup": []
+            },
+            "schema_version": 1
+          },
+          "role": "retrieval-and-verification"
+        }
+      ]
+    }
+  ],
+  "execution": {
+    "seed": 42,
+    "max_simulated_ms": 180000.0,
+    "max_events": 1000000,
+    "detailed_events": true,
+    "initial_state": "empty_cache",
+    "warmup": []
+  },
+  "trace_source": "synthetic_teaching_trace",
+  "trace_description": "52-node authored fork/join teaching workload. This is not a captured claudecode trace. 32B/7B names denote declared dense macro geometries. Four 48-GiB devices and 100 TFLOP/s, 800 GB/s are analytical assumptions, not measured W7900D specifications. INT4 effective width 0.515625 includes declared GPTQ-128-like scale metadata; fused dequant and all quantized behavior are assumptions.",
+  "schema_version": 1
+}

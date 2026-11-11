@@ -2,6 +2,7 @@
 
 import argparse
 from dataclasses import asdict, replace
+from datetime import datetime, timezone
 import hashlib
 import importlib
 import json
@@ -100,6 +101,66 @@ def _read_json(path: Path) -> tuple[Any, bytes]:
         if isinstance(exc, SimulationError):
             raise
         raise SimulationError("INVALID_CONFIG", f"Cannot read {path}: {exc}") from exc
+
+
+def _workflow_profiles(manifest: dict, output: Path, inputs: list[dict], label: str) -> None:
+    """Save the workflow's consumed snapshots without rereading mutable sources."""
+    for item in inputs:
+        raw = item["raw_json"].encode("utf-8")
+        _record_input(manifest, item["origin_path"], raw)
+        target = output / "inputs" / f"{item['sha256']}.json"
+        target.parent.mkdir(exist_ok=True)
+        if not target.exists():
+            with target.open("xb") as stream:
+                stream.write(raw)
+        elif target.read_bytes() != raw:
+            raise SimulationError("INPUT_CHANGED", "Profile snapshot bytes changed during workflow")
+        manifest.setdefault("workflow_profiles", []).append({
+            "configuration": label, "field": item["field"], "index": item["index"],
+            "origin_path": item["origin_path"], "sha256": item["sha256"],
+            "source_kind": item["source_kind"], "snapshot_file": f"inputs/{target.name}"})
+
+
+def _course_workflow(args: argparse.Namespace, manifest: dict) -> dict:
+    """Opt-in course orchestration, separate from legacy experiment schemas."""
+    plan, raw = _read_json(args.plan)
+    _record_input(manifest, args.plan, raw)
+    if not isinstance(plan, dict):
+        raise SimulationError("INVALID_CONFIG", "Course plan must be a JSON object")
+    _write_json(args.out / "plan.json", plan)
+    artifacts = args.out / "artifacts"
+    if args.mode == "chapter1":
+        from .course_roofline import run_chapter1, write_chapter1_report
+        result = run_chapter1(plan)
+        write_chapter1_report(result, artifacts)
+    elif args.mode == "generate-workload":
+        from .workload import generate_workload
+        result = generate_workload(plan)
+        (args.out / "workload.jsonl").write_text(
+            "".join(_json(row) + "\n" for row in result["requests"]), encoding="utf-8")
+    elif args.mode == "sweep":
+        from .load_sweep import run_load_sweep, write_load_report
+        experiment = load_experiment(args.experiment)
+        _experiment_inputs(manifest, args.experiment, experiment)
+        _write_json(args.out / "experiment.json", asdict(experiment))
+        result = run_load_sweep(experiment, plan)
+        _workflow_profiles(manifest, args.out, result["profile_inputs"], "load_sweep")
+        write_load_report(result, artifacts)
+    else:
+        from .dag import load_dag_plan, run_dag_candidates, simulate_dag, write_dag_report
+        parsed = load_dag_plan(plan, base_dir=args.plan.parent)
+        result = run_dag_candidates(parsed) if parsed.candidates else simulate_dag(parsed)
+        for candidate in result["candidates"] if parsed.candidates else [result]:
+            for pool in candidate["pools"]:
+                label = f"{candidate['candidate_id']}/{pool['model_id']}" if parsed.candidates else pool["model_id"]
+                _workflow_profiles(manifest, args.out, pool["profile_inputs"], label)
+        write_dag_report(result, artifacts)
+    result.setdefault("status", "COMPLETED")
+    result.setdefault("hardware_validated", False)
+    manifest["prediction_id"] = f"{args.mode}-{hashlib.sha256(_json(result).encode()).hexdigest()[:24]}"
+    manifest["stored_at"] = datetime.now(timezone.utc).isoformat()
+    manifest["historical_prediction_before_measurement_established"] = False
+    return result
 
 
 def _simulation(args: argparse.Namespace, manifest: dict) -> dict:
@@ -845,6 +906,8 @@ def _execute(args: argparse.Namespace) -> dict:
     try:
         if args.mode in ("simulate", "predict"):
             result = _simulation(args, manifest)
+        elif args.mode in ("chapter1", "generate-workload", "sweep", "dag"):
+            result = _course_workflow(args, manifest)
         elif args.mode == "calibrate":
             result = _calibrate(args, manifest)
         elif args.mode == "validate":
@@ -871,7 +934,7 @@ def _execute(args: argparse.Namespace) -> dict:
     except (SimulationError, OSError) as exc:
         code = exc.code if isinstance(exc, SimulationError) else "IO_ERROR"
         result = {"status": "FAILED", "error_code": code, "message": str(exc)}
-        if args.mode in ("collect", "validate-hardware"):
+        if args.mode in ("collect", "validate-hardware", "chapter1", "generate-workload", "sweep", "dag"):
             result["hardware_validated"] = False
             manifest["hardware_validated"] = False
         _write_json(args.out / "manifest.json", manifest)
@@ -896,6 +959,11 @@ def _arguments(parser: argparse.ArgumentParser, mode: str) -> None:
     parser.add_argument("--out", type=Path, required=True)
     if mode in ("simulate", "predict"):
         parser.add_argument("--experiment", type=Path, required=True)
+        return
+    if mode in ("chapter1", "generate-workload", "sweep", "dag"):
+        parser.add_argument("--plan", type=Path, required=True)
+        if mode == "sweep":
+            parser.add_argument("--experiment", type=Path, required=True)
         return
     if mode == "import-model":
         parser.add_argument("--kind", choices=("qwen3",), required=True)
@@ -971,7 +1039,8 @@ def main(argv: list[str] | None = None, *, mode: str | None = None) -> int:
     parsed = False
     try:
         parser = _Parser(description="CPU LLM simulation, calibration and validation tools")
-        modes = ("simulate", "predict", "calibrate", "compare", "validate", "collect", "validate-hardware", "import-model")
+        modes = ("simulate", "predict", "calibrate", "compare", "validate", "collect", "validate-hardware", "import-model",
+                 "chapter1", "generate-workload", "sweep", "dag")
         if mode is None:
             commands = parser.add_subparsers(dest="mode", required=True, parser_class=_Parser)
             for name in modes:

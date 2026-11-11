@@ -3,7 +3,9 @@
 [English](README.md) · [Python API](docs/api.md) · [校准](docs/calibration.md) ·
 [验证规范](docs/validation-protocol.md) · [系统规范](docs/specification.md) · [PP 与 CPU swap](docs/pipeline-and-swap.md) · [Prefix Cache 与分块预填充](docs/prefix-cache-and-chunking.md) · [混合批处理](docs/mixed-batching.md) · [多副本路由](docs/multi-replica.md) · [ROCm 采集](docs/rocm-collection.md) · [Qwen3 与 vLLM 内部 hook](docs/qwen3-and-vllm-hooks.md) · [原生 PP 采样与 Profile](docs/native-pp-capture.md) · [原生 PP 通信微基准与校准](docs/native-pp-communication.md) · [量化存储](docs/quantization.md) · [Workspace 与容量验证](docs/workspace-and-capacity.md)
 
-1.14 版增加 PP2 的公开 HSA 查询与被动 KFD 事件页证据，独立核对 CPU signal body、GTT 分配及映射生命周期。保留逐 Worker 的 Prefill／Decode Workspace 采集、逐 rank 校准、严格 Profile 身份，以及已有 TP／PP、缓存、分块、混合批处理、CPU swap、多副本调度。用户提供的 AMD/NVIDIA 参考包用于格式适配与审计；原始包及 prompt/output 全文不随库分发，现有覆盖不代表通用硬件准确率。仓库为[私有仓库](https://github.com/eyuansu62/mlsys-simulator)，许可证待选择，尚未发布 PyPI。归属边界见[同步资源证据合同](docs/pp2-synchronization-evidence.md)。
+1.16 版补齐课程工作流：第1章显式口径的18点报告、固定seed负载生成与开放/闭环扫描，以及DAG依赖调度和异构模型池。保留量化存储、TP/PP、缓存、分块、混批、CPU swap、多副本与已有真机采集/校准工具。源码见[GitHub](https://github.com/eyuansu62/mlsys-simulator)，许可证仍待选择，尚未发布PyPI。
+
+按[课程工作流](docs/course-workflows.md)的六条命令可直接生成图文报告、CSV与SVG。52节点32B/7B示例明确为冻结的人工教学轨迹，硬件参数为声明假设；负载边界是有限网格的观测结果，保留全部seed、失败和非单调情况，不建立新的真机精度结论。
 
 单卡和TP2已完成完整训练及冻结后独立验证；1.14的PP2也完成闭环，每个cohort各48条记录/48条rank观测、16种stage精确形状，覆盖率100%、字节误差0、低估0。结论仅限实际采样配置和保留形状，详见[Worker Workspace 验证记录](docs/workspace-stage-validation.md)。
 

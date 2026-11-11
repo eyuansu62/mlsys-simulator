@@ -14,9 +14,12 @@ collection adapters instrument an installed Runtime separately from simulation.
 [Native PP capture and Profiles](docs/native-pp-capture.md) ·
 [Native PP communication calibration](docs/native-pp-communication.md) ·
 [Quantized storage](docs/quantization.md) ·
+[Course workflows](docs/course-workflows.md) ·
 [Workspace and capacity validation](docs/workspace-and-capacity.md) · [Contributing](CONTRIBUTING.md)
 
-**Version 1.15 software scope:** Public HSA/driver GTT synchronization-resource
+**Version 1.16 software scope:** Explicit Chapter 1 nominal reporting,
+seeded open/closed-loop load generation and scans, causal DAG coordination over
+heterogeneous model pools, public HSA/driver GTT synchronization-resource
 evidence and Worker-level Prefill/Decode Workspace acquisition
 for the pinned single/TP2/PP2 layouts, provenance-checked independent exact
 Workspace repeats, independent exact per-rank Workspace Profiles,
@@ -33,8 +36,13 @@ profiles, calibration, grouped holdout evaluation and run/candidate comparison.
 User-supplied AMD and NVIDIA reference packages inform the import and audit
 contracts; raw packages and prompt/output text are not distributed with this
 library. Their coverage does not establish general hardware accuracy. The
-repository is [private](https://github.com/eyuansu62/mlsys-simulator), the license
+source is on [GitHub](https://github.com/eyuansu62/mlsys-simulator), the license
 is pending selection, and no package has been published to PyPI.
+
+For the course, start with the [six runnable workflows](docs/course-workflows.md#run-the-supplied-experiments).
+Reports contain HTML/CSV/SVG and explicit prediction provenance. The 52-node
+32B/7B candidate example is a frozen synthetic teaching trace; empirical load
+boundaries and declared hardware rates do not establish real deployment accuracy.
 
 The 1.12 limited live validation added complete requested-storage Workspace
 attribution at two single-card prefill shapes, fresh-process physical KV-pool

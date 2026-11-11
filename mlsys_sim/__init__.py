@@ -6,7 +6,7 @@ Changes to this import surface and the versioned data contracts are recorded
 in the changelog. Calibration provenance and hardware validation are separate.
 """
 
-__version__ = "1.15.0"
+__version__ = "1.16.0"
 
 from .config import experiment_from_dict, load_experiment, validate_experiment
 from .engine import SimulationResult, simulate
@@ -58,8 +58,20 @@ from .workspace import (WorkspaceModel, calibrate_workspace, load_workspace_data
 from .workspace_capture import WorkspaceRecorder, PinnedVllmWorkspaceObserver, collect_workspace
 from .capacity import (collect_memory_capacity, load_capacity_dataset, validate_capacity_dataset,
                        validate_memory_capacity)
+from .course_roofline import run_chapter1, write_chapter1_report
+from .workload import generate_workload
+from .load_sweep import run_load_sweep, write_load_report
+from .dag import simulate_dag, run_dag_candidates, write_dag_report
 
 __all__ = [
+    "run_chapter1",
+    "write_chapter1_report",
+    "generate_workload",
+    "run_load_sweep",
+    "write_load_report",
+    "simulate_dag",
+    "run_dag_candidates",
+    "write_dag_report",
     "WorkspaceModel",
     "calibrate_workspace",
     "validate_workspace_repeats",
