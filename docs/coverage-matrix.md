@@ -1,12 +1,13 @@
-# Version 1.18 capability matrix
+# Version 1.19 capability matrix
 
-This table describes the version 1.18 software scope. Available fixture demonstrations
+This table describes the version 1.19 software scope. Available fixture demonstrations
 and unit tests do not establish AMD hardware accuracy. User-supplied reference
 packages are external evidence with their own timing and model-coverage limits.
 
 | Capability | Software status | Supported scope and evidence boundary |
 | --- | --- | --- |
 | Six inputs and strict configuration | Implemented | JSON/TOML, JSONL workload, relative references; optional installed PyYAML |
+| Local Web interface | Implemented | Loopback-only model/hardware/load forms, bounded single-GPU analytical simulations, latency/token-rate/cumulative-memory charts and replay export; no GPU execution or remote deployment |
 | Independent closed-loop course validation | Implemented protocol/adapter | Fixed-N client policies, terminal-feedback predictions and capture, frozen raw/canonical commitments, separate server/API timing, full cell/seed/error retention and sanitized reports; finite cohorts do not certify steady-state or HTTP SLA |
 | Joint capacity/latency/throughput constraints | Implemented, opt-in | Each physical rank's peak budget, requested quantiles and explicit rate denominator; missing/insufficient evidence stays UNKNOWN and failed runs cannot pass |
 | Fixed-workload candidate screening | Implemented, opt-in | Ordinary runs, every load repetition or heterogeneous DAG/pool assessments; all candidate outcomes retained, PASS-only ranking, exact Profile bytes and offline replay |

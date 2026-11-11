@@ -19,7 +19,8 @@ collection adapters instrument an installed Runtime separately from simulation.
 [Independent closed-loop validation](docs/closed-loop-validation.md) ·
 [Workspace and capacity validation](docs/workspace-and-capacity.md) · [Contributing](CONTRIBUTING.md)
 
-**Version 1.18 software scope:** Frozen finite-cohort closed-loop predictions,
+**Version 1.19 software scope:** Local model/hardware/load forms and analytical
+latency, throughput and memory charts, plus frozen finite-cohort closed-loop predictions,
 completion-feedback collection, independent server-token validation and
 sanitized course reports, alongside joint per-rank memory, latency and throughput
 constraints, candidate screening, imported course eta/beta reports and explicit
@@ -131,6 +132,12 @@ mlsys-sim predict --experiment examples/pp2_analytical.json --out runs/pp2
 Use `python -m mlsys_sim` in place of `mlsys-sim` if preferred. The original
 `simulate.py` and `predict.py` source entry points remain available. Every output
 directory must be new; existing results are never overwritten.
+
+For a local browser interface, run `mlsys-sim-web` (or `python -m mlsys_sim.web`
+from the checkout) and open `http://127.0.0.1:8765`. Configure a model, single-GPU
+hardware and a fixed request cohort, then inspect latency, output throughput and
+memory-budget charts. It reuses the CPU analytical engine, adds no runtime
+dependencies and exports replayable experiments. See the [Web interface](docs/web-interface.md).
 
 ## Run pipeline and CPU swap examples
 

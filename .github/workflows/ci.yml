@@ -46,6 +46,8 @@ jobs:
         run: ruff check .
       - name: Type check
         run: mypy mlsys_sim scripts/verify_distribution.py scripts/rocm_workspace_audit scripts/analyze_course_sla_study.py scripts/freeze_course_sla_commitment.py
+      - name: Web JavaScript syntax
+        run: node --check mlsys_sim/web_assets/app.js
       - name: Build wheel and source distribution
         run: python -m build
       - name: Check distribution metadata
