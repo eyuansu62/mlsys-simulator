@@ -1,0 +1,57 @@
+{
+  "source_repository": "taowangcheng/hello-mlsys-lab",
+  "source_commit": "d28137bfb2d87e5ee247305325f34f1b7824c639",
+  "source_directory": "integrations/mlsys-simulator/examples",
+  "note": "Original requests remain unconfirmed and must be rejected. Protocol variants use different declared models/hardware and are not course baseline results.",
+  "records": [
+    {
+      "task": "9.1",
+      "original_request_sha256": "89aea4a9b0168ae5d6a036c9793ca04696d921486c18e08a49e775b1e75783f7",
+      "source_workload_sha256": "sha256:c572d1617b82ed5628a7112546b85fc4ea3d088ad3e1e3ec6245a5855e407319",
+      "protocol_variant_changes": [
+        "catalog version",
+        "explicit different model identities",
+        "BF16 weights",
+        "rx9070xt nominal hardware",
+        "protocol-only labels"
+      ],
+      "original_task_baseline_accepted": false
+    },
+    {
+      "task": "9.2",
+      "original_request_sha256": "c0ae4b70d78920dc790a45c616990abefd1e8fadd1816f9a39ba429dc7cc8cb2",
+      "source_workload_sha256": "sha256:b65174341b89c1afec09c09f47a6a15ab0cac1e315d37e3a4722094b02a1e964",
+      "protocol_variant_changes": [
+        "catalog version",
+        "explicit different model identities",
+        "BF16 weights",
+        "rx9070xt nominal hardware",
+        "protocol-only labels"
+      ],
+      "original_task_baseline_accepted": false
+    },
+    {
+      "task": "9.3",
+      "original_request_sha256": "dfb73af647435c0fc3b0ca8c14c132af8838f542874af4b25b986fde412a4301",
+      "source_workload_sha256": "sha256:cbec87df2b9853b84e5c7c67fe06f66f78a910423ef8d48ed162693ebf271058",
+      "protocol_variant_changes": [
+        "catalog version",
+        "explicit different model identities",
+        "BF16 weights",
+        "rx9070xt nominal hardware",
+        "protocol-only labels"
+      ],
+      "original_task_baseline_accepted": false
+    }
+  ],
+  "schemas": [
+    {
+      "path": "request.schema.json",
+      "sha256": "d849a4682d9718daa6a5eb953c3793c47d1025c0dce0f8d2fb073d2152859178"
+    },
+    {
+      "path": "response.schema.json",
+      "sha256": "3f47f9b7d424255523b97cf28e5aa177470a0a92d9b96977d2d615892bbe6143"
+    }
+  ]
+}

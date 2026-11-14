@@ -5,7 +5,7 @@ It is deliberately separate from duration-limited open/closed-loop load sweeps.
 """
 
 from copy import deepcopy
-from dataclasses import asdict, replace
+from dataclasses import replace
 from datetime import datetime, timezone
 import heapq
 import math
@@ -20,6 +20,7 @@ from .event_driver import EventDriver
 from .load_sweep import _account_unreached, _restore_origin_paths
 from .profiles import profile_identity
 from .schema import Experiment, RequestSpec, SimulationError
+from .serialization import experiment_dict
 from .state import SimulationResult, TERMINAL
 from .workload import _rng, canonical_sha256
 
@@ -292,8 +293,8 @@ def predict_closed_loop(experiment: Experiment, spec: dict) -> dict:
                 "status": "COMPLETED" if all(run["status"] == "COMPLETED" for run in runs) else "UNRESOLVED",
                 "study_id": selected["study_id"], "cohort": selected["cohort"], "spec": selected,
                 "spec_sha256": canonical_sha256(selected), "identity": identity,
-                "identity_sha256": canonical_sha256(identity), "experiment": asdict(effective),
-                "experiment_sha256": canonical_sha256(asdict(effective)), "streams": streams,
+                "identity_sha256": canonical_sha256(identity), "experiment": experiment_dict(effective),
+                "experiment_sha256": canonical_sha256(experiment_dict(effective)), "streams": streams,
                 "profile_inputs": inputs, "runs": runs, "hardware_validated": False,
                 "limitations": ["Model predictions use finite-cohort completion refill, not realized hardware arrivals",
                                 "Finite cohort elapsed throughput is not a steady-state queue stability claim",
@@ -311,8 +312,8 @@ def predict_closed_loop(experiment: Experiment, spec: dict) -> dict:
             paths[path] = item["origin_path"]
         report = predict(bound)
         # Identity/config hashes are based on the declared original paths, never random snapshots.
-        report["experiment"] = asdict(effective)
-        report["experiment_sha256"] = canonical_sha256(asdict(effective))
+        report["experiment"] = experiment_dict(effective)
+        report["experiment_sha256"] = canonical_sha256(experiment_dict(effective))
         return _restore_origin_paths(report, paths)
 
 

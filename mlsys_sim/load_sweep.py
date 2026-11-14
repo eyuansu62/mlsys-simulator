@@ -17,6 +17,7 @@ from .capacity import _bind_inputs, _profile_inputs
 from .constraints import _limiting, _verdict, evaluate_simulation_constraints, validate_constraints
 from .engine import simulate
 from .schema import Experiment, RequestSpec, SimulationError, StepEstimate
+from .serialization import experiment_dict
 from .state import SimulationResult, TERMINAL
 from .workload import (
     GENERATOR_VERSION, MAX_REQUESTS, _integer, _keys, _length, _positive, _rng,
@@ -495,7 +496,7 @@ def _run_bound_sweep(experiment: Experiment, plan: dict, profile_inputs: list[di
             slo_brackets.append({"pass": left[axis], "fail": right[axis],
                                  "resolution": right[axis] - left[axis], "axis": axis})
     report: dict[str, Any] = {"schema_version": 1, "sweep_version": SWEEP_VERSION, "backend": "simulated",
-            "hardware_validated": False, "experiment_sha256": canonical_sha256(asdict(experiment)),
+            "hardware_validated": False, "experiment_sha256": canonical_sha256(experiment_dict(experiment)),
             "profile_inputs": [{**item, "artifact_path": f"inputs/profile-{index:03d}.json"}
                                for index, item in enumerate(profile_inputs)],
             "profile_inputs_sha256": canonical_sha256(profile_inputs),

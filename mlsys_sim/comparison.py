@@ -15,6 +15,7 @@ from typing import Any, NoReturn
 
 from .layout import stage_layer_counts
 from .schema import Experiment, SimulationError
+from .serialization import experiment_dict, strategy_dict
 
 
 METRIC_UNITS = {
@@ -79,7 +80,7 @@ def _contract(value: Any, name: str, *, measured: bool = False) -> dict:
                         "pipeline_feedback_latency_us", "pipeline_p2p", "swap_fallback",
                         "prefix_cache", "prefix_cache_max_blocks", "chunked_prefill",
                         "prefill_chunk_tokens", "mixed_batching", "replica_routing",
-                        "pipeline_transport", "pipeline_transport_max_tokens"}
+                        "pipeline_transport", "pipeline_transport_max_tokens", "max_active_requests"}
         _keys(contract["strategy"], {field.name for field in fields(StrategySpec)} - added_policy,
               added_policy, f"{name}.strategy")
         _keys(contract["evaluation"], {field.name for field in fields(EvaluationSpec)}, set(), f"{name}.evaluation")
@@ -104,7 +105,7 @@ def _contract(value: Any, name: str, *, measured: bool = False) -> dict:
     if (contract["timing_boundary"] != "step_includes_output_and_sampling_v1"
             or contract["timing_boundary"] != contract["identity"]["runtime"]["timing_boundary"]):
         _error("comparison_contract uses an unsupported or inconsistent timing boundary")
-    normalized_strategy = asdict(reconstructed.strategy)
+    normalized_strategy = strategy_dict(reconstructed.strategy)
     normalized_strategy["stage_layers"] = stage_layer_counts(reconstructed)
     normalized_execution = asdict(reconstructed.execution)
     normalized_execution.pop("max_events")
@@ -142,14 +143,14 @@ def comparison_contract(experiment: Experiment) -> dict:
     from .config import experiment_from_dict
     from .profiles import profile_identity
 
-    experiment = experiment_from_dict(asdict(experiment))
-    strategy = asdict(experiment.strategy)
+    experiment = experiment_from_dict(experiment_dict(experiment))
+    strategy = strategy_dict(experiment.strategy)
     strategy["stage_layers"] = stage_layer_counts(experiment)
     execution = asdict(experiment.execution)
     execution.pop("detailed_events")
     execution.pop("max_events")
     # Preserve V1 workload fingerprints when additive prompt identity is absent.
-    workload = asdict(experiment)["workload"]
+    workload = experiment_dict(experiment)["workload"]
     for row in workload:
         if not row["prompt_token_ids"]:
             row.pop("prompt_token_ids")

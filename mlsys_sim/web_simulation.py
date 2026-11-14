@@ -12,6 +12,7 @@ from .engine import simulate
 from .memory import MemoryPlanner
 from .qwen3 import model_from_qwen3_config
 from .schema import ModelSpec, SimulationError
+from .serialization import experiment_dict
 from .workload import GENERATOR_VERSION, _rng, canonical_sha256
 
 
@@ -178,7 +179,7 @@ def build_experiment(payload: dict) -> tuple[dict, dict]:
                       "max_simulated_ms": MAX_SIMULATED_MS, "detailed_events": True},
     }
     validated = experiment_from_dict(experiment)
-    return asdict(validated), {
+    return experiment_dict(validated), {
         "generator_version": GENERATOR_VERSION, "workload_rule": "fixed_request_count_then_drain",
         "arrival_process": arrival, "seed": seed, "request_count": count,
         "requests_sha256": canonical_sha256(rows),

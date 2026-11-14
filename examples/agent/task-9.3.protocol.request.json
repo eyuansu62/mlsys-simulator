@@ -1,0 +1,233 @@
+{
+  "schema": "mlab.simulator.v1",
+  "task": "9.3",
+  "candidate_id": "protocol-qwen-bf16-not-course-baseline",
+  "workload": {
+    "mode": "dag",
+    "requests": [
+      {
+        "request_id": "plan",
+        "arrival_ms": 0,
+        "input_tokens": 2048,
+        "output_tokens_target": 512,
+        "target_model": "qwen3-4b",
+        "controller_id": "c0"
+      },
+      {
+        "request_id": "sub1",
+        "input_tokens": 6144,
+        "output_tokens_target": 512,
+        "target_model": "qwen3-0.6b",
+        "depends_on": [
+          "plan"
+        ],
+        "gap_after_deps_ms": 100,
+        "controller_id": "c0",
+        "subagent_id": "s1",
+        "prefix_group": "rag-1"
+      },
+      {
+        "request_id": "sub2",
+        "input_tokens": 8192,
+        "output_tokens_target": 512,
+        "target_model": "qwen3-0.6b",
+        "depends_on": [
+          "plan"
+        ],
+        "gap_after_deps_ms": 100,
+        "controller_id": "c0",
+        "subagent_id": "s2",
+        "prefix_group": "rag-1"
+      },
+      {
+        "request_id": "sub3",
+        "input_tokens": 4096,
+        "output_tokens_target": 384,
+        "target_model": "qwen3-0.6b",
+        "depends_on": [
+          "plan"
+        ],
+        "gap_after_deps_ms": 100,
+        "controller_id": "c0",
+        "subagent_id": "s3",
+        "prefix_group": "rag-2"
+      },
+      {
+        "request_id": "sub4",
+        "input_tokens": 6144,
+        "output_tokens_target": 384,
+        "target_model": "qwen3-0.6b",
+        "depends_on": [
+          "plan"
+        ],
+        "gap_after_deps_ms": 100,
+        "controller_id": "c0",
+        "subagent_id": "s4",
+        "prefix_group": "rag-2"
+      },
+      {
+        "request_id": "ctrl1",
+        "input_tokens": 4096,
+        "output_tokens_target": 256,
+        "target_model": "qwen3-4b",
+        "depends_on": [
+          "sub1",
+          "sub2"
+        ],
+        "gap_after_deps_ms": 200,
+        "controller_id": "c1"
+      },
+      {
+        "request_id": "ctrl2",
+        "input_tokens": 4096,
+        "output_tokens_target": 256,
+        "target_model": "qwen3-4b",
+        "depends_on": [
+          "sub3",
+          "sub4"
+        ],
+        "gap_after_deps_ms": 200,
+        "controller_id": "c2"
+      },
+      {
+        "request_id": "sub5",
+        "input_tokens": 8192,
+        "output_tokens_target": 512,
+        "target_model": "qwen3-0.6b",
+        "depends_on": [
+          "ctrl1"
+        ],
+        "gap_after_deps_ms": 100,
+        "controller_id": "c1",
+        "subagent_id": "s5",
+        "prefix_group": "rag-3"
+      },
+      {
+        "request_id": "sub6",
+        "input_tokens": 4096,
+        "output_tokens_target": 512,
+        "target_model": "qwen3-0.6b",
+        "depends_on": [
+          "ctrl1"
+        ],
+        "gap_after_deps_ms": 100,
+        "controller_id": "c1",
+        "subagent_id": "s6",
+        "prefix_group": "rag-3"
+      },
+      {
+        "request_id": "synth",
+        "input_tokens": 16384,
+        "output_tokens_target": 1024,
+        "target_model": "qwen3-4b",
+        "depends_on": [
+          "ctrl2",
+          "sub5",
+          "sub6"
+        ],
+        "gap_after_deps_ms": 300,
+        "controller_id": "c0"
+      }
+    ],
+    "source_sha256": "sha256:cbec87df2b9853b84e5c7c67fe06f66f78a910423ef8d48ed162693ebf271058"
+  },
+  "infra": {
+    "id": "protocol-rx9070xt-x4",
+    "nodes": [
+      {
+        "id": "node0",
+        "devices": [
+          {
+            "id": "gpu0",
+            "hardware": "rx9070xt"
+          },
+          {
+            "id": "gpu1",
+            "hardware": "rx9070xt"
+          },
+          {
+            "id": "gpu2",
+            "hardware": "rx9070xt"
+          },
+          {
+            "id": "gpu3",
+            "hardware": "rx9070xt"
+          }
+        ]
+      }
+    ]
+  },
+  "strategy": {
+    "deployments": [
+      {
+        "model": "qwen3-4b",
+        "weight_precision": "BF16",
+        "kv_precision": "BF16",
+        "context_tokens": 32768,
+        "devices": [
+          "gpu0"
+        ],
+        "replicas": 1,
+        "parallel": {
+          "kind": "none",
+          "degree": 1
+        }
+      },
+      {
+        "model": "qwen3-0.6b",
+        "weight_precision": "BF16",
+        "kv_precision": "BF16",
+        "context_tokens": 16384,
+        "devices": [
+          "gpu1",
+          "gpu2",
+          "gpu3"
+        ],
+        "replicas": 3,
+        "parallel": {
+          "kind": "none",
+          "degree": 1
+        }
+      }
+    ],
+    "serving": {
+      "max_concurrency": 16,
+      "gpu_memory_utilization": 0.8,
+      "kv_fraction": null,
+      "kv_budget_gib": null,
+      "chunked_prefill_tokens": null,
+      "continuous_batching": true
+    },
+    "cache": {},
+    "scheduling": {
+      "priority": "fifo"
+    },
+    "speculative": false
+  },
+  "evaluation": {
+    "constraints": [
+      {
+        "metric": "completion_rate",
+        "op": ">=",
+        "value": 1.0,
+        "status": "draft",
+        "source": "Project plan Ch 9.3",
+        "note": "All requests must complete; otherwise wall-clock time is meaningless"
+      }
+    ],
+    "duration_s": 300,
+    "timeout_s": 1800,
+    "goodput_policy": "both_thresholds_required"
+  },
+  "execution": {
+    "seed": 42,
+    "repeat": 0,
+    "split": "development",
+    "holdout": null,
+    "initial_state": "empty",
+    "warmup": null,
+    "max_simulated_ms": 300000
+  },
+  "catalog_version": "mlsys-agent-catalog-v1",
+  "client_request_id": "protocol-qwen-9.3"
+}

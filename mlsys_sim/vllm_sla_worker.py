@@ -5,7 +5,7 @@ Scheduler hook supplies the separate server-token observation boundary.
 """
 
 import argparse
-from dataclasses import asdict, replace
+from dataclasses import replace
 from datetime import datetime, timezone
 import hashlib
 import json
@@ -21,6 +21,7 @@ from .load_validation import closed_loop_policy_sha256, generate_request_stream,
 from .profiles import profile_identity, validate_identity
 from .runtime_adapter import normalize_runtime_trace
 from .schema import Experiment, RequestSpec, SimulationError
+from .serialization import experiment_dict
 
 
 def _now() -> str:
@@ -250,7 +251,7 @@ def main(argv: list[str] | None = None) -> int:
     os.environ['VLLM_USE_V2_MODEL_RUNNER'] = '0'
     os.environ['VLLM_WORKER_MULTIPROC_METHOD'] = 'spawn'
     session = 'sla-' + uuid.uuid4().hex
-    capture_config = {'schema_version': 1, 'experiment': asdict(experiment), 'session_id': session,
+    capture_config = {'schema_version': 1, 'experiment': experiment_dict(experiment), 'session_id': session,
                       'output_dir': str(args.out / 'captures'), 'capture_scheduler': True,
                       'record_prompt_token_ids': True, 'max_records': 100000, 'max_events': 1000000,
                       'source_reference': 'actual single-card course closed-loop validation; ' + args.phase}

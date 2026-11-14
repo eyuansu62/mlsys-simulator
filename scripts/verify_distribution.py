@@ -30,6 +30,16 @@ assert "vllm" not in sys.modules, "Optional serving dependency was imported eage
 from mlsys_sim.vllm_capacity_adapter import kv_pool_factory
 assert callable(kv_pool_factory) and callable(mlsys_sim.validate_profile_repeats)
 assert "torch" not in sys.modules and "vllm" not in sys.modules
+from mlsys_sim.agent_service import run_agent_isolated
+for task, count in (("9.2", 12), ("9.1", 6), ("9.3", 10)):
+    body = Path("agent-inputs", "task-" + task + ".protocol.request.json").read_bytes()
+    packet = run_agent_isolated(body, 30)
+    assert packet["ok"], packet
+    response = packet["response"]
+    mlsys_sim.validate_agent_response(body, response)
+    assert response["status"] == "succeeded" and len(response["requests"]) == count
+    assert response["evidence_level"] == "simulated" and response["calibration"]["in_domain"] is None
+assert "torch" not in sys.modules and "vllm" not in sys.modules
 from importlib.resources import files
 from mlsys_sim.web import run_isolated
 from mlsys_sim.web_simulation import presets
@@ -50,7 +60,8 @@ assert all(callable(getattr(mlsys_sim, name)) for name in (
     "run_candidate_screening", "write_screening_report", "import_course_calibration",
     "write_course_calibration_report", "apply_course_calibration", "run_calibrated_chapter1",
     "validate_closed_loop_spec", "generate_request_stream", "closed_loop_policy_sha256",
-    "predict_closed_loop", "validate_closed_loop", "collect_closed_loop"))
+    "predict_closed_loop", "validate_closed_loop", "collect_closed_loop",
+    "get_agent_catalog", "validate_agent_request", "validate_agent_response", "simulate_sequential"))
 from mlsys_sim.load_validation_report import write_closed_loop_study_report
 from mlsys_sim.vllm_sla_worker import formal_server_evidence
 assert callable(write_closed_loop_study_report) and callable(formal_server_evidence)
@@ -290,7 +301,8 @@ def verify(dist: Path) -> dict:
         for module in ("course_roofline", "workload", "load_sweep", "event_driver", "dag",
                        "constraints", "screening", "course_calibration", "load_validation",
                        "closed_loop_capture", "load_validation_report", "vllm_sla_worker",
-                       "web", "web_simulation"):
+                       "web", "web_simulation", "agent_adapter", "agent_service",
+                       "agent_contract", "agent_catalog", "sequential", "serialization"):
             assert f"mlsys_sim/{module}.py" in names
         for asset in ("index.html", "style.css", "app.js"):
             assert f"mlsys_sim/web_assets/{asset}" in names, f"Wheel missing Web UI asset {asset}"
@@ -300,6 +312,9 @@ def verify(dist: Path) -> dict:
         source_names = {"/".join(member.name.split("/")[1:]) for member in archive.getmembers()}
         for required in ("pyproject.toml", "README.md", "README.zh-CN.md",
                          "examples/memory_pressure.json", "tests/test_public_api.py", "docs/web-interface.md",
+                         "docs/agent-integration.md", "examples/agent/README.md", "examples/agent/sources.json",
+                         "examples/agent/task-9.2.protocol.request.json", "examples/agent/request.schema.json",
+                         "examples/agent/response.schema.json",
                          "mlsys_sim/web_assets/index.html", "mlsys_sim/web_assets/app.js",
                          "mlsys_sim/web_assets/style.css",
                          "examples/v1/step_measurements.fixture.json", "calibrate.py", "validate.py",
@@ -411,10 +426,16 @@ def verify(dist: Path) -> dict:
         qwen_inputs.mkdir()
         for source in (Path(__file__).resolve().parents[1] / "examples/v1_6").glob("*.json"):
             (qwen_inputs / source.name).write_bytes(source.read_bytes())
+        agent_inputs = outside / "agent-inputs"
+        agent_inputs.mkdir()
+        for source in (Path(__file__).resolve().parents[1] / "examples/agent").glob("*.json"):
+            (agent_inputs / source.name).write_bytes(source.read_bytes())
         run([str(python), "-I", "-c", SMOKE_CODE], outside, env)
         run([str(python), "-I", "-m", "mlsys_sim.vllm_sla_worker", "--help"], outside, env)
         web_console = binaries / ("mlsys-sim-web.exe" if os.name == "nt" else "mlsys-sim-web")
         run([str(web_console), "--help"], outside, env)
+        agent_console = binaries / ("mlsys-sim-agent.exe" if os.name == "nt" else "mlsys-sim-agent")
+        run([str(agent_console), "--help"], outside, env)
         course_inputs = outside / "course-inputs"
         course_inputs.mkdir()
         for source in (Path(__file__).resolve().parents[1] / "examples/course").glob("*.json"):

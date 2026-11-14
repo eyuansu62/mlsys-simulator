@@ -20,11 +20,13 @@ from .capacity import _bind_inputs, _profile_inputs, _semantic_config
 from .config import _read, experiment_from_dict
 from .constraints import (evaluate_dag_constraints, evaluate_simulation_constraints,
                           validate_constraints)
-from .dag import DAGPlan, _restore_origin_paths, _simulate_bound, _trace_identity, load_dag_plan
+from .dag import (DAGPlan, _restore_origin_paths, _simulate_bound, _trace_identity,
+                  dag_plan_dict, load_dag_plan)
 from .engine import simulate
 from .layout import replica_experiment
 from .load_sweep import _run_bound_sweep, validate_load_plan
 from .schema import Experiment, SimulationError
+from .serialization import experiment_dict
 from .state import SimulationResult
 from .workload import canonical_sha256
 
@@ -140,7 +142,7 @@ def _normalize(value: dict | str | Path, base_dir: Path | None) -> tuple[dict, l
             total_requests += len(dag.nodes) + sum(len(pool.experiment.execution.warmup) for pool in dag.pools)
             total_events += dag.execution.max_events + sum(pool.experiment.execution.max_events
                 for pool in dag.pools if pool.experiment.execution.warmup)
-            configuration = {"candidate_id": name, "dag_plan": asdict(dag)}
+            configuration = {"candidate_id": name, "dag_plan": dag_plan_dict(dag)}
             candidates.append(_Candidate(name, configuration, dag_plan=dag))
         else:
             exp = _resolve_experiment(candidate["experiment"], root)
@@ -163,7 +165,7 @@ def _normalize(value: dict | str | Path, base_dir: Path | None) -> tuple[dict, l
             identities.append(canonical_sha256(identity))
             total_requests += runs * (requests + len(exp.execution.warmup))
             total_events += runs * exp.execution.max_events * (2 if exp.execution.warmup else 1)
-            configuration = {"candidate_id": name, "experiment": asdict(exp)}
+            configuration = {"candidate_id": name, "experiment": experiment_dict(exp)}
             if load is not None:
                 configuration["load_plan"] = load
             candidates.append(_Candidate(name, configuration, experiment=exp, load_plan=load))

@@ -123,6 +123,8 @@ def validate_experiment(experiment: Experiment) -> None:
                  "pipeline_microbatch_size", "pipeline_max_inflight_microbatches",
                  "prefix_cache_max_blocks", "prefill_chunk_tokens"):
         _positive(getattr(strategy, name), f"strategy.{name}")
+    if strategy.max_active_requests is not None:
+        _positive(strategy.max_active_requests, "strategy.max_active_requests")
     if strategy.pipeline_microbatch_size > strategy.max_batch_size:
         _invalid("strategy.pipeline_microbatch_size", "cannot exceed max_batch_size")
     _positive(strategy.pipeline_feedback_latency_us, "strategy.pipeline_feedback_latency_us", zero=True)
@@ -178,9 +180,13 @@ def validate_experiment(experiment: Experiment) -> None:
     if not infra.topology.strip():
         _invalid("infra.topology", "must not be empty")
     for f in fields(memory):
+        if f.name == "gpu_memory_utilization":
+            continue
         _positive(getattr(memory, f.name), f"strategy.memory.{f.name}",
                   zero=f.name not in ("kv_block_tokens", "kv_pool_bytes", "swap_d2h_bandwidth_gbps",
                                       "swap_h2d_bandwidth_gbps"))
+    if memory.gpu_memory_utilization is not None and not 0 < memory.gpu_memory_utilization <= 1:
+        _invalid("strategy.memory.gpu_memory_utilization", "must be in (0, 1]")
     if calibration.backend not in ("analytical", "synthetic", "profile"):
         raise SimulationError("UNSUPPORTED_MECHANISM", "supported backends are analytical, synthetic and profile")
     communication_selected = (calibration.native_pp_communication_profile_path is not None

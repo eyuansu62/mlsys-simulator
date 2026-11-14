@@ -8,6 +8,8 @@ checked for every TP rank and pipeline stage before any state is committed.
 from collections.abc import Iterator, Mapping, Sequence
 from copy import deepcopy
 from dataclasses import dataclass
+from fractions import Fraction
+import math
 
 from .batching import batch_members
 import hashlib
@@ -30,6 +32,7 @@ class _RankBudget:
     stage_index: int
     tp_rank: int
     device_memory_bytes: int
+    usable_budget_bytes: int
     weights_bytes: int
     physical_reserved_bytes: int
     fixed_budget_bytes: int
@@ -162,20 +165,25 @@ class MemoryPlanner:
             for tp_rank in range(tp):
                 device = experiment.infra.devices[stage * tp + tp_rank]
                 capacity = _integer(device.memory_bytes, f"{device.id}.memory_bytes", 1)
+                utilization = self.config.gpu_memory_utilization
+                fraction = Fraction(1) if utilization is None else Fraction(str(utilization))
+                usable = capacity * fraction.numerator // fraction.denominator
                 static_workspace_floor = (0 if self._workspace_model is not None else
                     self.config.workspace_base_bytes + self._materialized_weight_workspace)
-                if fixed_budget + static_workspace_floor > capacity:
+                if fixed_budget + static_workspace_floor > usable:
                     raise SimulationError(
                         "STATIC_MEMORY_INFEASIBLE",
                         f"{device.id}: fixed budget and base workspace require "
                         f"{fixed_budget + static_workspace_floor} bytes, "
-                        f"capacity is {capacity}",
+                        + (f"usable budget is {usable}, device capacity is {capacity}"
+                         if utilization is not None else f"capacity is {capacity}"),
                     )
                 self._ranks.append(_RankBudget(
                     device_id=device.id,
                     stage_index=stage,
                     tp_rank=tp_rank,
                     device_memory_bytes=capacity,
+                    usable_budget_bytes=usable,
                     weights_bytes=weights,
                     physical_reserved_bytes=physical,
                     fixed_budget_bytes=fixed_budget,
@@ -187,6 +195,11 @@ class MemoryPlanner:
                 ))
 
     def _validate_memory_config(self) -> None:
+        utilization = self.config.gpu_memory_utilization
+        if utilization is not None and (isinstance(utilization, bool)
+                or not isinstance(utilization, (int, float)) or not 0 < utilization <= 1
+                or not math.isfinite(utilization)):
+            raise SimulationError("INVALID_CONFIG", "gpu_memory_utilization must be finite and in (0, 1]")
         _integer(self.config.kv_block_tokens, "kv_block_tokens", 1)
         _integer(self.config.kv_pool_bytes, "kv_pool_bytes", 1)
         for name in (
@@ -455,7 +468,9 @@ class MemoryPlanner:
                   "workspace_source": "not_required_for_copy",
                   "required_budget_bytes": rank.fixed_budget_bytes,
                   "device_memory_bytes": rank.device_memory_bytes,
-                  "physical_ok": rank.fixed_budget_bytes <= rank.device_memory_bytes,
+                  "physical_ok": rank.fixed_budget_bytes <= rank.usable_budget_bytes,
+                  **({"usable_budget_bytes": rank.usable_budget_bytes}
+                     if self.config.gpu_memory_utilization is not None else {}),
                   "logical_ok": used_after + self.config.guard_blocks <= rank.pool_blocks}
                  for rank in self._ranks]
         details = {"phase": "kv_copy", "alone": alone, "proposed_allocations": projected,
@@ -540,7 +555,7 @@ class MemoryPlanner:
                     rank_workspace = observed_workspace
                     workspace_source = "profile"
             budget = rank.fixed_budget_bytes + rank_workspace
-            physical_ok = budget <= rank.device_memory_bytes
+            physical_ok = budget <= rank.usable_budget_bytes
             logical_ok = used_after + self.config.guard_blocks <= rank.pool_blocks
             ranks.append({
                 "device_id": rank.device_id,
@@ -559,6 +574,8 @@ class MemoryPlanner:
                    if self._workspace_model is not None else {}),
                 "required_budget_bytes": budget,
                 "device_memory_bytes": rank.device_memory_bytes,
+                **({"usable_budget_bytes": rank.usable_budget_bytes}
+                   if self.config.gpu_memory_utilization is not None else {}),
                 "physical_ok": physical_ok,
                 "logical_ok": logical_ok,
             })
@@ -631,6 +648,9 @@ class MemoryPlanner:
                 "tp_rank": rank.tp_rank,
                 "weights_bytes": rank.weights_bytes,
                 "device_memory_bytes": rank.device_memory_bytes,
+                **({"usable_budget_bytes": rank.usable_budget_bytes,
+                    "gpu_memory_utilization": self.config.gpu_memory_utilization}
+                   if self.config.gpu_memory_utilization is not None else {}),
                 "physical_reserved_bytes": rank.physical_reserved_bytes,
                 "fixed_budget_bytes": rank.fixed_budget_bytes,
                 "kv_pool_reserved_bytes": self.config.kv_pool_bytes,
