@@ -70,6 +70,7 @@ class PipelineSimulation:
             self.communication_model = PPCommunicationModel(experiment)
         self.requests = {r.request_id: RequestState(r.request_id, r.arrival_ms, r.input_tokens, r.priority)
                          for r in experiment.workload}
+        self._active_requests: set[str] = set()
         # Only the execution oracle uses targets, after a token is committed.
         self._output_targets = {r.request_id: r.output_tokens for r in experiment.workload}
         self.now = 0.0
@@ -177,6 +178,7 @@ class PipelineSimulation:
             request.blocked_since = None
 
     def _finish(self, request: RequestState, status: str, code: str | None = None) -> None:
+        self._active_requests.discard(request.request_id)
         request.status, request.completion_ms, request.error_code = status, self.now, code
         self._end_wait(request)
         deferred = request.request_id in self.pending_requests
@@ -253,6 +255,8 @@ class PipelineSimulation:
             available = strategy.max_batch_tokens - sum(queries)
             if available <= 0:
                 break
+            if not self._can_activate(request, chosen):
+                continue
             if phase == "prefill":
                 self._lookup_prefix(request)
             query, target = self._iteration(request, phase, available)
@@ -303,6 +307,13 @@ class PipelineSimulation:
             targets = trial
         return chosen, queries, targets
 
+    def _can_activate(self, request: RequestState, chosen: list[RequestState]) -> bool:
+        limit = self.exp.strategy.max_active_requests
+        if limit is None or request.request_id in self._active_requests:
+            return True
+        proposed = self._active_requests | {member.request_id for member in chosen}
+        return len(proposed) < limit
+
     def _choose_serving(self, active: list[RequestState], partial: list[RequestState],
                         fresh: list[RequestState]) -> tuple[list[RequestState], list[int], dict, list[str]]:
         """Assemble one real batch before querying its joint Workspace/Profile.
@@ -327,6 +338,8 @@ class PipelineSimulation:
             available = strategy.max_batch_tokens - sum(queries)
             if len(chosen) >= maximum or available <= 0:
                 break
+            if not self._can_activate(request, chosen):
+                continue
             if member == "prefill" and request.status == "WAITING":
                 self._lookup_prefix(request)
             query, target = self._iteration(request, member, available)
@@ -412,6 +425,7 @@ class PipelineSimulation:
             self.mixed_batch_count += 1
         self.waves[wave.wave_id] = wave
         for request, member in zip(chosen, members):
+            self._active_requests.add(request.request_id)
             self._end_wait(request)
             request.status = {"prefill": "PREFILL", "decode": "DECODING", "recompute": "RECOMPUTING"}[member]
             self.pending_requests[request.request_id] = wave.wave_id

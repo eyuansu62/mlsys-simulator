@@ -1,0 +1,753 @@
+{
+  "$defs": {
+    "BackendIdentity": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "version": {
+          "title": "Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "version"
+      ],
+      "title": "BackendIdentity",
+      "type": "object"
+    },
+    "Calibration": {
+      "additionalProperties": false,
+      "properties": {
+        "version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Version"
+        },
+        "kind": {
+          "enum": [
+            "uncalibrated",
+            "calibrated",
+            "extrapolated"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "in_domain": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "In Domain"
+        },
+        "assumptions": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Assumptions",
+          "type": "array"
+        }
+      },
+      "required": [
+        "version",
+        "kind",
+        "in_domain",
+        "assumptions"
+      ],
+      "title": "Calibration",
+      "type": "object"
+    },
+    "Deployment": {
+      "additionalProperties": false,
+      "properties": {
+        "model": {
+          "title": "Model",
+          "type": "string"
+        },
+        "weight_precision": {
+          "enum": [
+            "BF16",
+            "FP8",
+            "INT8",
+            "INT4"
+          ],
+          "title": "Weight Precision",
+          "type": "string"
+        },
+        "kv_precision": {
+          "default": "BF16",
+          "enum": [
+            "BF16",
+            "FP8",
+            "INT8"
+          ],
+          "title": "Kv Precision",
+          "type": "string"
+        },
+        "context_tokens": {
+          "minimum": 1,
+          "title": "Context Tokens",
+          "type": "integer"
+        },
+        "devices": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Devices",
+          "type": "array"
+        },
+        "replicas": {
+          "default": 1,
+          "minimum": 1,
+          "title": "Replicas",
+          "type": "integer"
+        },
+        "parallel": {
+          "$ref": "#/$defs/Parallel",
+          "default": {
+            "kind": "none",
+            "degree": 1
+          }
+        }
+      },
+      "required": [
+        "model",
+        "weight_precision",
+        "context_tokens",
+        "devices"
+      ],
+      "title": "Deployment",
+      "type": "object"
+    },
+    "Device": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "hardware": {
+          "title": "Hardware",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "hardware"
+      ],
+      "title": "Device",
+      "type": "object"
+    },
+    "DeviceRecord": {
+      "additionalProperties": false,
+      "properties": {
+        "device_id": {
+          "title": "Device Id",
+          "type": "string"
+        },
+        "capacity_bytes": {
+          "minimum": 1,
+          "title": "Capacity Bytes",
+          "type": "integer"
+        },
+        "physical_peak_bytes": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Physical Peak Bytes"
+        },
+        "kv_peak_bytes": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Kv Peak Bytes"
+        },
+        "kv_pool_reserved_bytes": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Kv Pool Reserved Bytes"
+        }
+      },
+      "required": [
+        "device_id",
+        "capacity_bytes",
+        "physical_peak_bytes",
+        "kv_peak_bytes",
+        "kv_pool_reserved_bytes"
+      ],
+      "title": "DeviceRecord",
+      "type": "object"
+    },
+    "EffectiveConfig": {
+      "additionalProperties": false,
+      "properties": {
+        "infra": {
+          "$ref": "#/$defs/Infra"
+        },
+        "strategy": {
+          "$ref": "#/$defs/Strategy"
+        }
+      },
+      "required": [
+        "infra",
+        "strategy"
+      ],
+      "title": "EffectiveConfig",
+      "type": "object"
+    },
+    "Error": {
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "title": "Code",
+          "type": "string"
+        },
+        "message": {
+          "title": "Message",
+          "type": "string"
+        },
+        "field": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Field"
+        }
+      },
+      "required": [
+        "code",
+        "message"
+      ],
+      "title": "Error",
+      "type": "object"
+    },
+    "Infra": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "nodes": {
+          "items": {
+            "$ref": "#/$defs/Node"
+          },
+          "minItems": 1,
+          "title": "Nodes",
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "nodes"
+      ],
+      "title": "Infra",
+      "type": "object"
+    },
+    "Node": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "devices": {
+          "items": {
+            "$ref": "#/$defs/Device"
+          },
+          "minItems": 1,
+          "title": "Devices",
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "devices"
+      ],
+      "title": "Node",
+      "type": "object"
+    },
+    "Parallel": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "default": "none",
+          "enum": [
+            "none",
+            "tp",
+            "pp"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "degree": {
+          "default": 1,
+          "minimum": 1,
+          "title": "Degree",
+          "type": "integer"
+        }
+      },
+      "title": "Parallel",
+      "type": "object"
+    },
+    "RequestRecord": {
+      "additionalProperties": false,
+      "properties": {
+        "request_id": {
+          "title": "Request Id",
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "completed",
+            "failed",
+            "rejected",
+            "timed_out",
+            "cancelled",
+            "truncated",
+            "blocked",
+            "not_started",
+            "unknown"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "ready_ms": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Ready Ms"
+        },
+        "first_token_ms": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "First Token Ms"
+        },
+        "finished_ms": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Finished Ms"
+        },
+        "output_tokens": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Output Tokens"
+        },
+        "output_tokens_target": {
+          "minimum": 1,
+          "title": "Output Tokens Target",
+          "type": "integer"
+        },
+        "started_ms": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Started Ms"
+        },
+        "service_ms": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Service Ms"
+        },
+        "deployment_model": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Deployment Model"
+        },
+        "replica_index": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Replica Index"
+        },
+        "device_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Device Ids",
+          "type": "array"
+        },
+        "failure_code": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Failure Code"
+        },
+        "blocked_by": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Blocked By",
+          "type": "array"
+        }
+      },
+      "required": [
+        "request_id",
+        "status",
+        "ready_ms",
+        "first_token_ms",
+        "finished_ms",
+        "output_tokens",
+        "output_tokens_target"
+      ],
+      "title": "RequestRecord",
+      "type": "object"
+    },
+    "Serving": {
+      "additionalProperties": false,
+      "properties": {
+        "max_concurrency": {
+          "default": 1,
+          "minimum": 1,
+          "title": "Max Concurrency",
+          "type": "integer"
+        },
+        "gpu_memory_utilization": {
+          "default": 0.8,
+          "exclusiveMinimum": 0,
+          "maximum": 1,
+          "title": "Gpu Memory Utilization",
+          "type": "number"
+        },
+        "kv_fraction": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "maximum": 1,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Kv Fraction"
+        },
+        "kv_budget_gib": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Kv Budget Gib"
+        },
+        "chunked_prefill_tokens": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Chunked Prefill Tokens"
+        },
+        "continuous_batching": {
+          "default": false,
+          "title": "Continuous Batching",
+          "type": "boolean"
+        }
+      },
+      "title": "Serving",
+      "type": "object"
+    },
+    "Strategy": {
+      "additionalProperties": false,
+      "properties": {
+        "deployments": {
+          "items": {
+            "$ref": "#/$defs/Deployment"
+          },
+          "minItems": 1,
+          "title": "Deployments",
+          "type": "array"
+        },
+        "serving": {
+          "$ref": "#/$defs/Serving",
+          "default": {
+            "max_concurrency": 1,
+            "gpu_memory_utilization": 0.8,
+            "kv_fraction": null,
+            "kv_budget_gib": null,
+            "chunked_prefill_tokens": null,
+            "continuous_batching": false
+          }
+        },
+        "cache": {
+          "additionalProperties": {
+            "type": "boolean"
+          },
+          "default": {},
+          "propertyNames": {
+            "const": "prefix_cache"
+          },
+          "title": "Cache",
+          "type": "object"
+        },
+        "scheduling": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "default": {},
+          "propertyNames": {
+            "enum": [
+              "priority",
+              "preemption"
+            ]
+          },
+          "title": "Scheduling",
+          "type": "object"
+        },
+        "speculative": {
+          "default": false,
+          "title": "Speculative",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "deployments"
+      ],
+      "title": "Strategy",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "schema": {
+      "const": "mlab.simulator.v1",
+      "title": "Schema",
+      "type": "string"
+    },
+    "client_request_id": {
+      "title": "Client Request Id",
+      "type": "string"
+    },
+    "input_sha256": {
+      "pattern": "^sha256:[0-9a-f]{64}$",
+      "title": "Input Sha256",
+      "type": "string"
+    },
+    "status": {
+      "enum": [
+        "succeeded",
+        "failed",
+        "timed_out",
+        "cancelled"
+      ],
+      "title": "Status",
+      "type": "string"
+    },
+    "failure_class": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Failure Class"
+    },
+    "error": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Error"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "evidence_level": {
+      "enum": [
+        "simulated",
+        "mock"
+      ],
+      "title": "Evidence Level",
+      "type": "string"
+    },
+    "backend": {
+      "$ref": "#/$defs/BackendIdentity"
+    },
+    "catalog_version": {
+      "title": "Catalog Version",
+      "type": "string"
+    },
+    "model_revisions": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "title": "Model Revisions",
+      "type": "object"
+    },
+    "calibration": {
+      "$ref": "#/$defs/Calibration"
+    },
+    "effective_config": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/EffectiveConfig"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "requests": {
+      "items": {
+        "$ref": "#/$defs/RequestRecord"
+      },
+      "title": "Requests",
+      "type": "array"
+    },
+    "per_device": {
+      "items": {
+        "$ref": "#/$defs/DeviceRecord"
+      },
+      "title": "Per Device",
+      "type": "array"
+    },
+    "unsupported_fields": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "title": "Unsupported Fields",
+      "type": "object"
+    },
+    "logs": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Logs",
+      "type": "array"
+    }
+  },
+  "required": [
+    "schema",
+    "client_request_id",
+    "input_sha256",
+    "status",
+    "failure_class",
+    "error",
+    "evidence_level",
+    "backend",
+    "catalog_version",
+    "model_revisions",
+    "calibration",
+    "effective_config",
+    "requests",
+    "per_device",
+    "unsupported_fields",
+    "logs"
+  ],
+  "title": "RunResponse",
+  "type": "object",
+  "$schema": "https://json-schema.org/draft/2020-12/schema"
+}

@@ -45,6 +45,7 @@ class _Simulation:
                                       spec.input_tokens, spec.priority)
             for spec in experiment.workload
         }
+        self._active_requests: set[str] = set()
         # Keep the oracle separate from the scheduler-facing request state.
         self._output_targets = {spec.request_id: spec.output_tokens for spec in experiment.workload}
         self.queue: list[tuple[float, int, int, str, object]] = []
@@ -104,6 +105,7 @@ class _Simulation:
         request.status = status
         request.completion_ms = self.now
         request.error_code = code
+        self._active_requests.discard(request.request_id)
         self._end_memory_wait(request)
         if self.swap is not None:
             residency = self.swap.state(request.request_id)
@@ -230,6 +232,14 @@ class _Simulation:
         candidates = [request for request in self.requests.values() if request.status == status]
         return sorted(candidates, key=self._serving_key)
 
+    def _can_activate(self, request: _Request, chosen: list[_Request]) -> bool:
+        """A sequence keeps its slot across chunks, recovery and KV tier moves."""
+        limit = self.exp.strategy.max_active_requests
+        if limit is None or request.request_id in self._active_requests:
+            return True
+        proposed = self._active_requests | {member.request_id for member in chosen}
+        return len(proposed) < limit
+
     def _start(self, phase: str, chosen: list[_Request], queries: list[int],
                targets: dict[str, int], request_phases: tuple[str, ...] | None = None) -> bool:
         members = batch_members(phase, queries, request_phases)
@@ -246,6 +256,7 @@ class _Simulation:
         if not decision.ok:
             raise SimulationError("RESOURCE_STATE_CHANGED", "Atomic reservation changed after scheduling checks.")
         for request, member in zip(chosen, members):
+            self._active_requests.add(request.request_id)
             self._end_memory_wait(request)
             request.status = {"prefill": "PREFILL", "decode": "DECODING",
                               "recompute": "RECOMPUTING"}[member]
@@ -320,6 +331,8 @@ class _Simulation:
             if (len(chosen) >= (1 if single else strategy.max_batch_size)
                     or sum(queries) >= strategy.max_batch_tokens):
                 break
+            if not self._can_activate(request, chosen):
+                continue
             if phase == "prefill" and request.status == "WAITING":
                 self._prefix_lookup(request)
             if phase == "recompute" and not request.recompute_target:
@@ -612,6 +625,8 @@ class _Simulation:
             available = strategy.max_batch_tokens - sum(queries)
             if len(chosen) >= strategy.max_batch_size or available <= 0:
                 break
+            if not self._can_activate(request, chosen):
+                continue
             if member == "prefill" and request.status == "WAITING":
                 self._prefix_lookup(request)
             query, target = self._iteration(request, member, available)

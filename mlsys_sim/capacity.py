@@ -5,7 +5,7 @@ an observed transition is not an exact or generally monotone capacity threshold.
 """
 
 from copy import deepcopy
-from dataclasses import asdict, replace
+from dataclasses import replace
 import hashlib
 import json
 import math
@@ -20,6 +20,7 @@ import uuid
 from .config import experiment_from_dict, validate_experiment
 from .hardware import CollectionError, bind_inventory, probe_rocm
 from .schema import Experiment, SimulationError
+from .serialization import experiment_dict
 
 
 PROTOCOL = "fresh_owned_runtime_capacity_v1"
@@ -45,7 +46,7 @@ def canonical_json(value: Any) -> str:
 
 
 def config_sha256(experiment: Experiment | dict) -> str:
-    value = asdict(experiment) if isinstance(experiment, Experiment) else experiment
+    value = experiment_dict(experiment)
     return hashlib.sha256(canonical_json(value).encode()).hexdigest()
 
 
@@ -135,7 +136,7 @@ def normalize_capacity_plan(experiment: Experiment, value: dict) -> dict:
 
 def capacity_experiment(base: Experiment, axis: str, value: int) -> Experiment:
     """Change exactly the declared axis, never scheduler batch budgets."""
-    base = experiment_from_dict(asdict(base))
+    base = experiment_from_dict(experiment_dict(base))
     _integer(value, "axis value", 1)
     if axis not in _AXES:
         _fail("Unsupported capacity axis")
@@ -268,7 +269,7 @@ def _bind_inputs(experiment: Experiment, inputs: list[dict], directory: Path) ->
 
 
 def _semantic_config(experiment: Experiment, inputs: list[dict]) -> str:
-    config = asdict(experiment)
+    config = experiment_dict(experiment)
     for item in inputs:
         if item["field"].endswith("paths"):
             selected = list(config["calibration"][item["field"]])
@@ -489,7 +490,7 @@ def validate_capacity_dataset(data: dict, *, allow_test_fixture: bool = False) -
     if type(value["schema_version"]) is not int or value["schema_version"] != 1 or value["kind"] != _DATASET or value["protocol"] != PROTOCOL:
         _fail("Unsupported capacity dataset schema or protocol")
     base = experiment_from_dict(value["base_experiment"])
-    if canonical_json(asdict(base)) != canonical_json(value["base_experiment"]):
+    if canonical_json(experiment_dict(base)) != canonical_json(experiment_dict(value["base_experiment"])):
         _fail("Capacity base_experiment must be the complete expanded configuration")
     axis = _axis(value["axis"])
     repeats = _integer(value["repeats"], "repeats", 1)
@@ -526,7 +527,7 @@ def validate_capacity_dataset(data: dict, *, allow_test_fixture: bool = False) -
         if trial["axis_name"] != axis["name"] or type(trial["axis_value"]) is not int or trial["axis_value"] != axis["values"][point]:
             _fail("Capacity trial axis differs from its declared point")
         effective = capacity_experiment(base, axis["name"], trial["axis_value"])
-        if canonical_json(trial["effective_experiment"]) != canonical_json(asdict(effective)):
+        if canonical_json(experiment_dict(trial["effective_experiment"])) != canonical_json(experiment_dict(effective)):
             _fail("Capacity trial changed fields outside its declared axis")
         digest = config_sha256(effective)
         if _digest(trial["effective_config_sha256"], "effective_config_sha256") != digest:
@@ -538,7 +539,7 @@ def validate_capacity_dataset(data: dict, *, allow_test_fixture: bool = False) -
         workers.add(worker)
     result = {"schema_version": 1, "kind": _DATASET, "protocol": PROTOCOL,
         "dataset_id": _text(value["dataset_id"], "dataset_id"), "source": source, "session_id": session,
-        "base_experiment": asdict(base), "axis": axis, "repeats": repeats, "profile_inputs": inputs,
+        "base_experiment": experiment_dict(base), "axis": axis, "repeats": repeats, "profile_inputs": inputs,
         "trials": sorted(result_trials, key=lambda row: (row["point_index"], row["repeat"]))}
     if "notes" in value:
         if not isinstance(value["notes"], dict):
@@ -630,7 +631,7 @@ def collect_memory_capacity(experiment: Experiment, plan: dict, inventory: dict 
     """Collect independent capacity points; CPU/raw paths never become GPU timing."""
     if type(allow_test_fixture) is not bool:
         _fail("allow_test_fixture must be boolean")
-    experiment = experiment_from_dict(asdict(experiment))
+    experiment = experiment_from_dict(experiment_dict(experiment))
     settings = normalize_capacity_plan(experiment, plan)
     root = Path.cwd() if base_dir is None else Path(base_dir)
     if "raw_path" in settings:
@@ -640,7 +641,7 @@ def collect_memory_capacity(experiment: Experiment, plan: dict, inventory: dict 
                 or dataset["repeats"] != settings["repeats"]):
             _fail("Imported capacity sweep differs from its requested plan")
         imported_base = experiment_from_dict(dataset["base_experiment"])
-        selected_inputs = (dataset["profile_inputs"] if canonical_json(asdict(experiment)) ==
+        selected_inputs = (dataset["profile_inputs"] if canonical_json(experiment_dict(experiment)) ==
             canonical_json(dataset["base_experiment"]) else _profile_inputs(experiment))
         if _semantic_config(experiment, selected_inputs) != _semantic_config(imported_base, dataset["profile_inputs"]):
             _fail("Imported capacity target differs from the requested experiment", "CALIBRATION_MISMATCH")
@@ -680,7 +681,7 @@ def collect_memory_capacity(experiment: Experiment, plan: dict, inventory: dict 
     raw_records: list[dict] = []
     trials: list[dict] = []
     limit = settings["max_output_bytes"]
-    used_bytes = len(canonical_json({"base_experiment": asdict(effective_base), "profile_inputs": inputs,
+    used_bytes = len(canonical_json({"base_experiment": experiment_dict(effective_base), "profile_inputs": inputs,
         "axis": settings["axis"], "dataset_id": settings["dataset_id"], "source": source}).encode())
 
     def budget_failure() -> NoReturn:
@@ -699,7 +700,7 @@ def collect_memory_capacity(experiment: Experiment, plan: dict, inventory: dict 
                 identifier = uuid.uuid4().hex
                 config = {"schema_version": 1, "kind": "memory_capacity_trial_config", "protocol": PROTOCOL,
                     "session_id": session, "worker_id": identifier, "point_index": point, "repeat": repeat,
-                    "axis": {"name": settings["axis"]["name"], "value": value}, "experiment": asdict(current),
+                    "axis": {"name": settings["axis"]["name"], "value": value}, "experiment": experiment_dict(current),
                     "effective_config_sha256": config_sha256(current), "adapter_entry_point": adapter_entry_point,
                     "source_reference": settings["source_reference"], "profile_input_hashes": [{key: row[key] for key in
                         ("field", "index", "sha256", "source_kind")} for row in inputs]}
@@ -745,11 +746,11 @@ def collect_memory_capacity(experiment: Experiment, plan: dict, inventory: dict 
                     raw_records.append({"worker_id": identifier, "error": str(exc)})
                 trials.append({"point_index": point, "repeat": repeat, "worker_id": identifier,
                     "axis_name": settings["axis"]["name"], "axis_value": value,
-                    "effective_experiment": asdict(current), "effective_config_sha256": config["effective_config_sha256"],
+                    "effective_experiment": experiment_dict(current), "effective_config_sha256": config["effective_config_sha256"],
                     "observation": observation, "prediction": {}})
         dataset = validate_capacity_dataset({"schema_version": 1, "kind": _DATASET, "protocol": PROTOCOL,
             "dataset_id": settings["dataset_id"], "source": source, "session_id": session,
-            "base_experiment": asdict(effective_base), "axis": settings["axis"], "repeats": settings["repeats"],
+            "base_experiment": experiment_dict(effective_base), "axis": settings["axis"], "repeats": settings["repeats"],
             "profile_inputs": inputs, "trials": trials,
             "notes": {"request_count_is_executed_batch": False, "allocator_values_are_workspace": False,
                 "prediction_uses_full_simulation": True}}, allow_test_fixture=allow_test_fixture)

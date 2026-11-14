@@ -6,7 +6,6 @@ process allocator peaks. Optional vLLM manager observation is explicitly partial
 """
 
 from copy import deepcopy
-from dataclasses import asdict
 import functools
 import importlib
 import inspect
@@ -21,6 +20,7 @@ from .profiles import profile_identity
 from .rocm_steps import (_allocator, _check_backend, _check_rccl_binding, _clock,
                          _plan, _sha256)
 from .schema import Experiment, SimulationError
+from .serialization import experiment_dict
 
 
 _EXCLUDED = ["weights", "kv_pool", "graphs", "runtime", "pp_buffers", "communication_buffers"]
@@ -333,11 +333,11 @@ def collect_workspace(experiment: Experiment, plan: dict, adapter: Any, inventor
             runtime_version=metadata["runtime_version"], require_rccl=require_rccl,
             allow_test_fixture=allow_test_fixture)
         source = {"kind": captured["source"]["kind"], "reference": parsed["source_reference"]}
-        bundle.update(source=source, experiment=asdict(effective), attribution_complete=complete,
+        bundle.update(source=source, experiment=experiment_dict(effective), attribution_complete=complete,
             diagnostics={"injected_dependencies": injected, "allocator_peak_scope": "since_process_or_external_reset",
                 "workspace_policy": "runtime_owned_complete_ledger_or_no_dataset"},
             provenance={"inventory_sha256": _sha256(captured), "plan_sha256": _sha256(plan),
-                "experiment_sha256": _sha256(asdict(effective)), "runtime_metadata_sha256": _sha256(metadata)})
+                "experiment_sha256": _sha256(experiment_dict(effective)), "runtime_metadata_sha256": _sha256(metadata)})
         clock = time.perf_counter_ns if clock_ns is None else clock_ns
         previous_end = 0
         records = []

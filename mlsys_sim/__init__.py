@@ -6,7 +6,7 @@ Changes to this import surface and the versioned data contracts are recorded
 in the changelog. Calibration provenance and hardware validation are separate.
 """
 
-__version__ = "1.19.0"
+__version__ = "1.20.0"
 
 from .config import experiment_from_dict, load_experiment, validate_experiment
 from .engine import SimulationResult, simulate
@@ -69,8 +69,15 @@ from .closed_loop_capture import collect_closed_loop
 from .workload import generate_workload
 from .load_sweep import run_load_sweep, write_load_report
 from .dag import simulate_dag, run_dag_candidates, write_dag_report
+from .sequential import simulate_sequential
+from .agent_catalog import get_agent_catalog
+from .agent_contract import validate_agent_request, validate_agent_response
 
 __all__ = [
+    "simulate_sequential",
+    "get_agent_catalog",
+    "validate_agent_request",
+    "validate_agent_response",
     "validate_closed_loop_spec",
     "generate_request_stream",
     "closed_loop_policy_sha256",

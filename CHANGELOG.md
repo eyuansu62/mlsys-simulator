@@ -1,5 +1,24 @@
 # Changelog
 
+## 1.20.0 — 2026-11-14
+
+- Independent Agent service (`mlsys-sim-agent`), `POST /v1/simulate` and a static
+  versioned catalog. Exact UTF-8 input bytes, complete offered-request outcomes,
+  placement, nullable diagnostics and per-device memory retain explicit lineage.
+- Exact fixed-list open-loop and persistent sequential execution, plus relative
+  dependency gaps over the existing heterogeneous DAG engines. Failures, partial
+  outputs and inclusive simulated deadlines are preserved.
+- Opt-in per-replica active-request admission and physical-memory utilization
+  budgets. Legacy default serializers omit only the new null controls, retaining
+  old report/config/Profile contracts; the local Web and CLI keep their interfaces.
+- Standard-library contract validation and isolated synchronous HTTP execution,
+  busy/retry hints and distinct wall-time/simulation-limit outcomes. No new
+  runtime dependency, external Agent package or GPU requirement.
+- Original unresolved task requests and explicitly different Qwen/BF16 protocol
+  examples are separate. Unknown model/hardware/precision/topology declarations
+  are rejected; no original course baseline, public deployment or new hardware
+  accuracy is claimed.
+
 ## 1.19.0 — 2026-11-11
 
 - Local, dependency-free Web interface (`mlsys-sim-web` / `python -m mlsys_sim.web`)

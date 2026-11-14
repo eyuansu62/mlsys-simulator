@@ -7,7 +7,7 @@ intervals remain raw evidence rather than exclusive stage service samples.
 
 import atexit
 from copy import deepcopy
-from dataclasses import asdict, replace
+from dataclasses import replace
 import functools
 import hashlib
 import importlib
@@ -30,6 +30,7 @@ from .layout import replica_experiment, stage_layer_counts
 from .pp_transport import pipeline_transport_max_tokens, validate_native_pp_descriptor
 from .profiles import profile_identity, validate_identity
 from .schema import Experiment, SimulationError
+from .serialization import experiment_dict
 
 
 API_REVISION = "98dff2a81"
@@ -531,7 +532,7 @@ class RunnerCapture:
             "tensor_parallel_size": local.strategy.tensor_parallel_size,
             "pipeline_parallel_size": local.strategy.pipeline_parallel_size,
             "identity": profile_identity(local),
-            "experiment": asdict(replace(local, workload=(), execution=replace(local.execution, warmup=()))),
+            "experiment": experiment_dict(replace(local, workload=(), execution=replace(local.execution, warmup=()))),
             "metadata": metadata, "hardware_validated": False}
         self.records: list[dict] = []
         self.errors: list[dict] = []
@@ -569,7 +570,7 @@ class RunnerCapture:
             original = self.exp.calibration.runtime_config_sha256
             self.exp = replace(self.exp, calibration=replace(self.exp.calibration, runtime_config_sha256=digest))
             self.header["identity"] = profile_identity(self.exp)
-            self.header["experiment"] = asdict(replace(self.exp, workload=(), execution=replace(self.exp.execution, warmup=())))
+            self.header["experiment"] = experiment_dict(replace(self.exp, workload=(), execution=replace(self.exp.execution, warmup=())))
             self.header["metadata"].update(runtime_execution_config=snapshot, runtime_config_sha256=digest,
                 runtime_config_binding={"input_sha256": original, "actual_sha256": digest,
                                         "bound_at": "first_prepared_batch"})
@@ -1258,7 +1259,7 @@ class SchedulerCapture:
             "clock_domain": clock_domain or actual_clock_domain,
             "clock_origin_monotonic_ns": self._origin, "replica_index": replica_index,
             "identity": profile_identity(local),
-            "experiment": asdict(replace(local, workload=(), execution=replace(local.execution, warmup=()))),
+            "experiment": experiment_dict(replace(local, workload=(), execution=replace(local.execution, warmup=()))),
             "metadata": {"instrumentation_source": "vllm_internal_scheduler",
                 "timing_boundary": "server_token_ready_v1",
                 "observation_point": "scheduler_enqueue_to_engine_core_output_dispatch",

@@ -1,0 +1,647 @@
+{
+  "$defs": {
+    "Constraint": {
+      "additionalProperties": false,
+      "properties": {
+        "metric": {
+          "title": "Metric",
+          "type": "string"
+        },
+        "op": {
+          "enum": [
+            "<",
+            "<=",
+            ">",
+            ">=",
+            "=="
+          ],
+          "title": "Op",
+          "type": "string"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Value"
+        },
+        "status": {
+          "default": "draft",
+          "title": "Status",
+          "type": "string"
+        },
+        "source": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source"
+        },
+        "note": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Note"
+        }
+      },
+      "required": [
+        "metric",
+        "op"
+      ],
+      "title": "Constraint",
+      "type": "object"
+    },
+    "Deployment": {
+      "additionalProperties": false,
+      "properties": {
+        "model": {
+          "title": "Model",
+          "type": "string"
+        },
+        "weight_precision": {
+          "enum": [
+            "BF16",
+            "FP8",
+            "INT8",
+            "INT4"
+          ],
+          "title": "Weight Precision",
+          "type": "string"
+        },
+        "kv_precision": {
+          "default": "BF16",
+          "enum": [
+            "BF16",
+            "FP8",
+            "INT8"
+          ],
+          "title": "Kv Precision",
+          "type": "string"
+        },
+        "context_tokens": {
+          "minimum": 1,
+          "title": "Context Tokens",
+          "type": "integer"
+        },
+        "devices": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Devices",
+          "type": "array"
+        },
+        "replicas": {
+          "default": 1,
+          "minimum": 1,
+          "title": "Replicas",
+          "type": "integer"
+        },
+        "parallel": {
+          "$ref": "#/$defs/Parallel",
+          "default": {
+            "kind": "none",
+            "degree": 1
+          }
+        }
+      },
+      "required": [
+        "model",
+        "weight_precision",
+        "context_tokens",
+        "devices"
+      ],
+      "title": "Deployment",
+      "type": "object"
+    },
+    "Device": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "hardware": {
+          "title": "Hardware",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "hardware"
+      ],
+      "title": "Device",
+      "type": "object"
+    },
+    "Evaluation": {
+      "additionalProperties": false,
+      "properties": {
+        "constraints": {
+          "items": {
+            "$ref": "#/$defs/Constraint"
+          },
+          "title": "Constraints",
+          "type": "array"
+        },
+        "duration_s": {
+          "exclusiveMinimum": 0,
+          "title": "Duration S",
+          "type": "number"
+        },
+        "timeout_s": {
+          "exclusiveMinimum": 0,
+          "title": "Timeout S",
+          "type": "number"
+        },
+        "goodput_policy": {
+          "enum": [
+            "both_thresholds_required",
+            "ttft_only_if_tpot_tbd"
+          ],
+          "title": "Goodput Policy",
+          "type": "string"
+        }
+      },
+      "required": [
+        "constraints",
+        "duration_s",
+        "timeout_s",
+        "goodput_policy"
+      ],
+      "title": "Evaluation",
+      "type": "object"
+    },
+    "Execution": {
+      "additionalProperties": false,
+      "properties": {
+        "seed": {
+          "minimum": 0,
+          "title": "Seed",
+          "type": "integer"
+        },
+        "repeat": {
+          "minimum": 0,
+          "title": "Repeat",
+          "type": "integer"
+        },
+        "split": {
+          "enum": [
+            "development",
+            "repeat",
+            "holdout"
+          ],
+          "title": "Split",
+          "type": "string"
+        },
+        "holdout": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Holdout"
+        },
+        "initial_state": {
+          "const": "empty",
+          "title": "Initial State",
+          "type": "string"
+        },
+        "warmup": {
+          "title": "Warmup",
+          "type": "null"
+        },
+        "max_simulated_ms": {
+          "exclusiveMinimum": 0,
+          "title": "Max Simulated Ms",
+          "type": "number"
+        }
+      },
+      "required": [
+        "seed",
+        "repeat",
+        "split",
+        "holdout",
+        "initial_state",
+        "warmup",
+        "max_simulated_ms"
+      ],
+      "title": "Execution",
+      "type": "object"
+    },
+    "Infra": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "nodes": {
+          "items": {
+            "$ref": "#/$defs/Node"
+          },
+          "minItems": 1,
+          "title": "Nodes",
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "nodes"
+      ],
+      "title": "Infra",
+      "type": "object"
+    },
+    "Node": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "devices": {
+          "items": {
+            "$ref": "#/$defs/Device"
+          },
+          "minItems": 1,
+          "title": "Devices",
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "devices"
+      ],
+      "title": "Node",
+      "type": "object"
+    },
+    "Parallel": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "default": "none",
+          "enum": [
+            "none",
+            "tp",
+            "pp"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "degree": {
+          "default": 1,
+          "minimum": 1,
+          "title": "Degree",
+          "type": "integer"
+        }
+      },
+      "title": "Parallel",
+      "type": "object"
+    },
+    "Serving": {
+      "additionalProperties": false,
+      "properties": {
+        "max_concurrency": {
+          "default": 1,
+          "minimum": 1,
+          "title": "Max Concurrency",
+          "type": "integer"
+        },
+        "gpu_memory_utilization": {
+          "default": 0.8,
+          "exclusiveMinimum": 0,
+          "maximum": 1,
+          "title": "Gpu Memory Utilization",
+          "type": "number"
+        },
+        "kv_fraction": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "maximum": 1,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Kv Fraction"
+        },
+        "kv_budget_gib": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Kv Budget Gib"
+        },
+        "chunked_prefill_tokens": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Chunked Prefill Tokens"
+        },
+        "continuous_batching": {
+          "default": false,
+          "title": "Continuous Batching",
+          "type": "boolean"
+        }
+      },
+      "title": "Serving",
+      "type": "object"
+    },
+    "Strategy": {
+      "additionalProperties": false,
+      "properties": {
+        "deployments": {
+          "items": {
+            "$ref": "#/$defs/Deployment"
+          },
+          "minItems": 1,
+          "title": "Deployments",
+          "type": "array"
+        },
+        "serving": {
+          "$ref": "#/$defs/Serving",
+          "default": {
+            "max_concurrency": 1,
+            "gpu_memory_utilization": 0.8,
+            "kv_fraction": null,
+            "kv_budget_gib": null,
+            "chunked_prefill_tokens": null,
+            "continuous_batching": false
+          }
+        },
+        "cache": {
+          "additionalProperties": {
+            "type": "boolean"
+          },
+          "default": {},
+          "propertyNames": {
+            "const": "prefix_cache"
+          },
+          "title": "Cache",
+          "type": "object"
+        },
+        "scheduling": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "default": {},
+          "propertyNames": {
+            "enum": [
+              "priority",
+              "preemption"
+            ]
+          },
+          "title": "Scheduling",
+          "type": "object"
+        },
+        "speculative": {
+          "default": false,
+          "title": "Speculative",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "deployments"
+      ],
+      "title": "Strategy",
+      "type": "object"
+    },
+    "Workload": {
+      "additionalProperties": false,
+      "properties": {
+        "mode": {
+          "enum": [
+            "sequential",
+            "open_loop",
+            "dag"
+          ],
+          "title": "Mode",
+          "type": "string"
+        },
+        "requests": {
+          "items": {
+            "$ref": "#/$defs/WorkloadRequest"
+          },
+          "minItems": 1,
+          "title": "Requests",
+          "type": "array"
+        },
+        "source_sha256": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Source Sha256",
+          "type": "string"
+        }
+      },
+      "required": [
+        "mode",
+        "requests",
+        "source_sha256"
+      ],
+      "title": "Workload",
+      "type": "object"
+    },
+    "WorkloadRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "request_id": {
+          "minLength": 1,
+          "title": "Request Id",
+          "type": "string"
+        },
+        "input_tokens": {
+          "minimum": 1,
+          "title": "Input Tokens",
+          "type": "integer"
+        },
+        "output_tokens_target": {
+          "minimum": 1,
+          "title": "Output Tokens Target",
+          "type": "integer"
+        },
+        "arrival_ms": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Arrival Ms"
+        },
+        "target_model": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Target Model"
+        },
+        "depends_on": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Depends On",
+          "type": "array"
+        },
+        "gap_after_deps_ms": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Gap After Deps Ms",
+          "type": "number"
+        },
+        "category": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Category"
+        },
+        "prefix_group": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Prefix Group"
+        },
+        "controller_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Controller Id"
+        },
+        "subagent_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Subagent Id"
+        }
+      },
+      "required": [
+        "request_id",
+        "input_tokens",
+        "output_tokens_target"
+      ],
+      "title": "WorkloadRequest",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "schema": {
+      "const": "mlab.simulator.v1",
+      "title": "Schema",
+      "type": "string"
+    },
+    "client_request_id": {
+      "minLength": 1,
+      "title": "Client Request Id",
+      "type": "string"
+    },
+    "catalog_version": {
+      "minLength": 1,
+      "title": "Catalog Version",
+      "type": "string"
+    },
+    "task": {
+      "title": "Task",
+      "type": "string"
+    },
+    "candidate_id": {
+      "title": "Candidate Id",
+      "type": "string"
+    },
+    "workload": {
+      "$ref": "#/$defs/Workload"
+    },
+    "infra": {
+      "$ref": "#/$defs/Infra"
+    },
+    "strategy": {
+      "$ref": "#/$defs/Strategy"
+    },
+    "evaluation": {
+      "$ref": "#/$defs/Evaluation"
+    },
+    "execution": {
+      "$ref": "#/$defs/Execution"
+    }
+  },
+  "required": [
+    "schema",
+    "client_request_id",
+    "catalog_version",
+    "task",
+    "candidate_id",
+    "workload",
+    "infra",
+    "strategy",
+    "evaluation",
+    "execution"
+  ],
+  "title": "RunRequest",
+  "type": "object",
+  "$schema": "https://json-schema.org/draft/2020-12/schema"
+}

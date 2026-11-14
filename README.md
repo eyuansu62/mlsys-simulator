@@ -19,7 +19,8 @@ collection adapters instrument an installed Runtime separately from simulation.
 [Independent closed-loop validation](docs/closed-loop-validation.md) ·
 [Workspace and capacity validation](docs/workspace-and-capacity.md) · [Contributing](CONTRIBUTING.md)
 
-**Version 1.19 software scope:** Local model/hardware/load forms and analytical
+**Version 1.20 software scope:** A versioned exact-workload Agent service with
+sequential/DAG release semantics, plus local model/hardware/load forms and analytical
 latency, throughput and memory charts, plus frozen finite-cohort closed-loop predictions,
 completion-feedback collection, independent server-token validation and
 sanitized course reports, alongside joint per-rank memory, latency and throughput
@@ -138,6 +139,12 @@ from the checkout) and open `http://127.0.0.1:8765`. Configure a model, single-G
 hardware and a fixed request cohort, then inspect latency, output throughput and
 memory-budget charts. It reuses the CPU analytical engine, adds no runtime
 dependencies and exports replayable experiments. See the [Web interface](docs/web-interface.md).
+
+For a course backend or Agent integration, run `mlsys-sim-agent` (or
+`python -m mlsys_sim.agent_service`). The separate loopback service on port8877
+provides `GET /v1/catalog` and synchronous `POST /v1/simulate` for exact request
+lists, persistent sequential streams and heterogeneous DAGs. Unknown catalog
+identities are rejected. See [Agent integration](docs/agent-integration.md).
 
 ## Run pipeline and CPU swap examples
 

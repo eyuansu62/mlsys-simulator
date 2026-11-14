@@ -12,6 +12,7 @@ import csv
 import hashlib
 from html import escape
 import json
+import math
 from pathlib import Path
 import tempfile
 from typing import Any
@@ -19,6 +20,7 @@ from typing import Any
 from .config import _read, _value, validate_experiment
 from .event_driver import EventDriver
 from .schema import ExecutionSpec, Experiment, RequestSpec, SimulationError
+from .serialization import experiment_dict
 from .state import TERMINAL
 
 
@@ -34,6 +36,7 @@ class DAGNode:
     timeout_ms: float | None = None
     prompt_token_ids: tuple[int, ...] = ()
     cache_namespace: str = ""
+    gap_after_deps_ms: float = 0.0
 
 
 @dataclass(frozen=True)
@@ -123,6 +126,10 @@ def load_dag_plan(value: DAGPlan | dict | str | Path, *, base_dir: str | Path | 
     children: dict[str, list[str]] = {name: [] for name in names}
     degrees = {node.node_id: len(node.dependencies) for node in plan.nodes}
     for node in plan.nodes:
+        if node.gap_after_deps_ms < 0:
+            _invalid(f"node {node.node_id!r} gap_after_deps_ms must be nonnegative")
+        if not node.dependencies and node.gap_after_deps_ms:
+            _invalid(f"root node {node.node_id!r} cannot declare a dependency gap")
         if len(set(node.dependencies)) != len(node.dependencies):
             _invalid(f"duplicate dependencies for {node.node_id!r}")
         for parent in node.dependencies:
@@ -169,8 +176,27 @@ def load_dag_plan(value: DAGPlan | dict | str | Path, *, base_dir: str | Path | 
     return plan
 
 
+def _node_mapping(node: DAGNode) -> dict:
+    """Default-zero gaps preserve the pre-extension trace and replay contract."""
+    value = asdict(node)
+    if not node.gap_after_deps_ms:
+        value.pop("gap_after_deps_ms")
+    return value
+
+
 def _trace_identity(plan: DAGPlan) -> str:
-    return _sha({"trace_source": plan.trace_source, "nodes": [asdict(node) for node in plan.nodes]})
+    return _sha({"trace_source": plan.trace_source, "nodes": [_node_mapping(node) for node in plan.nodes]})
+
+
+def dag_plan_dict(plan: DAGPlan) -> dict:
+    """Serialize a replay plan without introducing inactive optional controls."""
+    def pool_value(pool: ModelPool) -> dict:
+        return {"model_id": pool.model_id, "experiment": experiment_dict(pool.experiment), "role": pool.role}
+
+    return {**asdict(plan), "nodes": [_node_mapping(node) for node in plan.nodes],
+            "pools": [pool_value(pool) for pool in plan.pools],
+            "candidates": [{"candidate_id": item.candidate_id, "pools": [pool_value(pool) for pool in item.pools]}
+                           for item in plan.candidates]}
 
 
 def _capture_profiles(pools: tuple[ModelPool, ...]) -> dict[str, list[dict]]:
@@ -268,6 +294,9 @@ def _simulate_bound(plan: DAGPlan, profile_inputs: dict[str, list[dict]],
                        "completion_ms": None, "status": "PENDING", "error_code": None,
                        "blocked_by": []}
         for node in plan.nodes}
+    for node in plan.nodes:
+        if node.gap_after_deps_ms:
+            rows[node.node_id]["gap_after_deps_ms"] = node.gap_after_deps_ms
     ready_nodes: list[tuple[float, int, str]] = []
     for node in plan.nodes:
         if not node.dependencies:
@@ -323,8 +352,12 @@ def _simulate_bound(plan: DAGPlan, profile_inputs: dict[str, list[dict]],
                 remaining[child] -= 1
                 if remaining[child] == 0:
                     node = nodes[child]
-                    ready_ms = max(node.release_ms,
-                                   max(rows[parent]["completion_ms"] for parent in node.dependencies))
+                    parent_end = max(rows[parent]["completion_ms"] for parent in node.dependencies)
+                    after_parents = parent_end + node.gap_after_deps_ms
+                    if (not math.isfinite(after_parents)
+                            or node.gap_after_deps_ms > 0 and after_parents <= parent_end):
+                        _invalid(f"node {child!r} dependency gap cannot advance finite representable time")
+                    ready_ms = max(node.release_ms, after_parents)
                     rows[child].update(ready_ms=ready_ms,
                                        dependency_wait_ms=ready_ms - node.release_ms)
                     heapq.heappush(ready_nodes, (ready_ms, order[child], child))
@@ -410,7 +443,7 @@ def _simulate_bound(plan: DAGPlan, profile_inputs: dict[str, list[dict]],
         request_reports.update({row["request_id"]: row for row in report.requests})
         pool_reports.append({"model_id": pool.model_id, "role": pool.role,
                              "configuration_sha256": _sha(_pool_identity(pool, profile_inputs[pool.model_id])),
-                             "configuration": asdict(pool.experiment),
+                             "configuration": experiment_dict(pool.experiment),
                              "profile_inputs": profile_inputs[pool.model_id],
                              "result": report.result, "requests": report.requests})
         for replica_index, engine in enumerate(driver.local_engines):
@@ -473,7 +506,7 @@ def _simulate_bound(plan: DAGPlan, profile_inputs: dict[str, list[dict]],
                           "release_wait_ms": [rows[name]["ready_ms"] -
                                               (rows[chain[index - 1]]["completion_ms"] if index else 0.0)
                                               for index, name in enumerate(chain)]},
-        "frozen_nodes": [asdict(node) for node in plan.nodes],
+        "frozen_nodes": [_node_mapping(node) for node in plan.nodes],
         "nodes": list(rows.values()), "pools": pool_reports, "devices": devices,
         "events": events if plan.execution.detailed_events else [],
         "limitations": ["model pools own exclusive devices and independent links, host pools and DMA lanes",

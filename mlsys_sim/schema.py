@@ -71,6 +71,7 @@ class MemoryConfig:
     swap_d2h_bandwidth_gbps: float = 12.0
     swap_h2d_bandwidth_gbps: float = 12.0
     swap_latency_us: float = 10.0
+    gpu_memory_utilization: float | None = None
 
 
 @dataclass(frozen=True)
@@ -99,6 +100,7 @@ class StrategySpec:
     prefill_chunk_tokens: int = 512
     mixed_batching: bool = False
     replica_routing: str = "least_loaded"
+    max_active_requests: int | None = None
 
 
 @dataclass(frozen=True)

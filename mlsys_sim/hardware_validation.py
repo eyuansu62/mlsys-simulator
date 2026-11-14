@@ -5,7 +5,7 @@ client chunk timing into hardware proof, and its verdict applies only to the
 identities, workloads, shapes and metrics listed in its validation scope.
 """
 
-from dataclasses import asdict, replace
+from dataclasses import replace
 import hashlib
 import json
 import math
@@ -20,6 +20,7 @@ from .config import load_experiment
 from .layout import replica_experiment
 from .profiles import profile_identity, validate_dataset
 from .schema import SimulationError
+from .serialization import experiment_dict
 
 
 def _fail(message: str, code: str = "INVALID_HARDWARE_VALIDATION_PLAN") -> None:
@@ -355,9 +356,9 @@ def run_hardware_validation(
                     replica_workspace_profile_paths=tuple(workspace_snapshots)))
         effective = replace(experiment, calibration=calibration)
         effective_path = directory / "experiment.json"
-        write_json_exclusive(effective_path, asdict(effective))
+        write_json_exclusive(effective_path, experiment_dict(effective))
         input_files.append({"path": str(experiment_path),
-            "effective_sha256": hashlib.sha256(_json(asdict(experiment)).encode()).hexdigest(),
+            "effective_sha256": hashlib.sha256(_json(experiment_dict(experiment)).encode()).hexdigest(),
             "snapshot_file": str(effective_path.relative_to(output))})
         prediction = execute("simulate", effective_path, directory / "predicted")
         criterion(f"online-{position}.prediction_complete", prediction.get("status") == "COMPLETED",

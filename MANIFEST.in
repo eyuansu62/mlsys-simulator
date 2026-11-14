@@ -6,6 +6,7 @@ recursive-include docs *.md
 recursive-include docs/course-sla-9070xt-20261111 *.json *.html *.csv *.svg
 recursive-include examples *.json
 include examples/course/9070-sla/README.md
+include examples/agent/README.md
 recursive-include tests *.py
 recursive-include scripts *.py *.cpp *.hip *.md
 prune sample-runs

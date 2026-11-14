@@ -1,7 +1,7 @@
 """Immutable CLI artifacts for simulation, profiles and validation workflows."""
 
 import argparse
-from dataclasses import asdict, replace
+from dataclasses import replace
 from datetime import datetime, timezone
 import hashlib
 import importlib
@@ -13,6 +13,7 @@ from typing import Any, NoReturn
 from . import __version__
 from .config import load_experiment
 from .schema import SimulationError
+from .serialization import experiment_dict
 
 
 def _json(value: Any) -> str:
@@ -142,7 +143,7 @@ def _course_workflow(args: argparse.Namespace, manifest: dict) -> dict:
         from .load_sweep import run_load_sweep, write_load_report
         experiment = load_experiment(args.experiment)
         _experiment_inputs(manifest, args.experiment, experiment)
-        _write_json(args.out / "experiment.json", asdict(experiment))
+        _write_json(args.out / "experiment.json", experiment_dict(experiment))
         result = run_load_sweep(experiment, plan)
         _workflow_profiles(manifest, args.out, result["profile_inputs"], "load_sweep")
         write_load_report(result, artifacts)
@@ -214,7 +215,7 @@ def _simulation(args: argparse.Namespace, manifest: dict) -> dict:
 
     original = load_experiment(args.experiment)
     _experiment_inputs(manifest, args.experiment, original)
-    expanded = asdict(original)
+    expanded = experiment_dict(original)
     fingerprint_config = expanded
     if original.calibration.workspace_profile_path is None and not original.calibration.replica_workspace_profile_paths:
         fingerprint_config = {**fingerprint_config, "calibration": {

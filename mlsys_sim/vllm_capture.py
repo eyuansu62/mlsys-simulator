@@ -19,6 +19,7 @@ from .layout import replica_experiment, stage_layer_counts
 from .profiles import profile_identity, shape_key, validate_dataset, validate_identity
 from .runtime_adapter import normalize_runtime_trace
 from .schema import Experiment, RequestSpec, SimulationError
+from .serialization import experiment_dict
 
 
 _REVISION = "98dff2a81"
@@ -662,7 +663,7 @@ def _scheduler_replay(experiment: Experiment, channels: list[dict], source: dict
             "session_clock_origin_monotonic_ns": origin}}
     provenance.update(applied=bind_runtime_workload,
         original_workload_sha256=hashlib.sha256(_json(asdict(experiment)["workload"]).encode()).hexdigest(),
-        replay_workload_sha256=hashlib.sha256(_json(asdict(effective)["workload"]).encode()).hexdigest(),
+        replay_workload_sha256=hashlib.sha256(_json(experiment_dict(effective)["workload"]).encode()).hexdigest(),
         cache_namespace_binding="vllm_nonempty_salt_sha256_v1", reason=None)
     return effective, trace, provenance
 
@@ -948,7 +949,7 @@ def normalize_vllm_capture(experiment: Experiment, captures: list[dict], *,
     expected_stages = {(replica, stage) for replica in range(experiment.strategy.replicas)
                        for stage in range(experiment.strategy.pipeline_parallel_size)}
     return {"schema_version": 1, "status": "COMPLETED", "kind": "vllm_hook_collection",
-        "source": source, "experiment": asdict(effective), "datasets": datasets,
+        "source": source, "experiment": experiment_dict(effective), "datasets": datasets,
         **({"dataset": datasets[0]["dataset"]} if experiment.strategy.replicas == 1 and datasets else {}),
         "observation": observation, "canonical_comparable": observation is not None,
         "canonical_stage_ready": (bool(datasets) and not missing_channels and accepted_stages == expected_stages

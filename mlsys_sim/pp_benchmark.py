@@ -6,7 +6,6 @@ PyTorch is needed only in the explicitly launched live worker processes.
 """
 
 from copy import deepcopy
-from dataclasses import asdict
 import hashlib
 import json
 import os
@@ -24,6 +23,7 @@ from .config import validate_experiment
 from .hardware import CollectionError, bind_inventory, integer, number, object_fields, probe_rocm, text
 from .profiles import profile_identity, validate_identity
 from .schema import Experiment, SimulationError
+from .serialization import experiment_dict
 
 
 PROTOCOL = "native_pp_primitives_v1"
@@ -384,7 +384,7 @@ def collect_pp_communication(experiment: Experiment, plan: dict, inventory: dict
 
     def failure(code: str, message: str) -> NoReturn:
         raise CollectionError(code, message, artifacts={"kind": "native_pp_communication_collection",
-            "experiment": asdict(effective), "inventory": deepcopy(inventory),
+            "experiment": experiment_dict(effective), "inventory": deepcopy(inventory),
             "raw_records": deepcopy(raw_records), "hardware_validated": False})
 
     try:
@@ -434,7 +434,7 @@ def collect_pp_communication(experiment: Experiment, plan: dict, inventory: dict
                 output = root / "rank-captures"
                 output.mkdir()
                 expected_session = uuid.uuid4().hex
-                config.write_text(json.dumps({"schema_version": 1, "experiment": asdict(effective),
+                config.write_text(json.dumps({"schema_version": 1, "experiment": experiment_dict(effective),
                     "plan": {key: value for key, value in settings.items() if key not in ("raw_path", "source")},
                     "session_id": expected_session, "rendezvous": str(root / "rendezvous")},
                     allow_nan=False), encoding="utf-8")
@@ -498,7 +498,7 @@ def collect_pp_communication(experiment: Experiment, plan: dict, inventory: dict
     except (OSError, ValueError, TypeError, RuntimeError, OverflowError) as exc:
         failure("COLLECTION_FAILED", f"Primitive collection failed: {exc}")
     return {"schema_version": 1, "status": "COMPLETED", "kind": "native_pp_communication_collection",
-        "source": source, "experiment": asdict(effective), "inventory": deepcopy(inventory),
+        "source": source, "experiment": experiment_dict(effective), "inventory": deepcopy(inventory),
         "dataset": dataset, "raw_records": raw_records, "hardware_validated": False,
         "provenance": {"protocol": settings.get("protocol", PROTOCOL), "session_id": session,
             "rank_aggregation": "maximum_local_duration",

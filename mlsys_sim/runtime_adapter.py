@@ -9,7 +9,7 @@ to the simulator's existing comparison tools.
 import codecs
 from concurrent.futures import ThreadPoolExecutor
 from copy import deepcopy
-from dataclasses import asdict, replace
+from dataclasses import replace
 import hashlib
 import json
 import math
@@ -29,6 +29,7 @@ from .config import validate_experiment
 from .profiles import profile_identity, validate_identity
 from .reporting import _percentiles, report_simulation
 from .schema import Experiment, SimulationError
+from .serialization import experiment_dict
 from .state import RequestState, TERMINAL
 
 
@@ -242,7 +243,7 @@ def normalize_runtime_trace(experiment: Experiment, raw: dict, *,
                   "observed_until_ms": end, "server_token_events": True,
                   "request_status_counts": report.result["counts"]}}
     bundle = {"status": "COMPLETED", "kind": "runtime_trace_collection", "source": source,
-        "experiment": asdict(experiment), "observation": observation,
+        "experiment": experiment_dict(experiment), "observation": observation,
         "raw_records": deepcopy(trace["events"]), "hardware_validated": False,
         "timing_boundary": trace["timing_boundary"], "canonical_comparable": True,
         "limitations": ["Trace identities and runtime policy are declared evidence, not remote attestation.",
@@ -709,7 +710,7 @@ def collect_vllm(experiment: Experiment, plan: dict, inventory: dict | None = No
     rows = [by_id[spec.request_id] for spec in effective.workload]
     end = max((row.get("completion_ms") or 0 for row in rows), default=0.0)
     bundle = {"status": "COMPLETED", "kind": "vllm_client_collection", "source": source,
-        "timing_boundary": "client_token_delivery_v1", "experiment": asdict(effective),
+        "timing_boundary": "client_token_delivery_v1", "experiment": experiment_dict(effective),
         "inventory": inventory, "runtime_version": version, "raw_records": rows,
         "inventory_binding": "operator_declared_server_inventory_not_remote_attestation",
         "model_binding": {"served_model": model, "declared_model": effective.strategy.model.name,

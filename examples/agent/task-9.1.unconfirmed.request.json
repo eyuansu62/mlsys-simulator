@@ -1,0 +1,131 @@
+{
+  "schema": "mlab.simulator.v1",
+  "task": "9.1",
+  "candidate_id": "baseline",
+  "workload": {
+    "mode": "sequential",
+    "requests": [
+      {
+        "request_id": "p01",
+        "input_tokens": 48,
+        "output_tokens_target": 128,
+        "category": "chat"
+      },
+      {
+        "request_id": "p02",
+        "input_tokens": 120,
+        "output_tokens_target": 128,
+        "category": "chat"
+      },
+      {
+        "request_id": "p03",
+        "input_tokens": 512,
+        "output_tokens_target": 256,
+        "category": "summarize"
+      },
+      {
+        "request_id": "p04",
+        "input_tokens": 1024,
+        "output_tokens_target": 256,
+        "category": "summarize"
+      },
+      {
+        "request_id": "p05",
+        "input_tokens": 2048,
+        "output_tokens_target": 128,
+        "category": "qa_with_context"
+      },
+      {
+        "request_id": "p06",
+        "input_tokens": 4096,
+        "output_tokens_target": 128,
+        "category": "qa_with_context"
+      }
+    ],
+    "source_sha256": "sha256:c572d1617b82ed5628a7112546b85fc4ea3d088ad3e1e3ec6245a5855e407319"
+  },
+  "infra": {
+    "id": "rx9070xt_x1",
+    "nodes": [
+      {
+        "id": "node0",
+        "devices": [
+          {
+            "id": "gpu0",
+            "hardware": "rx9070xt"
+          }
+        ]
+      }
+    ]
+  },
+  "strategy": {
+    "deployments": [
+      {
+        "model": "llm-3b",
+        "weight_precision": "FP8",
+        "kv_precision": "BF16",
+        "context_tokens": 8192,
+        "devices": [
+          "gpu0"
+        ],
+        "replicas": 1,
+        "parallel": {
+          "kind": "none",
+          "degree": 1
+        }
+      }
+    ],
+    "serving": {
+      "max_concurrency": 1,
+      "gpu_memory_utilization": 0.8,
+      "kv_fraction": null,
+      "kv_budget_gib": null,
+      "chunked_prefill_tokens": null,
+      "continuous_batching": false
+    },
+    "cache": {},
+    "scheduling": {},
+    "speculative": false
+  },
+  "evaluation": {
+    "constraints": [
+      {
+        "metric": "vram_peak_gib",
+        "op": "<=",
+        "value": 14,
+        "status": "draft",
+        "source": "Project plan Ch 9.1",
+        "note": "The document says \"14 GB\"; treated as GiB for now"
+      },
+      {
+        "metric": "ttft_ms.p50",
+        "op": "<=",
+        "value": 500,
+        "status": "draft",
+        "source": "Project plan Ch 9.1",
+        "note": "The document names no percentile; Ch 4 takes the median of repeated runs, so p50 for now"
+      },
+      {
+        "metric": "decode_tok_s",
+        "op": ">=",
+        "value": 20,
+        "status": "draft",
+        "source": "Project plan Ch 9.1"
+      }
+    ],
+    "duration_s": 300,
+    "timeout_s": 1800,
+    "goodput_policy": "both_thresholds_required"
+  },
+  "execution": {
+    "seed": 42,
+    "repeat": 0,
+    "split": "development",
+    "holdout": null,
+    "initial_state": "empty",
+    "warmup": null,
+    "max_simulated_ms": 300000
+  },
+  "catalog_version": "to-be-agreed",
+  "client_request_id": "protocol-probe-task-9.1-baseline"
+}

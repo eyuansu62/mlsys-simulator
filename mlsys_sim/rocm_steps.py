@@ -8,7 +8,6 @@ PyTorch is imported only when live collection is requested.
 
 from collections.abc import Callable, Mapping
 from copy import deepcopy
-from dataclasses import asdict
 import hashlib
 import importlib
 import json
@@ -21,6 +20,7 @@ from .hardware import (CollectionError, bind_inventory, integer, object_fields,
                        text)
 from .profiles import profile_identity, shape_key, validate_dataset
 from .schema import Experiment, SimulationError
+from .serialization import experiment_dict
 
 
 _BOUNDARY = "step_includes_output_and_sampling_v1"
@@ -251,12 +251,12 @@ def collect_steps(experiment: Experiment, plan: dict, adapter: Any, inventory: d
                                    require_rccl=experiment.strategy.tensor_parallel_size > 1,
                                    allow_test_fixture=allow_test_fixture)
         source = {"kind": captured["source"]["kind"], "reference": parsed["source_reference"]}
-        bundle.update(source=source, experiment=asdict(effective), runtime_metadata=metadata,
+        bundle.update(source=source, experiment=experiment_dict(effective), runtime_metadata=metadata,
                       diagnostics={"injected_dependencies": injected,
                                    "timing_boundary": "synchronized_participant_host_wall_time",
                                    "workspace_policy": "runtime_attribution_or_null"},
                       provenance={"inventory_sha256": _sha256(captured), "plan_sha256": _sha256(plan),
-                                  "experiment_sha256": _sha256(asdict(effective)),
+                                  "experiment_sha256": _sha256(experiment_dict(effective)),
                                   "runtime_metadata_sha256": _sha256(metadata)})
         clock = time.perf_counter_ns if clock_ns is None else clock_ns
         records = []

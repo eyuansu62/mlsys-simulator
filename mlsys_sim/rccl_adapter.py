@@ -7,7 +7,7 @@ interpreted as the simulator's isolated, unidirectional PP transfer.
 """
 
 from copy import deepcopy
-from dataclasses import asdict, replace
+from dataclasses import replace
 import hashlib
 import math
 import os
@@ -23,6 +23,7 @@ from .communication_calibration import _validate_dataset
 from .config import validate_experiment
 from .profiles import profile_identity, validate_identity
 from .schema import Experiment, SimulationError
+from .serialization import experiment_dict
 
 
 _LIMIT = 2 * 1024 * 1024
@@ -313,7 +314,7 @@ def collect_rccl(experiment: Experiment, plan: dict, inventory: dict | None = No
     def failure(code: str, message: str) -> NoReturn:
         raise CollectionError(code, message, artifacts={
             "kind": "rccl_collection", "inventory": inventory,
-            "experiment": asdict(effective), "raw_records": raw_records,
+            "experiment": experiment_dict(effective), "raw_records": raw_records,
             "communication_datatype": datatype_binding,
             "hardware_validated": False})
 
@@ -506,7 +507,7 @@ def collect_rccl(experiment: Experiment, plan: dict, inventory: dict | None = No
         "dataset_id": dataset_id, "identity": profile_identity(effective), "source": source,
         "records": records}, allow_test_fixture=allow_test_fixture)
     return {"status": "COMPLETED", "kind": "rccl_collection", "source": source,
-            "inventory": inventory, "experiment": asdict(effective), "dataset": dataset,
+            "inventory": inventory, "experiment": experiment_dict(effective), "dataset": dataset,
             "raw_records": raw_records, "capture_metadata": metadata,
             "communication_datatype": datatype_binding,
             "hardware_validated": False,

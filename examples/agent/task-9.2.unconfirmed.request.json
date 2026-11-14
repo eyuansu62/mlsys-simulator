@@ -1,0 +1,198 @@
+{
+  "schema": "mlab.simulator.v1",
+  "task": "9.2",
+  "candidate_id": "baseline",
+  "workload": {
+    "mode": "open_loop",
+    "requests": [
+      {
+        "request_id": "r001",
+        "arrival_ms": 0,
+        "input_tokens": 256,
+        "output_tokens_target": 64,
+        "category": "short",
+        "prefix_group": "sys-a"
+      },
+      {
+        "request_id": "r002",
+        "arrival_ms": 200,
+        "input_tokens": 256,
+        "output_tokens_target": 64,
+        "category": "short",
+        "prefix_group": "sys-a"
+      },
+      {
+        "request_id": "r003",
+        "arrival_ms": 400,
+        "input_tokens": 6144,
+        "output_tokens_target": 256,
+        "category": "long",
+        "prefix_group": "sys-b"
+      },
+      {
+        "request_id": "r004",
+        "arrival_ms": 600,
+        "input_tokens": 256,
+        "output_tokens_target": 64,
+        "category": "short",
+        "prefix_group": "sys-a"
+      },
+      {
+        "request_id": "r005",
+        "arrival_ms": 1000,
+        "input_tokens": 256,
+        "output_tokens_target": 64,
+        "category": "short",
+        "prefix_group": "sys-a"
+      },
+      {
+        "request_id": "r006",
+        "arrival_ms": 1010,
+        "input_tokens": 256,
+        "output_tokens_target": 64,
+        "category": "short",
+        "prefix_group": "sys-a"
+      },
+      {
+        "request_id": "r007",
+        "arrival_ms": 1020,
+        "input_tokens": 8192,
+        "output_tokens_target": 256,
+        "category": "long",
+        "prefix_group": "sys-b"
+      },
+      {
+        "request_id": "r008",
+        "arrival_ms": 1030,
+        "input_tokens": 256,
+        "output_tokens_target": 64,
+        "category": "short",
+        "prefix_group": "sys-a"
+      },
+      {
+        "request_id": "r009",
+        "arrival_ms": 1040,
+        "input_tokens": 8192,
+        "output_tokens_target": 256,
+        "category": "long",
+        "prefix_group": "sys-b"
+      },
+      {
+        "request_id": "r010",
+        "arrival_ms": 1050,
+        "input_tokens": 256,
+        "output_tokens_target": 64,
+        "category": "short",
+        "prefix_group": "sys-a"
+      },
+      {
+        "request_id": "r011",
+        "arrival_ms": 2000,
+        "input_tokens": 256,
+        "output_tokens_target": 64,
+        "category": "short",
+        "prefix_group": "sys-a"
+      },
+      {
+        "request_id": "r012",
+        "arrival_ms": 2200,
+        "input_tokens": 512,
+        "output_tokens_target": 64,
+        "category": "short",
+        "prefix_group": "sys-a"
+      }
+    ],
+    "source_sha256": "sha256:b65174341b89c1afec09c09f47a6a15ab0cac1e315d37e3a4722094b02a1e964"
+  },
+  "infra": {
+    "id": "rx9070xt_x1",
+    "nodes": [
+      {
+        "id": "node0",
+        "devices": [
+          {
+            "id": "gpu0",
+            "hardware": "rx9070xt"
+          }
+        ]
+      }
+    ]
+  },
+  "strategy": {
+    "deployments": [
+      {
+        "model": "llm-3b",
+        "weight_precision": "FP8",
+        "kv_precision": "BF16",
+        "context_tokens": 16384,
+        "devices": [
+          "gpu0"
+        ],
+        "replicas": 1,
+        "parallel": {
+          "kind": "none",
+          "degree": 1
+        }
+      }
+    ],
+    "serving": {
+      "max_concurrency": 32,
+      "gpu_memory_utilization": 0.8,
+      "kv_fraction": null,
+      "kv_budget_gib": null,
+      "chunked_prefill_tokens": null,
+      "continuous_batching": true
+    },
+    "cache": {},
+    "scheduling": {},
+    "speculative": false
+  },
+  "evaluation": {
+    "constraints": [
+      {
+        "metric": "ttft_ms.p99",
+        "op": "<",
+        "value": 2000,
+        "status": "draft",
+        "source": "Project plan Ch 9.2",
+        "note": "The document says \"P99 < 2 s\" without naming the latency; end-to-end latency depends on output length, so TTFT for now"
+      },
+      {
+        "metric": "tpot_ms.p99",
+        "op": "<",
+        "value": null,
+        "status": "tbd",
+        "source": "README week 7"
+      },
+      {
+        "metric": "throughput_tok_s",
+        "op": ">=",
+        "value": null,
+        "status": "tbd",
+        "source": "Project plan Ch 9.2 (throughput ≥ X)"
+      },
+      {
+        "metric": "completion_rate",
+        "op": ">=",
+        "value": 0.99,
+        "status": "draft",
+        "source": "Proposed in the lab plan",
+        "note": "Prevents pushing p99 down by rejecting or truncating requests"
+      }
+    ],
+    "duration_s": 60,
+    "timeout_s": 1800,
+    "goodput_policy": "ttft_only_if_tpot_tbd"
+  },
+  "execution": {
+    "seed": 42,
+    "repeat": 0,
+    "split": "development",
+    "holdout": null,
+    "initial_state": "empty",
+    "warmup": null,
+    "max_simulated_ms": 60000
+  },
+  "catalog_version": "to-be-agreed",
+  "client_request_id": "protocol-probe-task-9.2-baseline"
+}

@@ -1,6 +1,6 @@
 # Python API
 
-Install distribution `mlsys-simulator` and import `mlsys_sim`. Version 1.19 exposes the
+Install distribution `mlsys-simulator` and import `mlsys_sim`. Version 1.20 exposes the
 simulation, profile, calibration and comparison functions through this package,
 with optional hardware collection and evidence-acceptance commands;
 `mlsys_sim.__version__` is the software version. JSON schema and Profile version
@@ -9,6 +9,29 @@ labels are separate contracts.
 The optional `mlsys-sim-web` / `python -m mlsys_sim.web` entry serves the local
 single-GPU analytical form and charts. It reuses the core engine and has no GPU,
 framework or CDN dependency. See the [Web interface](web-interface.md).
+
+## Versioned Agent integration
+
+`mlsys-sim-agent` / `python -m mlsys_sim.agent_service` serves the separate
+loopback `POST /v1/simulate` and `GET /v1/catalog` endpoints.
+`mlsys_sim.agent_adapter.simulate_agent_request(raw_utf8_bytes)` executes the same
+strict protocol directly. `get_agent_catalog()`, `validate_agent_request(mapping)`
+and `validate_agent_response(raw_bytes, response)` expose identities and independent
+conformance checks without a course-platform or validation-framework dependency.
+
+`simulate_sequential(experiment, requests)` executes a fixed heterogeneous list on
+one persistent `EventDriver`; pass an empty experiment workload and zero arrival
+times. The return retains `run`, `first_compute_start_ms`, `not_started`,
+`stop_reason`, `resources_drained` and `elapsed_ms`. A request failure advances
+the list; a deployment/global stop does not invent arrivals for remaining rows.
+
+`DAGNode.gap_after_deps_ms=0` preserves old plans; a nonzero value releases a child
+at `max(release_ms, latest successful parent completion + gap)`.
+`StrategySpec.max_active_requests=None` preserves old admission; a positive value
+limits started, nonterminal requests per replica, separately from batch size.
+`MemoryConfig.gpu_memory_utilization=None` preserves old budgets; a fraction
+constrains usable memory while retaining actual device capacity and physical allocations.
+See [Agent integration](agent-integration.md) for the initial catalog and limits.
 
 ## Independent finite closed-loop studies
 
