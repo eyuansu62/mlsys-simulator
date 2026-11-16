@@ -1,10 +1,28 @@
 # Python API
 
-Install distribution `mlsys-simulator` and import `mlsys_sim`. Version 1.20 exposes the
+Install distribution `mlsys-simulator` and import `mlsys_sim`. Version 1.21 exposes the
 simulation, profile, calibration and comparison functions through this package,
 with optional hardware collection and evidence-acceptance commands;
 `mlsys_sim.__version__` is the software version. JSON schema and Profile version
 labels are separate contracts.
+
+## Opt-in analytical fixed and Attention costs
+
+`AnalyticalCostSpec` holds immutable per-phase scales, Attention per-layer fixed
+work, a stage intercept, exact Runtime/mode/backend identity, retained ranges and
+training lineage. `CalibrationSpec.analytical_costs` defaults to an empty tuple;
+the five new phase/backend/boundary selectors default to `unspecified` and do not
+change legacy serialization or performance. Embedded parameters avoid mutable
+external Profile reads during execution.
+
+`freeze_cost_split`, `fit_analytical_costs` and `validate_analytical_costs` enforce
+explicit group/session membership and a pre-fit threshold. The new
+`mlsys-sim-cost` commands write replayable calibrations and complete reports.
+`AnalyticalModel.estimate_step` evaluates one phase; `predict_experiment` still
+evaluates both phases and therefore requires coverage of both queries when costs
+are explicitly selected. Out-of-domain queries are rejected, not extrapolated.
+See [runtime cost calibration](runtime-cost-calibration.md) for assumptions and
+the distinction between empirical residual work and measured CPU time.
 
 The optional `mlsys-sim-web` / `python -m mlsys_sim.web` entry serves the local
 single-GPU analytical form and charts. It reuses the core engine and has no GPU,

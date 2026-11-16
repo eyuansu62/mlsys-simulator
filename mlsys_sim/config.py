@@ -231,7 +231,8 @@ def validate_experiment(experiment: Experiment) -> None:
             _invalid("calibration.replica_profile_paths", "multiple replicas require one path each and no profile_path")
     elif (calibration.profile_path is not None or calibration.replica_profile_paths
           or calibration.allow_extrapolation
-          or calibration.allow_test_fixture and not (communication_selected or workspace_selected)):
+          or calibration.allow_test_fixture and not (communication_selected or workspace_selected
+                                                     or calibration.analytical_costs)):
         _invalid("calibration", "profile file and domain/source overrides require backend=profile")
     for name in ("runtime_name", "runtime_version", "driver_version", "rocm_version", "rccl_version",
                  "timing_boundary"):
@@ -240,6 +241,8 @@ def validate_experiment(experiment: Experiment) -> None:
     if calibration.runtime_config_sha256 and (len(calibration.runtime_config_sha256) != 64 or any(
             character not in "0123456789abcdef" for character in calibration.runtime_config_sha256)):
         _invalid("calibration.runtime_config_sha256", "must be empty or a lowercase SHA256 hex digest")
+    from .analytical_cost import validate_analytical_costs
+    validate_analytical_costs(experiment)
     if calibration.timing_boundary != "step_includes_output_and_sampling_v1":
         raise SimulationError("UNSUPPORTED_MECHANISM", "unsupported step timing boundary")
     if not calibration.profile_version:

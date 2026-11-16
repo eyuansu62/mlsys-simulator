@@ -1,12 +1,14 @@
-# Version 1.20 capability matrix
+# Version 1.21 capability matrix
 
-This table describes the version 1.20 software scope. Available fixture demonstrations
+This table describes the version 1.21 software scope. Available fixture demonstrations
 and unit tests do not establish AMD hardware accuracy. User-supplied reference
 packages are external evidence with their own timing and model-coverage limits.
 
 | Capability | Software status | Supported scope and evidence boundary |
 | --- | --- | --- |
 | Six inputs and strict configuration | Implemented | JSON/TOML, JSONL workload, relative references; optional installed PyYAML |
+| Runtime-aware analytical cost terms | Implemented, opt-in | Separate Prefill/Decode, configured execution mode/backend and strict identity/policy/shape; empirical fixed/Attention corrections, no CPU attribution or eager-domain transfer |
+| Retrospective cost holdout | Implemented, scoped source | Verified original trace bytes, frozen shape/session split and threshold, all records including unused;6heldout cells/3sessions, not new blind data or online SLA proof |
 | Agent synchronous API | Implemented, scoped catalog | Exact raw-body lineage, fixed lists/sequential/DAG, complete failure/placement/memory records; first catalog Qwen3 BF16 + RX9070XT nominal single-card replicas; unknown aliases/topology rejected |
 | Per-replica active admission / usable memory | Implemented, opt-in | Separate active request and batch limits; utilization constrains budget without changing device capacity; new null defaults retain legacy contracts |
 | Local Web interface | Implemented | Loopback-only model/hardware/load forms, bounded single-GPU analytical simulations, latency/token-rate/cumulative-memory charts and replay export; no GPU execution or remote deployment |

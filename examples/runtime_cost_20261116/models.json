@@ -1,0 +1,17 @@
+{
+  "qwen3-0.6b": {
+    "calibration": "calibrations/model-0.json",
+    "experiment": "experiments/model-0.json",
+    "identity_sha256": "197ab472155df710e944822d24bc13cd106b01f969d7f9e468a5c37fd8d4b23b"
+  },
+  "qwen3-1.7b": {
+    "calibration": "calibrations/model-1.json",
+    "experiment": "experiments/model-1.json",
+    "identity_sha256": "d4ebf630d8954a2b5e8fc7841a3d8fd5ad2049b2c693a554d145c7c7feebc5cd"
+  },
+  "qwen3-4b": {
+    "calibration": "calibrations/model-2.json",
+    "experiment": "experiments/model-2.json",
+    "identity_sha256": "11efc6360e1b6cda36daadf167b6fcfdf3feea16e8e55af67e72e69c773d9943"
+  }
+}

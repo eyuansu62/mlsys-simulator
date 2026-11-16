@@ -3,7 +3,7 @@
 [English](README.md) · [Python API](docs/api.md) · [校准](docs/calibration.md) ·
 [验证规范](docs/validation-protocol.md) · [系统规范](docs/specification.md) · [PP 与 CPU swap](docs/pipeline-and-swap.md) · [Prefix Cache 与分块预填充](docs/prefix-cache-and-chunking.md) · [混合批处理](docs/mixed-batching.md) · [多副本路由](docs/multi-replica.md) · [ROCm 采集](docs/rocm-collection.md) · [Qwen3 与 vLLM 内部 hook](docs/qwen3-and-vllm-hooks.md) · [原生 PP 采样与 Profile](docs/native-pp-capture.md) · [原生 PP 通信微基准与校准](docs/native-pp-communication.md) · [量化存储](docs/quantization.md) · [Workspace 与容量验证](docs/workspace-and-capacity.md)
 
-1.20 版增加[Agent 专用同步接口](docs/agent-integration.md)：版本化目录、原始请求列表、固定顺序执行、相对依赖间隔和完整结果记录。保留[本地 Web 实验台](docs/web-interface.md)、[冻结预测与独立闭环验证](docs/closed-loop-validation.md)、[联合约束筛选与课程η/β导入](docs/course-constraints-and-calibration.md)、量化存储、TP/PP、缓存、分块、混批、CPU swap、多副本与已有采集工具。源码见[GitHub](https://github.com/eyuansu62/mlsys-simulator)，许可证仍待选择，尚未发布PyPI。
+1.21 版增加[固定开销与Attention成本校准](docs/runtime-cost-calibration.md)：按阶段、配置Graph/eager和后端绑定运行域，冻结训练与事后独立分组留出，旧默认值不静默改变。保留[Agent 专用同步接口](docs/agent-integration.md)、[本地 Web 实验台](docs/web-interface.md)、[冻结预测与独立闭环验证](docs/closed-loop-validation.md)、[联合约束筛选与课程η/β导入](docs/course-constraints-and-calibration.md)、量化存储、TP/PP、缓存、分块、混批、CPU swap、多副本与已有采集工具。源码见[GitHub](https://github.com/eyuansu62/mlsys-simulator)，许可证仍待选择，尚未发布PyPI。
 
 按[课程工作流](docs/course-workflows.md)的六条命令可直接生成图文报告、CSV与SVG。52节点32B/7B示例明确为冻结的人工教学轨迹，硬件参数为声明假设；负载边界是有限网格的观测结果，保留全部seed、失败和非单调情况，不建立新的真机精度结论。
 
