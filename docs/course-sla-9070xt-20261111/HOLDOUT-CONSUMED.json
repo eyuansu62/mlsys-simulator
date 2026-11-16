@@ -1,0 +1,37 @@
+{
+  "kind": "course_sla_holdout_consumed_marker",
+  "study_id": "course9070sla20261111",
+  "marked_at": "2026-11-16",
+  "status": "consumed",
+  "do_not_reuse": true,
+  "reason": "All 39 formal units were observed on 2026-11-11 (3 fresh runtimes x 13 cells). The pre-registered holdout grid is no longer an unseen set; it must not be used for any refit, re-validation, or favorable-repeat selection.",
+  "consumed_points": {
+    "baseline_input_256": {
+      "concurrency": [1, 2, 4, 8, 16, 32, 64],
+      "observed": true
+    },
+    "holdout_short": {
+      "input_lengths": [64, 128],
+      "concurrency": [8, 16, 32],
+      "observed": true
+    },
+    "holdout_long": {
+      "input_lengths": [512, 1024],
+      "concurrency": [8, 16, 32],
+      "observed": true
+    }
+  },
+  "heldout_grid_consumed": [8, 16, 32],
+  "prohibited": [
+    "refit any model cost against these points",
+    "re-use these concurrency/input cells as a new unseen holdout",
+    "select favorable repetitions from the 3 fresh runtimes per cell",
+    "re-tune SLA thresholds or grid after observation"
+  ],
+  "superseded_by": {
+    "study_id": "course9070sla20261116",
+    "design": "low-concurrency + long-input blind holdout; new pre-registered concurrency grid that does NOT reuse 8/16/32; pre-measurement SHA commitment; 3 fresh runtimes; no refit",
+    "design_doc": "docs/decode-cost-domain-gap-20261116/step2-new-holdout-design.md"
+  },
+  "hardware_validated": false
+}

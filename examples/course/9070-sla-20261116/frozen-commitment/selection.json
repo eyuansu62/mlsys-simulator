@@ -1,0 +1,45 @@
+{
+  "rule": "pre-registered low-concurrency blind grid {1,2,4}; no cap search and no selection from observed data (design doc sections 2 and 6)",
+  "pre_registered_grid": [
+    1,
+    2,
+    4
+  ],
+  "grid_disjoint_from_consumed_1111_holdout": true,
+  "consumed_1111_grid": [
+    8,
+    16,
+    32
+  ],
+  "selection_from_prediction": false,
+  "baseline_predicted_verdicts_record_only": [
+    {
+      "concurrency": 1,
+      "predicted_joint_verdict": "PASS",
+      "replication_verdicts": [
+        "PASS",
+        "PASS",
+        "PASS"
+      ]
+    },
+    {
+      "concurrency": 2,
+      "predicted_joint_verdict": "PASS",
+      "replication_verdicts": [
+        "PASS",
+        "PASS",
+        "PASS"
+      ]
+    },
+    {
+      "concurrency": 4,
+      "predicted_joint_verdict": "PASS",
+      "replication_verdicts": [
+        "PASS",
+        "PASS",
+        "PASS"
+      ]
+    }
+  ],
+  "no_observed_data_used": true
+}
