@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.22.0 — 2026-11-17
+
+- Explicit whole-step affine calibration from equally weighted process/shape
+  medians, without requiring or inventing profiler component observations.
+  The nonnegative shared macro scale and intercept retain the existing immutable
+  cost-spec and exact Runtime/phase/mode/backend/policy/shape interfaces.
+- A separately frozen fit policy requires independent training repeats and
+  identifiable shapes. Unstable process medians produce a preserved rejection
+  artifact without executable parameters; validation never refits a holdout.
+- Opt-in `freeze --step-affine` and `fit --fit-spec`, plus Python exports.
+  The default component fit, CLI, Profile, Web and Agent behavior is retained.
+
 ## 1.21.0 — 2026-11-16
 
 - Opt-in immutable analytical-cost calibration for phase-specific fixed work and

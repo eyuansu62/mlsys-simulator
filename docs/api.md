@@ -24,6 +24,13 @@ are explicitly selected. Out-of-domain queries are rejected, not extrapolated.
 See [runtime cost calibration](runtime-cost-calibration.md) for assumptions and
 the distinction between empirical residual work and measured CPU time.
 
+`freeze_step_fit_spec` and `fit_step_costs` explicitly select whole-step affine
+fitting with equal process/shape weights and a frozen training-stability gate.
+Rejection preserves diagnostics without a calibration patch. The existing
+`validate_analytical_costs` and prediction interfaces consume successful fits.
+See [whole-step calibration](runtime-step-calibration.md) for the separate fit
+policy and the distinction between retrospective and new forward validation.
+
 The optional `mlsys-sim-web` / `python -m mlsys_sim.web` entry serves the local
 single-GPU analytical form and charts. It reuses the core engine and has no GPU,
 framework or CDN dependency. See the [Web interface](web-interface.md).
