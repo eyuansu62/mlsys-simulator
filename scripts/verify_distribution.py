@@ -45,6 +45,15 @@ for paths in json.loads((cost_root / "models.json").read_text()).values():
     assert cost_prediction.source == "analytical_cost_calibrated"
     assert cost_prediction.breakdown["cost_calibration"]["hardware_validated"] is False
 assert "torch" not in sys.modules and "vllm" not in sys.modules
+step_root = Path("step-cost-inputs")
+step_dataset = json.loads(gzip.decompress((step_root / "dataset.json.gz").read_bytes()))
+step_fit = json.loads(gzip.decompress((step_root / "fit.json.gz").read_bytes()))
+assert validate_analytical_costs(step_dataset, step_fit)["verdict"] == "PASS"
+step_experiment = load_experiment(step_root / "experiments/model-0.json")
+step_prediction = AnalyticalModel(step_experiment).estimate_step("decode", [1] * 4, [1024] * 4)
+assert step_prediction.source == "analytical_cost_calibrated"
+assert step_fit["algorithm"] == "whole_step_nonnegative_affine_session_medians_v1"
+assert "torch" not in sys.modules and "vllm" not in sys.modules
 from mlsys_sim.agent_service import run_agent_isolated
 for task, count in (("9.2", 12), ("9.1", 6), ("9.3", 10)):
     body = Path("agent-inputs", "task-" + task + ".protocol.request.json").read_bytes()
@@ -77,7 +86,8 @@ assert all(callable(getattr(mlsys_sim, name)) for name in (
     "validate_closed_loop_spec", "generate_request_stream", "closed_loop_policy_sha256",
     "predict_closed_loop", "validate_closed_loop", "collect_closed_loop",
     "get_agent_catalog", "validate_agent_request", "validate_agent_response", "simulate_sequential",
-    "freeze_cost_split", "fit_analytical_costs", "validate_analytical_costs"))
+    "freeze_cost_split", "fit_analytical_costs", "validate_analytical_costs",
+    "freeze_step_fit_spec", "fit_step_costs"))
 from mlsys_sim.load_validation_report import write_closed_loop_study_report
 from mlsys_sim.vllm_sla_worker import formal_server_evidence
 assert callable(write_closed_loop_study_report) and callable(formal_server_evidence)
@@ -319,7 +329,7 @@ def verify(dist: Path) -> dict:
                        "closed_loop_capture", "load_validation_report", "vllm_sla_worker",
                        "web", "web_simulation", "agent_adapter", "agent_service",
                        "agent_contract", "agent_catalog", "sequential", "serialization",
-                       "analytical_cost", "cost_calibration", "cost_cli", "cost_report"):
+                       "analytical_cost", "cost_calibration", "step_cost_calibration", "cost_cli", "cost_report"):
             assert f"mlsys_sim/{module}.py" in names
         for asset in ("index.html", "style.css", "app.js"):
             assert f"mlsys_sim/web_assets/{asset}" in names, f"Wheel missing Web UI asset {asset}"
@@ -333,6 +343,12 @@ def verify(dist: Path) -> dict:
                          "docs/runtime-cost-calibration.md", "docs/runtime-cost-20261116/README.md",
                          "docs/runtime-cost-20261116/report.json.gz",
                          "examples/runtime_cost_20261116/dataset.json.gz", "examples/runtime_cost_20261116/fit.json.gz",
+                         "docs/runtime-step-20261117/README.md", "docs/runtime-step-20261117/queue-effect.svg",
+                         "docs/runtime-step-20261117/queue-effect.png", "docs/runtime-step-20261117/report.json.gz",
+                         "examples/runtime_step_20261117/dataset.json.gz", "examples/runtime_step_20261117/fit.json.gz",
+                         "examples/runtime_step_20261117/frozen/inputs.json.gz",
+                         "examples/runtime_step_20261117/frozen/predictions.json.gz",
+                         "tests/test_published_step_study.py",
                          "scripts/import_cost_trace.py", "tests/test_published_cost_study.py",
                          "examples/agent/task-9.2.protocol.request.json", "examples/agent/request.schema.json",
                          "examples/agent/response.schema.json",
@@ -459,6 +475,13 @@ def verify(dist: Path) -> dict:
                 cost_target = cost_inputs / source.relative_to(cost_source)
                 cost_target.parent.mkdir(parents=True, exist_ok=True)
                 cost_target.write_bytes(source.read_bytes())
+        step_source = Path(__file__).resolve().parents[1] / "examples/runtime_step_20261117"
+        step_inputs = outside / "step-cost-inputs"
+        for source in step_source.rglob("*"):
+            if source.is_file():
+                step_target = step_inputs / source.relative_to(step_source)
+                step_target.parent.mkdir(parents=True, exist_ok=True)
+                step_target.write_bytes(source.read_bytes())
         run([str(python), "-I", "-c", SMOKE_CODE], outside, env)
         run([str(python), "-I", "-m", "mlsys_sim.vllm_sla_worker", "--help"], outside, env)
         web_console = binaries / ("mlsys-sim-web.exe" if os.name == "nt" else "mlsys-sim-web")

@@ -1,5 +1,23 @@
 # Changelog
 
+## 1.22.0 — 2026-11-17
+
+- Explicit whole-step affine calibration from equally weighted process/shape
+  medians, without requiring or inventing profiler component observations.
+  The nonnegative shared macro scale and intercept retain the existing immutable
+  cost-spec and exact Runtime/phase/mode/backend/policy/shape interfaces.
+- A separately frozen fit policy requires independent training repeats and
+  identifiable shapes. Unstable process medians produce a preserved rejection
+  artifact without executable parameters; validation never refits a holdout.
+- Opt-in `freeze --step-affine` and `fit --fit-spec`, plus Python exports.
+  The default component fit, CLI, Profile, Web and Agent behavior is retained.
+- Preserved AMD Qwen3-0.6B queue/Graph controls, explicit queues1/2GiB-KV
+  calibration and new measurement-host prediction commitments. Three fresh
+  forward processes covered all24cells/2,736reported steps within30% error;
+  cell MAPE34.04%→7.36%, Decode1.43% with4.13%maximum. Prefill still reaches
+  21.01%error. This is a narrow single-device result, not general TP/PP or SLA
+  acceptance; the earlier uncontrolled failures remain available.
+
 ## 1.21.0 — 2026-11-16
 
 - Opt-in immutable analytical-cost calibration for phase-specific fixed work and

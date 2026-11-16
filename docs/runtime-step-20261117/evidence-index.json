@@ -1,0 +1,58 @@
+{
+  "kind": "preserved_controlled_study_evidence_v1",
+  "original_user_zip_unchanged": true,
+  "original_zip_sha256": "32567daea53b3a0700d07be9a0f332577fddb2c87070f6515d43df15cb49bb85",
+  "complete_bundle": {
+    "bytes": 7989943,
+    "sha256": "aab4b66d6aa0b87aa8b3c3239b88d80e185306d11f340a6932af6b604deabe8f",
+    "files": 120
+  },
+  "physical_process_captures": 21,
+  "reported_cells": 100,
+  "reported_step_samples": 11400,
+  "independent_forward_processes": 3,
+  "independent_forward_cells": 24,
+  "independent_forward_reported_steps": 2736,
+  "all_exploratory_processes_retained": true,
+  "timing_files_sha256": {
+    "auto-reversal/l2_timing.jsonl": "5d3a1500dd0d6c1728735361b236bb5b684961ab134f0de40445fcf010484330",
+    "discovery-1/l2_timing.jsonl": "b53986249618676f0772dbd135cfef0413abff62769eadc91e0c918a8ba8c0c4",
+    "discovery-2/l2_timing.jsonl": "0ab6180e325fb70dd21cfec6da7cdd3da98f51d2dbab44ba3d850570c099f500",
+    "fixed-kv-1/l2_timing.jsonl": "bea37b8cc23428565897b0785083a5912992668fa88de618b373542a2ec84f74",
+    "fixed-kv-2/l2_timing.jsonl": "e6da301c73917f12ddae095cf655ed32a8ee426d113963ee543f04670d5c035f",
+    "forward/raw/forward-1/l2_timing.jsonl": "6e25af896c274fb6827a48b6b53cf466b94fd7cd5657acafae7575b9e4b6098c",
+    "forward/raw/forward-2/l2_timing.jsonl": "3020b897f0370015d8dfa34d8bd16969d16673f93c1a9500fc47927922edf4c5",
+    "forward/raw/forward-3/l2_timing.jsonl": "3c0dae47c5d9a6591d83d3cbb0ce0aae2fed247c714aaa52f9449a068f536ae5",
+    "internal/l2_timing.jsonl": "f9889abbdfcfa79b1e13f4c02b715e014e11ed8fff6bc0b202dc54045e0bfddb",
+    "queues1-a/l2_timing.jsonl": "ecaf20c5a648a554b67c029026727ef6e8418bdcff8959ae3dccb3a523a2985b",
+    "queues1-b/l2_timing.jsonl": "796a533d1ec3726cbe243d3db787b343f3478dfd3413acbc26599a702643e966",
+    "queues2-a/l2_timing.jsonl": "5c0d06dcb7ed71822202a0f57bf7e451d94f8198855b8f6dad757a98323cee02",
+    "queues2-b/l2_timing.jsonl": "3a96df6b595f0cbbc8c24283830b6f3b992a5c35580535dd21bcf08a3b62373e",
+    "queues4-event-reversal/l2_timing.jsonl": "60ea96d9740e89ae9bcff277ec95588732441579e95d7cd34b4957a5f9345e67",
+    "queues4-reversal/l2_timing.jsonl": "bc4bc86c689e9a3355471cd587eb9673b767e21af2aae6e17fada8dbca0c5379",
+    "shared-probe-1/l2_timing.jsonl": "ec0a3eae0f0bcfee3cf0a589966bfe08938ac05400118c86389e096471f2016c",
+    "shared-probe-2/l2_timing.jsonl": "15e127b6286eff111445324af37c39e9a10cbe6843b1a142b4dd9bffcf00508a",
+    "shared-probe-3/l2_timing.jsonl": "246725500d12578275a881f0027a789ad9630ddff9c65ed9b0d5f4ce4d362a09",
+    "shared-probe-4/l2_timing.jsonl": "e86864af5b97e826167e703f8a1cf04f8c2dd1622c437bf3829abce22e71f06e",
+    "train-a/l2_timing.jsonl": "c3f0d1ca8230a44dff0742af39e5f908c09c7db2f66cc9b0f59733e26197138b",
+    "train-b/l2_timing.jsonl": "6ff32c4b66d24e33bce8cdd1daed37ead8ebc63475b240f2128711cddf3ec84c"
+  },
+  "cleanup": {
+    "owned_container_removed": true,
+    "complete_data_bundle_sha256": "aab4b66d6aa0b87aa8b3c3239b88d80e185306d11f340a6932af6b604deabe8f",
+    "raw_results_and_caches_preserved": true,
+    "source_and_models_untouched": true,
+    "other_containers_modified": false,
+    "gpu": {
+      "gpu_busy_percent": "0",
+      "mem_info_vram_used": "60112896"
+    }
+  },
+  "temporary_access": {
+    "temporary_credentials_removed": true,
+    "temporary_control_sockets_removed": true,
+    "credential_archive_unchanged": true,
+    "global_ssh_config_modified": false,
+    "private_public_pair_verified": true
+  }
+}

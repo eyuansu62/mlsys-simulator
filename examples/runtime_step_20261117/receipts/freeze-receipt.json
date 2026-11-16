@@ -1,0 +1,49 @@
+{
+  "kind": "measurement_host_prediction_commit_receipt_v2",
+  "committed_at_utc": "2026-11-16T17:36:29.693840+00:00",
+  "committed_monotonic_ns": 32029304803282,
+  "prediction_commitment": {
+    "schema_version": 1,
+    "kind": "controlled_step_prediction_commitment_v1",
+    "files": {
+      "inputs.json": {
+        "raw_sha256": "6a5965e7c89ca22f60d49cf3c147db1179d34743d730add38ae1899872c52d71",
+        "canonical_payload_sha256": "d3ba9c3bbf3b2bcd9d5c1f251b5b7199c00276d1944ed9b939f95dcb0b26e3fd"
+      },
+      "predictions.json": {
+        "raw_sha256": "cce2289b46f89c44bc1b5c103ec17dcd7e12dc8be9f89adfbb0a5ad9bde5c666",
+        "canonical_payload_sha256": "39712e13bdc9e6563dd8546eb7bb1048e842d6b395ff5073655ced9346409060"
+      }
+    },
+    "fit_sha256": "fa4f12338390484b4ce8bff5bf20a6f37d3c62d86ccce2f12d0a7e893d759fd1",
+    "fit_spec_sha256": "5970af776227113cf60c9f4701355b143bd438266ee30a5cf337115e6c1f23d0",
+    "simulator_commit": "1f09f5d766e7b5e01d6036dbf7673bbebf8df2d9",
+    "expected_sessions": 3,
+    "expected_cells": 24,
+    "expected_steps": 2736,
+    "acceptance": {
+      "metric": "absolute(predicted_session_shape_median-observed_session_shape_median)/observed_session_shape_median",
+      "max_relative_error": 0.3,
+      "require_full_coverage": true,
+      "all_cells": true,
+      "require_all_repetitions": true,
+      "retain_all_attempts": true,
+      "refit_after_forward_measurement": false,
+      "independent_unit": "fresh acquisition process; step observations are nested",
+      "main_and_repeats_share_processes": true
+    }
+  },
+  "image_id": "sha256:e0ea9a10b729573ea8598bdc073bda0ea382fe1037eec7c0761b6fa7f46baaf4",
+  "collector_sha256": "1021a8a592abf5ad809b762e05a864e1b414c3294412e7f6730aba37ee1a0597",
+  "sampler_sha256": "bb020d21b76ed97f56b3b6a6d9e06922aa79d2d19a7d2416569529d575016b4e",
+  "configuration_sha256": "ae53a345c7d0515a8011b02cda46bcd756b55c74020aaac9e467b3ce5f3513c8",
+  "kernel_manifest_sha256": "a399133b802f2d32b3ff12b52e9b27194e6706bb3bb34d4dd9e87acc88d718e5",
+  "source_dependencies_sha256": {
+    "scripts/l2_engine.py": "1021a8a592abf5ad809b762e05a864e1b414c3294412e7f6730aba37ee1a0597",
+    "scripts/roofline_common.py": "5a16d1dfef026fccdde2cfc035e15324741b6fd1efd1f976ea9b7e54c7a345c1"
+  },
+  "controller_sha256": "a0effd1d95e6cb99a96430a01acddc40f5c274ffcca1fb16878ce83eaaab0b03",
+  "training_bundle_sha256": "cda7b74f44f65c493a7dffb6d19e93d0a45cd0eaec28cd01ef1d6592eb320fae",
+  "models_readonly": true,
+  "private_source_exported": false
+}

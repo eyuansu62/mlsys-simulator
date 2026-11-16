@@ -1,0 +1,158 @@
+{
+  "schema_version": 1,
+  "kind": "controlled_prospective_amd_step_evaluation_v1",
+  "verdict": "PASS",
+  "expected_sessions": 3,
+  "expected_cells": 24,
+  "acquisition_pass_cells": 24,
+  "accuracy_evaluable_cells": 24,
+  "accuracy_pass_cells": 24,
+  "expected_steps": 2736,
+  "collected_steps": 2736,
+  "covered_steps": 2736,
+  "calibrated_cell_mape": 0.07359645830297322,
+  "legacy_default_cell_mape": 0.34044545818279776,
+  "declared_steps": 2736,
+  "groups": {
+    "main": {
+      "expected_cells": 12,
+      "acquisition_pass_cells": 12,
+      "accuracy_evaluable_cells": 12,
+      "accuracy_pass_cells": 12,
+      "expected_steps": 1368,
+      "collected_steps": 1368,
+      "covered_steps": 1368,
+      "calibrated_cell_mape": 0.1045235159824818,
+      "legacy_default_cell_mape": 0.33711648824506923
+    },
+    "repeat": {
+      "expected_cells": 12,
+      "acquisition_pass_cells": 12,
+      "accuracy_evaluable_cells": 12,
+      "accuracy_pass_cells": 12,
+      "expected_steps": 1368,
+      "collected_steps": 1368,
+      "covered_steps": 1368,
+      "calibrated_cell_mape": 0.04266940062346464,
+      "legacy_default_cell_mape": 0.3437744281205263
+    }
+  },
+  "metric_scope": "Cell MAPE is conditional on evaluable cells. All 24 cells and 2736 steps must be covered; every cell must independently meet 30 percent.",
+  "acceptance": {
+    "metric": "absolute(predicted_session_shape_median-observed_session_shape_median)/observed_session_shape_median",
+    "max_relative_error": 0.3,
+    "require_full_coverage": true,
+    "all_cells": true,
+    "require_all_repetitions": true,
+    "retain_all_attempts": true,
+    "refit_after_forward_measurement": false,
+    "independent_unit": "fresh acquisition process; step observations are nested",
+    "main_and_repeats_share_processes": true
+  },
+  "global_errors": [],
+  "fit_sha256": "fa4f12338390484b4ce8bff5bf20a6f37d3c62d86ccce2f12d0a7e893d759fd1",
+  "simulator_commit": "1f09f5d766e7b5e01d6036dbf7673bbebf8df2d9",
+  "input_files": {
+    "inputs_raw_sha256": "6a5965e7c89ca22f60d49cf3c147db1179d34743d730add38ae1899872c52d71",
+    "predictions_raw_sha256": "cce2289b46f89c44bc1b5c103ec17dcd7e12dc8be9f89adfbb0a5ad9bde5c666",
+    "commitment_raw_sha256": "5dde695916911e51f51a1d98a346ddf61c68d43393efd0a1247f99e6e6524f2c",
+    "controlled_data_sha256": "335d45bca4c412c66974544863ecab85e79a7e1bb8f80cf3bd4ab64891adf9d7",
+    "context_reconstruction_helper_sha256": "f371fda70cca91a8c8b73893db01970cd1bbb389b322bd4c2c938346b0295955",
+    "receipt_raw_sha256": "925a12618536d20c5b5ce5adb4fe063fefe9ec7693491c5acbc4ad1f70e36337",
+    "progress_raw_sha256": "31f7fe894096f5751c6634662287521125efe5a12ae8e480907cd4dcb117d701"
+  },
+  "measurement_protocol": {
+    "collector_sha256": "1021a8a592abf5ad809b762e05a864e1b414c3294412e7f6730aba37ee1a0597",
+    "sampler_sha256": "bb020d21b76ed97f56b3b6a6d9e06922aa79d2d19a7d2416569529d575016b4e",
+    "configuration_sha256": "ae53a345c7d0515a8011b02cda46bcd756b55c74020aaac9e467b3ce5f3513c8",
+    "kernel_manifest_sha256": "a399133b802f2d32b3ff12b52e9b27194e6706bb3bb34d4dd9e87acc88d718e5"
+  },
+  "scope": {
+    "model_id": "qwen3-0.6b",
+    "device": {
+      "name": "AMD Radeon RX 9070 XT",
+      "arch": "gfx1201",
+      "total_memory": 17095983104
+    },
+    "configured_controls": {
+      "kind": "controlled_step_runtime_v1",
+      "configured_controls": {
+        "scope": "configured_controls_v1",
+        "engine": {
+          "runner_class": "vllm.v1.worker.gpu.model_runner.GPUModelRunner",
+          "use_v2_model_runner": true,
+          "async_scheduling": true,
+          "compilation_mode": "3",
+          "cudagraph_mode": "FULL_AND_PIECEWISE",
+          "attention_impl": "vllm.v1.attention.backends.rocm_attn.RocmAttentionImpl"
+        },
+        "software": {
+          "vllm": "0.29.1.dev0+g98dff2a81.d20261002",
+          "torch": "2.13.0+rocm10.1.0",
+          "hip": "7.16.26385",
+          "python": "3.14.8",
+          "image_id": "sha256:e0ea9a10b729573ea8598bdc073bda0ea382fe1037eec7c0761b6fa7f46baaf4"
+        },
+        "model": {
+          "key": "qwen3-0.6b",
+          "hf_revision": "c1899de289a04d12100db370d81485cdf75e47ca"
+        },
+        "llm_kwargs": {
+          "dtype": "bfloat16",
+          "max_model_len": 8192,
+          "gpu_memory_utilization": 0.8,
+          "enable_prefix_caching": false,
+          "enable_chunked_prefill": false,
+          "max_num_batched_tokens": 8192,
+          "max_num_seqs": 32,
+          "seed": 0,
+          "kv_cache_memory_bytes": 2147483648
+        }
+      },
+      "process_environment": {
+        "GPU_MAX_HW_QUEUES": "1",
+        "HSA_NO_SCRATCH_RECLAIM": "1",
+        "HIP_FORCE_DEV_KERNARG": "1",
+        "VLLM_ENABLE_V1_MULTIPROCESSING": "0"
+      },
+      "collection_protocol": {
+        "collector_sha256": "1021a8a592abf5ad809b762e05a864e1b414c3294412e7f6730aba37ee1a0597",
+        "timing_boundary": "reported_l2_step_hook_wall_v1",
+        "minimum_warmup_s": 120,
+        "warmup_rule": "original collector bounded wall-time workload loop",
+        "sampling_controls": "same source-hash-bound SamplingParams implementation",
+        "cache_policy": "shared bootstrap with required preloaded GPU machine sections verified; additional shapes may compile",
+        "required_kernel_manifest_sha256": "a399133b802f2d32b3ff12b52e9b27194e6706bb3bb34d4dd9e87acc88d718e5"
+      }
+    },
+    "shapes": [
+      "S=256",
+      "S=512",
+      "S=768",
+      "S=1024",
+      "B=2,C=1024",
+      "B=4,C=1024",
+      "B=6,C=1024",
+      "B=8,C=1024"
+    ],
+    "main_shapes": [
+      "S=512",
+      "S=768",
+      "B=4,C=1024",
+      "B=6,C=1024"
+    ],
+    "repeat_shapes": [
+      "S=256",
+      "S=1024",
+      "B=2,C=1024",
+      "B=8,C=1024"
+    ],
+    "limits": "This controlled whole-step study does not certify other hardware, uncontrolled queue settings or end-to-end serving behavior"
+  },
+  "scoped_hardware_measurement_performed": true,
+  "hardware_validated": false,
+  "hardware_validated_explanation": "The released fit and its entire hardware range are not certified by this flag; this capture is described by scope, acquisition_pass_cells and verdict.",
+  "actual_per_step_graph_dispatch_observed": false,
+  "refitted": false,
+  "note": "All declared fresh processes and shapes retained. Steps are nested observations within 3 processes. Main and repeat cohorts are both required; no refit, threshold change or favorable repetition selection."
+}

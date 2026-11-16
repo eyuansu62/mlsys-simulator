@@ -1,0 +1,89 @@
+{
+  "status": "completed",
+  "expected_sessions": 3,
+  "expected_cells": 24,
+  "expected_steps": 2736,
+  "completed_sessions": 3,
+  "attempts": [
+    {
+      "session_id": "forward-1",
+      "replication": 1,
+      "expected_shapes": [
+        "S=256",
+        "S=512",
+        "S=768",
+        "S=1024",
+        "B=2,C=1024",
+        "B=4,C=1024",
+        "B=6,C=1024",
+        "B=8,C=1024"
+      ],
+      "status": "completed",
+      "started_at_utc": "2026-11-16T17:36:31.537871+00:00",
+      "started_monotonic_ns": 32031148830195,
+      "returncode": 0,
+      "finished_at_utc": "2026-11-16T17:39:25.567001+00:00",
+      "finished_monotonic_ns": 32205177961715,
+      "domain_matches": true,
+      "record_sha256": "6e25af896c274fb6827a48b6b53cf466b94fd7cd5657acafae7575b9e4b6098c",
+      "context_sha256": "7029cad83a781b5108926a91da04665ec5b8a7d7de74af0421dd5562e60a8723",
+      "control_evidence_sha256": "522c6e26af552159fd05013df5a5e8e91a956fb8adb60c4f448f320b85d4e5b1",
+      "monitor_sha256": "134e5be0f48422cb79fde591720e9ec9e357aec356c8351db399b4c6092483ac"
+    },
+    {
+      "session_id": "forward-2",
+      "replication": 2,
+      "expected_shapes": [
+        "S=256",
+        "S=512",
+        "S=768",
+        "S=1024",
+        "B=2,C=1024",
+        "B=4,C=1024",
+        "B=6,C=1024",
+        "B=8,C=1024"
+      ],
+      "status": "completed",
+      "started_at_utc": "2026-11-16T17:39:30.706893+00:00",
+      "started_monotonic_ns": 32210317852271,
+      "returncode": 0,
+      "finished_at_utc": "2026-11-16T17:42:24.735259+00:00",
+      "finished_monotonic_ns": 32384346223798,
+      "domain_matches": true,
+      "record_sha256": "3020b897f0370015d8dfa34d8bd16969d16673f93c1a9500fc47927922edf4c5",
+      "context_sha256": "aa6240c9cab2ba66924f9a10e38c618cbe2d34572e393ddd39c854de4db889d0",
+      "control_evidence_sha256": "0de650a0082fb6cff260838fd552eed8e5d484896c120dcefdea421c1f8c0168",
+      "monitor_sha256": "acd3f36db204a60b83d4aaee2bde6f968a531e8fec492b91f95adfa8abf5b363"
+    },
+    {
+      "session_id": "forward-3",
+      "replication": 3,
+      "expected_shapes": [
+        "S=256",
+        "S=512",
+        "S=768",
+        "S=1024",
+        "B=2,C=1024",
+        "B=4,C=1024",
+        "B=6,C=1024",
+        "B=8,C=1024"
+      ],
+      "status": "completed",
+      "started_at_utc": "2026-11-16T17:42:29.918185+00:00",
+      "started_monotonic_ns": 32389529144098,
+      "returncode": 0,
+      "finished_at_utc": "2026-11-16T17:45:23.948574+00:00",
+      "finished_monotonic_ns": 32563559533127,
+      "domain_matches": true,
+      "record_sha256": "3c0dae47c5d9a6591d83d3cbb0ce0aae2fed247c714aaa52f9449a068f536ae5",
+      "context_sha256": "7e59ab7545100a5efe7ccc75eeb7d6c49ab0b7e5964ccbb1728297a346175873",
+      "control_evidence_sha256": "2948de800eb1bd98042052688fc0ea7c306ceb68a9af9e362b5b8a42b8b4c950",
+      "monitor_sha256": "a344529fa8897d5b869ba64f9dc75e8563860228db0c1b9b968febfde52932ae"
+    }
+  ],
+  "receipt_sha256": "925a12618536d20c5b5ce5adb4fe063fefe9ec7693491c5acbc4ad1f70e36337",
+  "active_session": "forward-3",
+  "phase": "all_samples_preserved",
+  "elapsed_session_s": 171.0,
+  "finished_at_utc": "2026-11-16T17:45:26.952884+00:00"
+}
