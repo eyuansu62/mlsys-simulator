@@ -116,6 +116,30 @@ class RequestSpec:
 
 
 @dataclass(frozen=True)
+class AnalyticalCostSpec:
+    """One immutable empirical correction in an exact analytical runtime domain."""
+
+    phase: str
+    execution_mode: str
+    attention_backend: str
+    identity_sha256: str
+    nonattention_scale: float = 1.0
+    attention_scale: float = 1.0
+    attention_fixed_us_per_layer: float = 0.0
+    runtime_fixed_us: float = 0.0
+    min_batch_size: int = 1
+    max_batch_size: int = 1
+    min_query_tokens: int = 1
+    max_query_tokens: int = 1
+    min_context_tokens: int = 0
+    max_context_tokens: int = 0
+    calibration_id: str = ""
+    training_dataset_sha256: str = ""
+    training_record_ids: tuple[str, ...] = ()
+    source_kind: str = "test_fixture"
+
+
+@dataclass(frozen=True)
 class CalibrationSpec:
     backend: str = "analytical"
     profile_version: str = "uncalibrated-v1"
@@ -146,6 +170,12 @@ class CalibrationSpec:
     workspace_profile_path: str | None = None
     replica_workspace_profile_paths: tuple[str, ...] = ()
     workspace_profile_version: str = ""
+    analytical_costs: tuple[AnalyticalCostSpec, ...] = ()
+    prefill_execution_mode: str = "unspecified"
+    decode_execution_mode: str = "unspecified"
+    prefill_attention_backend: str = "unspecified"
+    decode_attention_backend: str = "unspecified"
+    analytical_cost_timing_boundary: str = "unspecified"
 
 
 @dataclass(frozen=True)

@@ -30,6 +30,21 @@ assert "vllm" not in sys.modules, "Optional serving dependency was imported eage
 from mlsys_sim.vllm_capacity_adapter import kv_pool_factory
 assert callable(kv_pool_factory) and callable(mlsys_sim.validate_profile_repeats)
 assert "torch" not in sys.modules and "vllm" not in sys.modules
+import gzip
+from mlsys_sim.cost_calibration import validate_analytical_costs
+from mlsys_sim.performance import AnalyticalModel
+from mlsys_sim.config import load_experiment
+cost_root = Path("cost-inputs")
+cost_dataset = json.loads(gzip.decompress((cost_root / "dataset.json.gz").read_bytes()))
+cost_fit = json.loads(gzip.decompress((cost_root / "fit.json.gz").read_bytes()))
+cost_validation = validate_analytical_costs(cost_dataset, cost_fit)
+assert cost_validation["verdict"] == "PASS" and cost_validation["holdout"]["coverage"] == 1
+for paths in json.loads((cost_root / "models.json").read_text()).values():
+    calibrated = load_experiment(cost_root / paths["experiment"])
+    cost_prediction = AnalyticalModel(calibrated).estimate_step("prefill", [512], [0])
+    assert cost_prediction.source == "analytical_cost_calibrated"
+    assert cost_prediction.breakdown["cost_calibration"]["hardware_validated"] is False
+assert "torch" not in sys.modules and "vllm" not in sys.modules
 from mlsys_sim.agent_service import run_agent_isolated
 for task, count in (("9.2", 12), ("9.1", 6), ("9.3", 10)):
     body = Path("agent-inputs", "task-" + task + ".protocol.request.json").read_bytes()
@@ -61,7 +76,8 @@ assert all(callable(getattr(mlsys_sim, name)) for name in (
     "write_course_calibration_report", "apply_course_calibration", "run_calibrated_chapter1",
     "validate_closed_loop_spec", "generate_request_stream", "closed_loop_policy_sha256",
     "predict_closed_loop", "validate_closed_loop", "collect_closed_loop",
-    "get_agent_catalog", "validate_agent_request", "validate_agent_response", "simulate_sequential"))
+    "get_agent_catalog", "validate_agent_request", "validate_agent_response", "simulate_sequential",
+    "freeze_cost_split", "fit_analytical_costs", "validate_analytical_costs"))
 from mlsys_sim.load_validation_report import write_closed_loop_study_report
 from mlsys_sim.vllm_sla_worker import formal_server_evidence
 assert callable(write_closed_loop_study_report) and callable(formal_server_evidence)
@@ -302,7 +318,8 @@ def verify(dist: Path) -> dict:
                        "constraints", "screening", "course_calibration", "load_validation",
                        "closed_loop_capture", "load_validation_report", "vllm_sla_worker",
                        "web", "web_simulation", "agent_adapter", "agent_service",
-                       "agent_contract", "agent_catalog", "sequential", "serialization"):
+                       "agent_contract", "agent_catalog", "sequential", "serialization",
+                       "analytical_cost", "cost_calibration", "cost_cli", "cost_report"):
             assert f"mlsys_sim/{module}.py" in names
         for asset in ("index.html", "style.css", "app.js"):
             assert f"mlsys_sim/web_assets/{asset}" in names, f"Wheel missing Web UI asset {asset}"
@@ -313,6 +330,10 @@ def verify(dist: Path) -> dict:
         for required in ("pyproject.toml", "README.md", "README.zh-CN.md",
                          "examples/memory_pressure.json", "tests/test_public_api.py", "docs/web-interface.md",
                          "docs/agent-integration.md", "examples/agent/README.md", "examples/agent/sources.json",
+                         "docs/runtime-cost-calibration.md", "docs/runtime-cost-20261116/README.md",
+                         "docs/runtime-cost-20261116/report.json.gz",
+                         "examples/runtime_cost_20261116/dataset.json.gz", "examples/runtime_cost_20261116/fit.json.gz",
+                         "scripts/import_cost_trace.py", "tests/test_published_cost_study.py",
                          "examples/agent/task-9.2.protocol.request.json", "examples/agent/request.schema.json",
                          "examples/agent/response.schema.json",
                          "mlsys_sim/web_assets/index.html", "mlsys_sim/web_assets/app.js",
@@ -430,12 +451,25 @@ def verify(dist: Path) -> dict:
         agent_inputs.mkdir()
         for source in (Path(__file__).resolve().parents[1] / "examples/agent").glob("*.json"):
             (agent_inputs / source.name).write_bytes(source.read_bytes())
+        cost_source = Path(__file__).resolve().parents[1] / "examples/runtime_cost_20261116"
+        cost_inputs = outside / "cost-inputs"
+        cost_inputs.mkdir()
+        for source in cost_source.rglob("*"):
+            if source.is_file():
+                cost_target = cost_inputs / source.relative_to(cost_source)
+                cost_target.parent.mkdir(parents=True, exist_ok=True)
+                cost_target.write_bytes(source.read_bytes())
         run([str(python), "-I", "-c", SMOKE_CODE], outside, env)
         run([str(python), "-I", "-m", "mlsys_sim.vllm_sla_worker", "--help"], outside, env)
         web_console = binaries / ("mlsys-sim-web.exe" if os.name == "nt" else "mlsys-sim-web")
         run([str(web_console), "--help"], outside, env)
         agent_console = binaries / ("mlsys-sim-agent.exe" if os.name == "nt" else "mlsys-sim-agent")
         run([str(agent_console), "--help"], outside, env)
+        cost_console = binaries / ("mlsys-sim-cost.exe" if os.name == "nt" else "mlsys-sim-cost")
+        run([str(cost_console), "--help"], outside, env)
+        run([str(cost_console), "predict", "--experiment", str(cost_inputs / "experiments/model-0.json"),
+             "--phase", "prefill", "--query-tokens", "512", "--context-lengths", "0",
+             "--out", "cost-phase-prediction"], outside, env)
         course_inputs = outside / "course-inputs"
         course_inputs.mkdir()
         for source in (Path(__file__).resolve().parents[1] / "examples/course").glob("*.json"):

@@ -3,7 +3,22 @@
 from dataclasses import asdict
 from copy import deepcopy
 
-from .schema import Experiment, StrategySpec
+from .schema import CalibrationSpec, Experiment, StrategySpec
+
+
+def _omit_default_costs(value: dict) -> dict:
+    if value.get("analytical_costs", ()) in ((), []):
+        value.pop("analytical_costs", None)
+    for name in ("prefill_execution_mode", "decode_execution_mode",
+                 "prefill_attention_backend", "decode_attention_backend", "analytical_cost_timing_boundary"):
+        if value.get(name, "unspecified") == "unspecified":
+            value.pop(name, None)
+    return value
+
+
+def calibration_dict(calibration: CalibrationSpec) -> dict:
+    """Keep opt-in cost profiles explicit without adding defaults to old inputs."""
+    return _omit_default_costs(asdict(calibration))
 
 
 def _omit_default_controls(value: dict) -> dict:
@@ -25,4 +40,6 @@ def experiment_dict(experiment: Experiment | dict) -> dict:
     value = asdict(experiment) if isinstance(experiment, Experiment) else deepcopy(experiment)
     if isinstance(value.get("strategy"), dict):
         _omit_default_controls(value["strategy"])
+    if isinstance(value.get("calibration"), dict):
+        _omit_default_costs(value["calibration"])
     return value

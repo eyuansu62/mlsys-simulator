@@ -1,5 +1,24 @@
 # Changelog
 
+## 1.21.0 — 2026-11-16
+
+- Opt-in immutable analytical-cost calibration for phase-specific fixed work and
+  Attention slope/per-layer intercepts over the existing nominal macros. Exact
+  model/device/Runtime/policy, configured execution mode, backend and shape scopes
+  reject unsupported transfer; old defaults and Profile ABI remain unchanged.
+- Dependency-free `mlsys-sim-cost freeze/fit/validate/predict`, single-snapshot
+  phase prediction and explicit source/membership/threshold integrity checks.
+  Profile/synthetic/mixed/recompute and unmeasured parallel domains do not silently
+  acquire these costs. Fixture fits retain explicit provenance and opt-in.
+- Verified importer and preserved original ZIP/source hashes, all6,174 observations
+  including unused records, frozen training-only fitting and complete retrospective
+  shape/session-heldout reports. Equal-cell MAPE37.82%→9.72% on6middle-shape cells;
+  retained-shape repeats34.77%→8.64% on12cells. Actual configured Graph dispatch,
+  profiler-context proxies and process-state limitations remain explicit.
+- No new GPU collection or new blind experiment was performed. Results do not
+  establish eager coverage, broad hardware accuracy, memory feasibility or online
+  SLA acceptance; no held-out numerical target was used to refit after validation.
+
 ## 1.20.0 — 2026-11-14
 
 - Independent Agent service (`mlsys-sim-agent`), `POST /v1/simulate` and a static

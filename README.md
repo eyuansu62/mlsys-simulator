@@ -19,7 +19,8 @@ collection adapters instrument an installed Runtime separately from simulation.
 [Independent closed-loop validation](docs/closed-loop-validation.md) ·
 [Workspace and capacity validation](docs/workspace-and-capacity.md) · [Contributing](CONTRIBUTING.md)
 
-**Version 1.20 software scope:** A versioned exact-workload Agent service with
+**Version 1.21 software scope:** Explicit Runtime-scoped fixed/Attention cost
+calibration and retrospective held-out reports, plus a versioned exact-workload Agent service with
 sequential/DAG release semantics, plus local model/hardware/load forms and analytical
 latency, throughput and memory charts, plus frozen finite-cohort closed-loop predictions,
 completion-feedback collection, independent server-token validation and
@@ -145,6 +146,12 @@ For a course backend or Agent integration, run `mlsys-sim-agent` (or
 provides `GET /v1/catalog` and synchronous `POST /v1/simulate` for exact request
 lists, persistent sequential streams and heterogeneous DAGs. Unknown catalog
 identities are rejected. See [Agent integration](docs/agent-integration.md).
+
+For opt-in analytical cost fitting and independent grouped validation, use
+`mlsys-sim-cost freeze/fit/validate/predict`. Existing CLI, Python, Web and Agent
+defaults are retained; narrow trace calibrations are never silently applied to
+uncovered Runtime/policy/shape domains. See [runtime costs](docs/runtime-cost-calibration.md)
+and the [retrospective study](docs/runtime-cost-20261116/README.md).
 
 ## Run pipeline and CPU swap examples
 

@@ -58,6 +58,15 @@ class SerializationTests(unittest.TestCase):
         self.assertIn("ttft_sla_ms", normalized["evaluation"])
         self.assertEqual(experiment_dict({}), {})
 
+    def test_cost_selectors_are_additive_only_when_explicit(self):
+        exp = self.experiment()
+        default = experiment_dict(exp)["calibration"]
+        self.assertNotIn("analytical_costs", default)
+        self.assertNotIn("prefill_execution_mode", default)
+        changed = replace(exp, calibration=replace(exp.calibration, prefill_execution_mode="eager"))
+        self.assertEqual(experiment_dict(changed)["calibration"]["prefill_execution_mode"], "eager")
+        self.assertNotEqual(config_sha256(exp), config_sha256(changed))
+
 
 if __name__ == "__main__":
     unittest.main()

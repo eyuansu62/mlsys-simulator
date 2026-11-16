@@ -75,6 +75,10 @@ class AnalyticalModel:
             raise SimulationError("UNSUPPORTED_MECHANISM",
                                   "Use create_performance_model for whole-stage profile predictions")
         self.experiment = experiment
+        self.provenance: dict | None = None
+        if experiment.calibration.analytical_costs:
+            from .analytical_cost import analytical_cost_provenance
+            self.provenance = analytical_cost_provenance(experiment)
 
     def estimate_step(
         self,
@@ -96,6 +100,9 @@ class AnalyticalModel:
         if any(type(c) is not int or c < 0 for c in contexts):
             raise SimulationError("INVALID_CONFIG", "context lengths must be nonnegative integers")
         members = batch_members(phase, queries, request_phases)
+        if profile.analytical_costs:
+            from .analytical_cost import corrected_analytical_step
+            return corrected_analytical_step(exp, phase, queries, contexts, stage_index)
         counts = stage_layer_counts(exp)
         if type(stage_index) is not int or not 0 <= stage_index < len(counts):
             raise SimulationError("INVALID_CONFIG", "invalid stage index")
