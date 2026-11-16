@@ -1,0 +1,17 @@
+{
+  "README.md": "43a0a7b718f8dc71f7fce3df28198f43c7bddbc3f933bcaa92d0af4879bd32f1",
+  "calibrations/model-0.json": "32405f868523152c215bbed25baa53000fe6cf95579a2a6ea59af4f6189f48da",
+  "dataset.json.gz": "13a65d347076263c28f4521770a6cd107d072717a33d4c9642464eab3b1f2145",
+  "experiments/model-0.json": "be9847ce510336b57839181c56893d90681e5f04c704573fe71f8301a92b49c5",
+  "fit-spec.json": "9f6e3e6290def983fd44c6394aa0ff0bc4e9bbacb73b93fdffcf54c60489afcd",
+  "fit.json.gz": "c4bb1865b39bb07a668a65f87460c4a9b7b39df190afe4aa091f8c88c453991a",
+  "forward-report.json.gz": "8046e925e0231444ad5cc690247918629da495b26e123d3bdada641d9270bc92",
+  "frozen/commitment.json": "5dde695916911e51f51a1d98a346ddf61c68d43393efd0a1247f99e6e6524f2c",
+  "frozen/inputs.json.gz": "93f6c8d8bf2b2fec78cc6f4fff2c56bda0a4a2bb896f0fe47c058559fb80f220",
+  "frozen/predictions.json.gz": "46756235c9f8a37e826055a9e62401d2bb85faaf993f2eb34c292b20068e860b",
+  "models.json": "cbdba1f7e3afa6ff022a8f3a74415d02ae27311a0a064c7d52b3ff7af777819c",
+  "receipts/freeze-receipt.json": "925a12618536d20c5b5ce5adb4fe063fefe9ec7693491c5acbc4ad1f70e36337",
+  "receipts/progress.json": "31f7fe894096f5751c6634662287521125efe5a12ae8e480907cd4dcb117d701",
+  "required-kernel-manifest.json.gz": "97475d597f65b062ebfd7b5b7cc07133d36b5fb9dcf2074dca0105c3b11af49d",
+  "split.json": "74f9628d12cf9e33b6b4af0c640376276d3d3dccbf81abd96a04fd55d3c1d5cc"
+}

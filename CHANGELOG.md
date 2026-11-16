@@ -11,6 +11,12 @@
   artifact without executable parameters; validation never refits a holdout.
 - Opt-in `freeze --step-affine` and `fit --fit-spec`, plus Python exports.
   The default component fit, CLI, Profile, Web and Agent behavior is retained.
+- Preserved AMD Qwen3-0.6B queue/Graph controls, explicit queues1/2GiB-KV
+  calibration and new measurement-host prediction commitments. Three fresh
+  forward processes covered all24cells/2,736reported steps within30% error;
+  cell MAPE34.04%→7.36%, Decode1.43% with4.13%maximum. Prefill still reaches
+  21.01%error. This is a narrow single-device result, not general TP/PP or SLA
+  acceptance; the earlier uncontrolled failures remain available.
 
 ## 1.21.0 — 2026-11-16
 

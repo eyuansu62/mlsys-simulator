@@ -1,0 +1,31 @@
+{
+  "schema_version": 1,
+  "kind": "controlled_step_prediction_commitment_v1",
+  "files": {
+    "inputs.json": {
+      "raw_sha256": "6a5965e7c89ca22f60d49cf3c147db1179d34743d730add38ae1899872c52d71",
+      "canonical_payload_sha256": "d3ba9c3bbf3b2bcd9d5c1f251b5b7199c00276d1944ed9b939f95dcb0b26e3fd"
+    },
+    "predictions.json": {
+      "raw_sha256": "cce2289b46f89c44bc1b5c103ec17dcd7e12dc8be9f89adfbb0a5ad9bde5c666",
+      "canonical_payload_sha256": "39712e13bdc9e6563dd8546eb7bb1048e842d6b395ff5073655ced9346409060"
+    }
+  },
+  "fit_sha256": "fa4f12338390484b4ce8bff5bf20a6f37d3c62d86ccce2f12d0a7e893d759fd1",
+  "fit_spec_sha256": "5970af776227113cf60c9f4701355b143bd438266ee30a5cf337115e6c1f23d0",
+  "simulator_commit": "1f09f5d766e7b5e01d6036dbf7673bbebf8df2d9",
+  "expected_sessions": 3,
+  "expected_cells": 24,
+  "expected_steps": 2736,
+  "acceptance": {
+    "metric": "absolute(predicted_session_shape_median-observed_session_shape_median)/observed_session_shape_median",
+    "max_relative_error": 0.3,
+    "require_full_coverage": true,
+    "all_cells": true,
+    "require_all_repetitions": true,
+    "retain_all_attempts": true,
+    "refit_after_forward_measurement": false,
+    "independent_unit": "fresh acquisition process; step observations are nested",
+    "main_and_repeats_share_processes": true
+  }
+}

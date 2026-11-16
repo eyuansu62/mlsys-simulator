@@ -5,10 +5,12 @@ recursive-include mlsys_sim/web_assets *.html *.css *.js
 recursive-include docs *.md
 recursive-include docs/course-sla-9070xt-20261111 *.json *.html *.csv *.svg
 recursive-include docs/runtime-cost-20261116 *.json *.gz *.html *.csv *.svg
+recursive-include docs/runtime-step-20261117 *.json *.gz *.csv *.svg *.png
 recursive-include examples *.json
 include examples/course/9070-sla/README.md
 include examples/agent/README.md
 recursive-include examples/runtime_cost_20261116 *.gz *.md
+recursive-include examples/runtime_step_20261117 *.gz *.md
 recursive-include tests *.py
 recursive-include scripts *.py *.cpp *.hip *.md
 prune sample-runs

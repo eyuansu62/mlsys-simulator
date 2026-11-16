@@ -155,6 +155,9 @@ and the [retrospective study](docs/runtime-cost-20261116/README.md).
 Whole-step-only observations can explicitly select
 [affine fitting with a frozen process-stability gate](docs/runtime-step-calibration.md);
 unstable training processes yield a saved rejection without executable costs.
+The [new controlled AMD study](docs/runtime-step-20261117/README.md) retains
+the failed uncontrolled comparison, queue/Graph ablations and three fresh
+forward sessions. It grants no automatic calibration transfer to other domains.
 
 ## Run pipeline and CPU swap examples
 

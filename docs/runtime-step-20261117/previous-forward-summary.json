@@ -1,0 +1,14 @@
+{
+  "verdict": "FAIL",
+  "expected_cells": 36,
+  "expected_sessions": 9,
+  "acquisition_pass_cells": 36,
+  "accuracy_pass_cells": 33,
+  "covered_steps": 4104,
+  "calibrated_cell_mape": 0.20162079866848714,
+  "legacy_default_cell_mape": 0.3049970759633464,
+  "refitted": false,
+  "fit_sha256": "20914c9b43e60a03775549f88cac73d47081bc2907414587680428d970935ac8",
+  "simulator_commit": "7383c6449759495519bdfd85b6825658b040991f",
+  "original_evaluation_raw_sha256": "3cb51c4b90860449d9a622272d8833e45897cb8708881d091ca36cecc55b59a7"
+}
