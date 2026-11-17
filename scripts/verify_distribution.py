@@ -87,7 +87,8 @@ assert all(callable(getattr(mlsys_sim, name)) for name in (
     "predict_closed_loop", "validate_closed_loop", "collect_closed_loop",
     "get_agent_catalog", "validate_agent_request", "validate_agent_response", "simulate_sequential",
     "freeze_cost_split", "fit_analytical_costs", "validate_analytical_costs",
-    "freeze_step_fit_spec", "fit_step_costs"))
+    "freeze_step_fit_spec", "fit_step_costs", "freeze_stationarity_policy",
+    "check_step_stationarity", "step_wall_domain", "calibrate_step_profile"))
 from mlsys_sim.load_validation_report import write_closed_loop_study_report
 from mlsys_sim.vllm_sla_worker import formal_server_evidence
 assert callable(write_closed_loop_study_report) and callable(formal_server_evidence)
@@ -329,7 +330,7 @@ def verify(dist: Path) -> dict:
                        "closed_loop_capture", "load_validation_report", "vllm_sla_worker",
                        "web", "web_simulation", "agent_adapter", "agent_service",
                        "agent_contract", "agent_catalog", "sequential", "serialization",
-                       "analytical_cost", "cost_calibration", "step_cost_calibration", "cost_cli", "cost_report"):
+                       "analytical_cost", "cost_calibration", "step_cost_calibration", "step_profile", "cost_cli", "cost_report"):
             assert f"mlsys_sim/{module}.py" in names
         for asset in ("index.html", "style.css", "app.js"):
             assert f"mlsys_sim/web_assets/{asset}" in names, f"Wheel missing Web UI asset {asset}"

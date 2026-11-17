@@ -182,7 +182,9 @@ def _identity(value: Any) -> dict:
             "calibration": {"runtime_name": runtime["name"], "runtime_version": runtime["version"],
                             "driver_version": runtime["driver_version"], "rocm_version": runtime["rocm_version"],
                             "rccl_version": runtime["rccl_version"], "timing_boundary": runtime["timing_boundary"],
-                            "runtime_config_sha256": runtime.get("runtime_config_sha256", "")},
+                            "runtime_config_sha256": runtime.get("runtime_config_sha256", ""),
+                            **({"backend": "profile", "profile_path": "__identity_only__.json"}
+                               if runtime["timing_boundary"] == "reported_l2_step_hook_wall_v1" else {})},
         })
     except SimulationError as exc:
         raise SimulationError("INVALID_PROFILE", f"Invalid identity: {exc}") from exc
@@ -320,6 +322,9 @@ def validate_dataset(data: dict, *, allow_test_fixture: bool = False) -> dict:
             _invalid("dataset.schema_version must be 1")
         source = _source(value["source"], allow_test_fixture)
         identity = validate_identity(value["identity"], measured=source["kind"] == "measured")
+        if identity["runtime"]["timing_boundary"] == "reported_l2_step_hook_wall_v1":
+            from .step_profile import _check_step_json
+            _check_step_json(value)
         if identity["parallelism"].get("replicas", 1) != 1:
             _invalid("Step datasets require a one-replica identity; calibrate each replica separately")
         if not isinstance(value["records"], list) or not value["records"]:
@@ -335,6 +340,9 @@ def validate_dataset(data: dict, *, allow_test_fixture: bool = False) -> dict:
             if not isinstance(value["notes"], dict):
                 _invalid("notes must be an object")
             result["notes"] = _json_value(value["notes"], "notes")
+        if identity["runtime"]["timing_boundary"] == "reported_l2_step_hook_wall_v1":
+            from .step_profile import validate_reported_step_dataset
+            validate_reported_step_dataset(result)
         return result
     except SimulationError as exc:
         if exc.code == "INVALID_PROFILE":
@@ -354,6 +362,9 @@ def validate_profile(data: dict, *, allow_test_fixture: bool = False) -> dict:
         _invalid("Lookup profiles must contain whole-stage time including communication")
     source = _source(value["source"], allow_test_fixture)
     identity = validate_identity(value["identity"], measured=source["kind"] == "measured")
+    if identity["runtime"]["timing_boundary"] == "reported_l2_step_hook_wall_v1":
+        from .step_profile import _check_step_json
+        _check_step_json(value)
     if identity["parallelism"].get("replicas", 1) != 1:
         _invalid("Stage Profiles require a one-replica identity; calibrate each replica separately")
     if not isinstance(value["samples"], list) or not value["samples"]:
@@ -394,6 +405,11 @@ def validate_profile(data: dict, *, allow_test_fixture: bool = False) -> dict:
         if not isinstance(value["notes"], dict):
             _invalid("notes must be an object")
         result["notes"] = _json_value(value["notes"], "notes")
+    if identity["runtime"]["timing_boundary"] == "reported_l2_step_hook_wall_v1":
+        from .step_profile import validate_reported_step_profile
+        validate_reported_step_profile(result, allow_test_fixture=allow_test_fixture)
+    elif "reported_step_profile" in value.get("notes", {}):
+        _invalid("Reported-step proof cannot be downgraded to a legacy timing boundary")
     return result
 
 
@@ -456,6 +472,21 @@ def estimate_profile(profile: dict, phase: str, query_tokens: Sequence[int],
     if type(allow_extrapolation) is not bool:
         _invalid("allow_extrapolation must be a boolean")
     profile = validate_profile(profile, allow_test_fixture=allow_test_fixture)
+    return _estimate_validated_profile(profile, phase, query_tokens, context_lengths, stage_index,
+        request_phases=request_phases, allow_extrapolation=allow_extrapolation,
+        allow_test_fixture=allow_test_fixture)
+
+
+def _estimate_validated_profile(profile: dict, phase: str, query_tokens: Sequence[int],
+                               context_lengths: Sequence[int], stage_index: int = 0, *,
+                               request_phases: Sequence[str] | None = None,
+                               allow_extrapolation: bool = False,
+                               allow_test_fixture: bool = False) -> StepEstimate:
+    """Estimate an internal validated snapshot; public callers still validate."""
+    if type(allow_extrapolation) is not bool:
+        _invalid("allow_extrapolation must be a boolean")
+    if profile["source"]["kind"] == "test_fixture" and not allow_test_fixture:
+        raise SimulationError("TEST_FIXTURE_NOT_ALLOWED", "Test fixtures require explicit allow_test_fixture")
     key = shape_key(phase, query_tokens, context_lengths, stage_index,
                     request_phases=request_phases)
     samples = [row for row in profile["samples"] if row["phase"] == phase and row["stage_index"] == stage_index]
@@ -545,6 +576,9 @@ class ProfileModel:
         if identity != self._profile["identity"]:
             changed = [key for key in identity if identity[key] != self._profile["identity"].get(key)]
             raise SimulationError("CALIBRATION_MISMATCH", f"Profile identity mismatch: {', '.join(changed)}")
+        if identity["runtime"]["timing_boundary"] == "reported_l2_step_hook_wall_v1":
+            from .step_profile import guard_step_profile_domain
+            guard_step_profile_domain(experiment, self._profile)
         self.provenance: dict[str, Any] = {"path": str(path.resolve()), "sha256": hashlib.sha256(raw).hexdigest(),
                            "profile_id": self._profile["profile_id"],
                            "profile_version": self._profile["profile_version"],
@@ -561,7 +595,13 @@ class ProfileModel:
 
     def estimate_step(self, phase: str, query_tokens: Sequence[int], context_lengths: Sequence[int],
                       stage_index: int = 0, *, request_phases: Sequence[str] | None = None) -> StepEstimate:
-        result = estimate_profile(self._profile, phase, query_tokens, context_lengths, stage_index,
+        if self._profile["identity"]["runtime"]["timing_boundary"] == "reported_l2_step_hook_wall_v1":
+            from .step_profile import guard_step_profile_domain
+            guard_step_profile_domain(self.experiment, self._profile)
+            estimator = _estimate_validated_profile
+        else:
+            estimator = estimate_profile
+        result = estimator(self._profile, phase, query_tokens, context_lengths, stage_index,
                                   request_phases=request_phases,
                                   allow_extrapolation=self.experiment.calibration.allow_extrapolation,
                                   allow_test_fixture=self.experiment.calibration.allow_test_fixture)
@@ -571,6 +611,9 @@ class ProfileModel:
     def workspace_bytes(self, query_tokens: Sequence[int], phase: str, stage_index: int = 0,
                         context_lengths: Sequence[int] | None = None, *,
                         request_phases: Sequence[str] | None = None) -> int | None:
+        if self._profile["identity"]["runtime"]["timing_boundary"] == "reported_l2_step_hook_wall_v1":
+            from .step_profile import guard_step_profile_domain
+            guard_step_profile_domain(self.experiment, self._profile)
         batch_members(phase, query_tokens, request_phases, error_code="INVALID_PROFILE")
         if context_lengths is None:
             if phase == "mixed":
@@ -578,7 +621,9 @@ class ProfileModel:
             if phase == "decode":
                 return None
             context_lengths = [0] * len(query_tokens)
-        result = estimate_profile(self._profile, phase, query_tokens, context_lengths, stage_index,
+        estimator = (_estimate_validated_profile if self._profile["identity"]["runtime"]["timing_boundary"]
+                     == "reported_l2_step_hook_wall_v1" else estimate_profile)
+        result = estimator(self._profile, phase, query_tokens, context_lengths, stage_index,
                                   request_phases=request_phases,
                                   allow_extrapolation=self.experiment.calibration.allow_extrapolation,
                                   allow_test_fixture=self.experiment.calibration.allow_test_fixture)

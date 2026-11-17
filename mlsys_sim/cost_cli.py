@@ -1,7 +1,7 @@
 """Explicit freeze, fit, validate and phase-cost prediction command line."""
 
 import argparse
-from dataclasses import asdict
+from dataclasses import asdict, replace
 from datetime import datetime, timezone
 import gzip
 import hashlib
@@ -130,7 +130,17 @@ def main(argv: list[str] | None = None) -> int:
                 mapping = experiment_dict(experiment)
                 mapping["calibration"] = calibration
                 experiment = experiment_from_dict(mapping)
-            estimate = AnalyticalModel(experiment).estimate_step(args.phase, args.query_tokens, args.context_lengths)
+            if experiment.calibration.backend == "profile":
+                from .profiles import ProfileModel
+                profile_root = (args.calibration or args.experiment).parent
+                path = Path(experiment.calibration.profile_path or "")
+                experiment = replace(experiment, calibration=replace(experiment.calibration,
+                    profile_path=str((profile_root / path).resolve())))
+                model = ProfileModel(experiment)
+                inputs["profile"] = model.provenance["sha256"]
+                estimate = model.estimate_step(args.phase, args.query_tokens, args.context_lengths)
+            else:
+                estimate = AnalyticalModel(experiment).estimate_step(args.phase, args.query_tokens, args.context_lengths)
             result = {"kind": "phase_cost_prediction_v1", "phase": args.phase,
                 "query_tokens": args.query_tokens, "context_lengths": args.context_lengths,
                 "estimate": asdict(estimate), "hardware_validated": False,

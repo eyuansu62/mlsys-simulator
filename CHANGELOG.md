@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.23.0 — 2026-11-17
+
+- Opt-in reported-hook wall-time lookup Profiles with separately frozen source-order
+  stationarity policies, exact-shape checks, cross-process checks and retained raw
+  proof. Nonstationary data yields a preserved rejection without executable samples.
+- The reported boundary is explicit, single-device TP1/PP1 only and binds complete
+  Runtime, scheduling and memory policy. Old Profile identities/defaults remain
+  unchanged; new-boundary duration uses medians of per-session exact-shape medians.
+- Per-phase Profile prediction, comparison-contract and calibration CLI support;
+  snapshots are verified once and subsequent queries keep domain/fixture guards.
+
 ## 1.22.0 — 2026-11-17
 
 - Explicit whole-step affine calibration from equally weighted process/shape

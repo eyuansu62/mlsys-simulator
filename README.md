@@ -158,6 +158,8 @@ unstable training processes yield a saved rejection without executable costs.
 The [new controlled AMD study](docs/runtime-step-20261117/README.md) retains
 the failed uncontrolled comparison, queue/Graph ablations and three fresh
 forward sessions. It grants no automatic calibration transfer to other domains.
+For source-ordered stationarity checks and an explicitly bounded whole-step
+lookup Profile, see [Prefill state calibration](docs/prefill-state-calibration.md).
 
 ## Run pipeline and CPU swap examples
 
