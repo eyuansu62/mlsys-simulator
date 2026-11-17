@@ -1,0 +1,51 @@
+{
+  "kind": "prefill_training_plan_v1",
+  "declared_at_utc": "2026-11-17T01:31:41.701734+00:00",
+  "training_sessions": [
+    "train-a",
+    "train-b"
+  ],
+  "training_prefill": [
+    128,
+    384,
+    640,
+    896,
+    1152,
+    1408
+  ],
+  "training_decode": [
+    1,
+    4,
+    8
+  ],
+  "forward_sessions": 3,
+  "forward_prefill_main": [
+    256,
+    512,
+    768,
+    1024,
+    1280
+  ],
+  "forward_prefill_repeat": [
+    384,
+    1152
+  ],
+  "forward_decode_main": [
+    2,
+    6
+  ],
+  "forward_decode_repeat": [
+    4,
+    8
+  ],
+  "prefill_samples": 100,
+  "decode_samples": 128,
+  "max_relative_error": 0.1,
+  "stationarity_max_ratio": 1.1,
+  "warmup_per_prefill_shape": 128,
+  "warmup_fixed_not_adaptive": true,
+  "pin_main_thread_cpu": 10,
+  "keep_every_warmup_and_formal_sample": true,
+  "fit_family": "reported-step lookup Profile with measured interpolation grid",
+  "never_fit_new_forward_values": true
+}

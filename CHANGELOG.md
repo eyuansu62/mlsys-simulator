@@ -1,5 +1,22 @@
 # Changelog
 
+## 1.23.0 — 2026-11-17
+
+- Opt-in reported-hook wall-time lookup Profiles with separately frozen source-order
+  stationarity policies, exact-shape checks, cross-process checks and retained raw
+  proof. Nonstationary data yields a preserved rejection without executable samples.
+- The reported boundary is explicit, single-device TP1/PP1 only and binds complete
+  Runtime, scheduling and memory policy. Old Profile identities/defaults remain
+  unchanged; new-boundary duration uses medians of per-session exact-shape medians.
+- Per-phase Profile prediction, comparison-contract and calibration CLI support;
+  snapshots are verified once and subsequent queries keep domain/fixture guards.
+- Preserved AMD CPU/HIP/GPU timelines and controlled per-shape warmup/main-thread
+  affinity ablations. Two training processes and three fresh forward processes
+  yield all33cells/3636steps within10%: Prefill MAPE1.05%, maximum3.56%; Decode
+  MAPE0.89%, maximum2.85%. Warmups remain separate, earlier failures unchanged.
+  Published raw proof, immutable predictions, replay tests and illustrated report
+  cover only the prepared single-device domain, without a broader SLA claim.
+
 ## 1.22.0 — 2026-11-17
 
 - Explicit whole-step affine calibration from equally weighted process/shape

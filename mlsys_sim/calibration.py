@@ -62,6 +62,7 @@ def calibrate_dataset(
     profile_version: str,
     parent_profile: dict[str, Any] | None = None,
     allow_test_fixture: bool = False,
+    _reported_step_proof: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Fit exact-shape means and observed workspace maxima into a new profile.
 
@@ -72,6 +73,15 @@ def calibrate_dataset(
     from .profiles import validate_dataset, validate_profile
 
     data = validate_dataset(dataset, allow_test_fixture=allow_test_fixture)
+    reported = data["identity"]["runtime"]["timing_boundary"] == "reported_l2_step_hook_wall_v1"
+    if reported and _reported_step_proof is None:
+        raise SimulationError("INVALID_STEP_PROFILE", "Use calibrate_step_profile with a frozen stationarity policy")
+    if not reported and _reported_step_proof is not None:
+        raise SimulationError("INVALID_STEP_PROFILE", "Reported-step proof cannot alter a legacy timing-boundary fit")
+    reported_aggregates = {}
+    if reported:
+        from .step_profile import reported_step_aggregates
+        reported_aggregates = reported_step_aggregates(data)
     if not isinstance(profile_version, str) or not profile_version.strip():
         raise SimulationError("INVALID_CONFIG", "profile_version must be a nonempty string")
     previous_version = None
@@ -97,7 +107,8 @@ def calibrate_dataset(
         workspace = [record["workspace_peak_bytes"] for record in ordered
                      if record["workspace_peak_bytes"] is not None]
         # statistics.mean avoids overflow from summing repeated large values.
-        duration = float(statistics.mean(record["duration_ms"] for record in ordered))
+        duration = (reported_aggregates[key]["duration_ms"] if reported else
+                    float(statistics.mean(record["duration_ms"] for record in ordered)))
         durations = [record["duration_ms"] for record in ordered]
         repeat_statistics.append({
             "shape_key": key, "sample_count": len(ordered),
@@ -142,6 +153,12 @@ def calibrate_dataset(
     }
     if "acquisition" in data.get("notes", {}):
         profile["notes"]["acquisition"] = _acquisition(data["notes"]["acquisition"])
+    if reported:
+        from .step_profile import STEP_PROFILE_ASSUMPTIONS, STEP_PROFILE_DURATION_STATISTIC, STEP_PROFILE_FIT
+        profile["notes"]["fit"] = STEP_PROFILE_FIT
+        profile["notes"]["duration_statistic"] = STEP_PROFILE_DURATION_STATISTIC
+        profile["notes"]["assumptions"] = list(STEP_PROFILE_ASSUMPTIONS)
+        profile["notes"]["reported_step_profile"] = _clone(_reported_step_proof)
     return validate_profile(profile, allow_test_fixture=allow_test_fixture)
 
 

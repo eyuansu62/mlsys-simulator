@@ -11,6 +11,8 @@
 
 单卡和TP2已完成完整训练及冻结后独立验证；1.14的PP2也完成闭环，每个cohort各48条记录/48条rank观测、16种stage精确形状，覆盖率100%、字节误差0、低估0。结论仅限实际采样配置和保留形状，详见[Worker Workspace 验证记录](docs/workspace-stage-validation.md)。
 
+新完成的[Prefill稳态真机报告](docs/prefill-state-20261117/README.md)包含CPU/HIP/GPU时间线、固定逐形状暖机与主线程亲和性对照。重新冻结后，3个新进程的33/33格均在10%误差内；Prefill平均1.05%、最大3.56%，结论限于报告声明的准备条件。
+
 ## 安装和运行
 
 需要 Python 3.11 或更新版本。核心没有必需第三方运行依赖，JSON/TOML 使用标准库；已安装 PyYAML 时可读 YAML。

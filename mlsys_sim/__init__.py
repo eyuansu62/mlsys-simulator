@@ -6,7 +6,7 @@ Changes to this import surface and the versioned data contracts are recorded
 in the changelog. Calibration provenance and hardware validation are separate.
 """
 
-__version__ = "1.22.0"
+__version__ = "1.23.0"
 
 from .config import experiment_from_dict, load_experiment, validate_experiment
 from .engine import SimulationResult, simulate
@@ -75,6 +75,8 @@ from .agent_catalog import get_agent_catalog
 from .agent_contract import validate_agent_request, validate_agent_response
 from .cost_calibration import freeze_cost_split, fit_analytical_costs, validate_analytical_costs
 from .step_cost_calibration import fit_step_costs, freeze_step_fit_spec
+from .step_profile import (calibrate_step_profile, check_step_stationarity,
+                           freeze_stationarity_policy, step_wall_domain)
 
 __all__ = [
     "AnalyticalCostSpec",
@@ -83,6 +85,10 @@ __all__ = [
     "validate_analytical_costs",
     "freeze_step_fit_spec",
     "fit_step_costs",
+    "freeze_stationarity_policy",
+    "check_step_stationarity",
+    "step_wall_domain",
+    "calibrate_step_profile",
     "simulate_sequential",
     "get_agent_catalog",
     "validate_agent_request",

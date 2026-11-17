@@ -31,6 +31,13 @@ Rejection preserves diagnostics without a calibration patch. The existing
 See [whole-step calibration](runtime-step-calibration.md) for the separate fit
 policy and the distinction between retrospective and new forward validation.
 
+`freeze_stationarity_policy`, `check_step_stationarity`, `step_wall_domain` and
+`calibrate_step_profile` explicitly support source-ordered measured wall-step
+lookup Profiles. They retain raw order and rejected evidence, use a distinct
+timing boundary, and bind Runtime, scheduling and memory policy. See
+[Prefill state calibration](prefill-state-calibration.md). Old Profile defaults
+and identities retain their original behavior.
+
 The optional `mlsys-sim-web` / `python -m mlsys_sim.web` entry serves the local
 single-GPU analytical form and charts. It reuses the core engine and has no GPU,
 framework or CDN dependency. See the [Web interface](web-interface.md).

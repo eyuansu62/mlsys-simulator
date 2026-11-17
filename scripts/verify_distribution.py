@@ -54,6 +54,17 @@ step_prediction = AnalyticalModel(step_experiment).estimate_step("decode", [1] *
 assert step_prediction.source == "analytical_cost_calibrated"
 assert step_fit["algorithm"] == "whole_step_nonnegative_affine_session_medians_v1"
 assert "torch" not in sys.modules and "vllm" not in sys.modules
+from mlsys_sim.profiles import ProfileModel
+prefill_root = Path("prefill-profile-inputs")
+prefill_dataset = json.loads((prefill_root / "dataset.json").read_text())
+prefill_policy = json.loads((prefill_root / "stationarity-policy.json").read_text())
+assert mlsys_sim.check_step_stationarity(prefill_dataset, prefill_policy)["verdict"] == "PASS"
+prefill_experiment = load_experiment(prefill_root / "experiment.json")
+prefill_prediction = ProfileModel(prefill_experiment).estimate_step("prefill", [768], [0])
+prefill_frozen = json.loads(gzip.decompress((prefill_root / "frozen/predictions.json.gz").read_bytes()))
+assert prefill_prediction.duration_ms == next(r["calibrated_ms"] for r in prefill_frozen["predictions"]
+                                             if r["shape"] == "S=768")
+assert "torch" not in sys.modules and "vllm" not in sys.modules
 from mlsys_sim.agent_service import run_agent_isolated
 for task, count in (("9.2", 12), ("9.1", 6), ("9.3", 10)):
     body = Path("agent-inputs", "task-" + task + ".protocol.request.json").read_bytes()
@@ -87,7 +98,8 @@ assert all(callable(getattr(mlsys_sim, name)) for name in (
     "predict_closed_loop", "validate_closed_loop", "collect_closed_loop",
     "get_agent_catalog", "validate_agent_request", "validate_agent_response", "simulate_sequential",
     "freeze_cost_split", "fit_analytical_costs", "validate_analytical_costs",
-    "freeze_step_fit_spec", "fit_step_costs"))
+    "freeze_step_fit_spec", "fit_step_costs", "freeze_stationarity_policy",
+    "check_step_stationarity", "step_wall_domain", "calibrate_step_profile"))
 from mlsys_sim.load_validation_report import write_closed_loop_study_report
 from mlsys_sim.vllm_sla_worker import formal_server_evidence
 assert callable(write_closed_loop_study_report) and callable(formal_server_evidence)
@@ -329,7 +341,7 @@ def verify(dist: Path) -> dict:
                        "closed_loop_capture", "load_validation_report", "vllm_sla_worker",
                        "web", "web_simulation", "agent_adapter", "agent_service",
                        "agent_contract", "agent_catalog", "sequential", "serialization",
-                       "analytical_cost", "cost_calibration", "step_cost_calibration", "cost_cli", "cost_report"):
+                       "analytical_cost", "cost_calibration", "step_cost_calibration", "step_profile", "cost_cli", "cost_report"):
             assert f"mlsys_sim/{module}.py" in names
         for asset in ("index.html", "style.css", "app.js"):
             assert f"mlsys_sim/web_assets/{asset}" in names, f"Wheel missing Web UI asset {asset}"
@@ -349,6 +361,14 @@ def verify(dist: Path) -> dict:
                          "examples/runtime_step_20261117/frozen/inputs.json.gz",
                          "examples/runtime_step_20261117/frozen/predictions.json.gz",
                          "tests/test_published_step_study.py",
+                         "docs/prefill-state-calibration.md", "docs/prefill-state-20261117/README.md",
+                         "docs/prefill-state-20261117/preparation.svg", "docs/prefill-state-20261117/forward-errors.png",
+                         "docs/prefill-state-20261117/cells.csv", "docs/prefill-state-20261117/report.json.gz",
+                         "examples/prefill_state_20261117/dataset.json", "examples/prefill_state_20261117/profile.json",
+                         "examples/prefill_state_20261117/stationarity-policy.json",
+                         "examples/prefill_state_20261117/frozen/inputs.json.gz",
+                         "examples/prefill_state_20261117/frozen/predictions.json.gz",
+                         "tests/test_published_prefill_study.py",
                          "scripts/import_cost_trace.py", "tests/test_published_cost_study.py",
                          "examples/agent/task-9.2.protocol.request.json", "examples/agent/request.schema.json",
                          "examples/agent/response.schema.json",
@@ -482,6 +502,13 @@ def verify(dist: Path) -> dict:
                 step_target = step_inputs / source.relative_to(step_source)
                 step_target.parent.mkdir(parents=True, exist_ok=True)
                 step_target.write_bytes(source.read_bytes())
+        prefill_source = Path(__file__).resolve().parents[1] / "examples/prefill_state_20261117"
+        prefill_inputs = outside / "prefill-profile-inputs"
+        for source in prefill_source.rglob("*"):
+            if source.is_file():
+                prefill_target = prefill_inputs / source.relative_to(prefill_source)
+                prefill_target.parent.mkdir(parents=True, exist_ok=True)
+                prefill_target.write_bytes(source.read_bytes())
         run([str(python), "-I", "-c", SMOKE_CODE], outside, env)
         run([str(python), "-I", "-m", "mlsys_sim.vllm_sla_worker", "--help"], outside, env)
         web_console = binaries / ("mlsys-sim-web.exe" if os.name == "nt" else "mlsys-sim-web")
