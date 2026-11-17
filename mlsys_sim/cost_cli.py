@@ -1,7 +1,7 @@
 """Explicit freeze, fit, validate and phase-cost prediction command line."""
 
 import argparse
-from dataclasses import asdict
+from dataclasses import asdict, replace
 from datetime import datetime, timezone
 import gzip
 import hashlib
@@ -17,6 +17,7 @@ from .cost_report import write_cost_validation_report
 from .performance import AnalyticalModel
 from .schema import SimulationError
 from .serialization import calibration_dict, experiment_dict
+from .step_cost_calibration import fit_step_costs, freeze_step_fit_spec
 
 
 def _pairs(pairs):
@@ -88,11 +89,17 @@ def main(argv: list[str] | None = None) -> int:
     source.add_argument("--membership", type=Path)
     source.add_argument("--recommended", action="store_true", help="Explicitly use the importer's label-based split")
     freeze.add_argument("--max-relative-error", type=float, default=0.3)
+    freeze.add_argument("--step-affine", action="store_true",
+                        help="Also freeze a whole-step affine fit policy; leaves the default component fit unchanged")
+    freeze.add_argument("--max-training-process-ratio", type=float,
+                        help="Maximum same-shape training process median ratio for --step-affine")
     fit = commands.add_parser("fit", help="Fit frozen training records only")
     fit.add_argument("--dataset", required=True, type=Path)
     fit.add_argument("--split", required=True, type=Path)
     fit.add_argument("--calibration-id", required=True)
     fit.add_argument("--allow-test-fixture", action="store_true")
+    fit.add_argument("--fit-spec", type=Path,
+                     help="Explicit frozen whole-step affine fit policy from freeze --step-affine")
     validate = commands.add_parser("validate", help="Validate frozen held-out records, without refitting")
     validate.add_argument("--dataset", required=True, type=Path)
     validate.add_argument("--fit", required=True, type=Path)
@@ -123,7 +130,17 @@ def main(argv: list[str] | None = None) -> int:
                 mapping = experiment_dict(experiment)
                 mapping["calibration"] = calibration
                 experiment = experiment_from_dict(mapping)
-            estimate = AnalyticalModel(experiment).estimate_step(args.phase, args.query_tokens, args.context_lengths)
+            if experiment.calibration.backend == "profile":
+                from .profiles import ProfileModel
+                profile_root = (args.calibration or args.experiment).parent
+                path = Path(experiment.calibration.profile_path or "")
+                experiment = replace(experiment, calibration=replace(experiment.calibration,
+                    profile_path=str((profile_root / path).resolve())))
+                model = ProfileModel(experiment)
+                inputs["profile"] = model.provenance["sha256"]
+                estimate = model.estimate_step(args.phase, args.query_tokens, args.context_lengths)
+            else:
+                estimate = AnalyticalModel(experiment).estimate_step(args.phase, args.query_tokens, args.context_lengths)
             result = {"kind": "phase_cost_prediction_v1", "phase": args.phase,
                 "query_tokens": args.query_tokens, "context_lengths": args.context_lengths,
                 "estimate": asdict(estimate), "hardware_validated": False,
@@ -136,6 +153,8 @@ def main(argv: list[str] | None = None) -> int:
             return 0
         dataset, inputs["dataset"] = _read(args.dataset)
         if args.command == "freeze":
+            if args.max_training_process_ratio is not None and not args.step_affine:
+                raise SimulationError("INVALID_COST_INPUT", "Training stability policy requires --step-affine")
             if args.membership:
                 membership, inputs["membership"] = _read(args.membership)
             else:
@@ -143,14 +162,29 @@ def main(argv: list[str] | None = None) -> int:
             result = freeze_cost_split(dataset, training_record_ids=membership["training_record_ids"],
                 holdout_record_ids=membership["holdout_record_ids"],
                 repeat_record_ids=membership.get("repeat_record_ids", []), max_relative_error=args.max_relative_error)
+            fit_spec = (freeze_step_fit_spec(result,
+                max_training_process_ratio=(1.25 if args.max_training_process_ratio is None
+                                            else args.max_training_process_ratio)) if args.step_affine else None)
             args.out.mkdir(parents=True)
             _write(args.out / "split.json", result, frozen=True)
+            if fit_spec is not None:
+                _write(args.out / "fit-spec.json", fit_spec, frozen=True)
         elif args.command == "fit":
             if dataset["source"]["kind"] == "test_fixture" and not args.allow_test_fixture:
                 raise SimulationError("TEST_FIXTURE_NOT_ALLOWED", "Fitting test fixtures requires --allow-test-fixture")
             split, inputs["split"] = _read(args.split)
-            result = fit_analytical_costs(dataset, split, calibration_id=args.calibration_id)
+            if args.fit_spec:
+                fit_spec, inputs["fit_spec"] = _read(args.fit_spec)
+                result = fit_step_costs(dataset, split, calibration_id=args.calibration_id, fit_spec=fit_spec)
+            else:
+                result = fit_analytical_costs(dataset, split, calibration_id=args.calibration_id)
             args.out.mkdir(parents=True)
+            if result.get("kind") == "step_cost_fit_rejected_v1":
+                _write(args.out / "fit-rejected.json", result, frozen=True)
+                _manifest(args.out, args.command, inputs)
+                print(json.dumps({"status": "REJECTED", "command": args.command,
+                                  "out": str(args.out), "verdict": "FAIL"}))
+                return 3
             _fit_exports(dataset, result, args.out, args.allow_test_fixture)
             _write(args.out / "fit.json", result, frozen=True)
         else:

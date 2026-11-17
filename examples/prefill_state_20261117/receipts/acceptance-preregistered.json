@@ -1,0 +1,12 @@
+{
+  "kind": "prefill_acceptance_preregistration_v1",
+  "created_at_utc": "2026-11-17T00:58:10.156410+00:00",
+  "stage": "before_new_training_and_holdout",
+  "per_cell_max_relative_error": 0.1,
+  "require_full_coverage": true,
+  "require_all_repetitions": true,
+  "within_session_stationarity_to_be_frozen_before_training": true,
+  "no_fit_or_threshold_change_from_new_holdout": true,
+  "exploration_is_not_training_or_holdout": true,
+  "keep_all_raw_and_warmup_records": true
+}

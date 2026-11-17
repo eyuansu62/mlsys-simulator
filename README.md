@@ -152,6 +152,17 @@ For opt-in analytical cost fitting and independent grouped validation, use
 defaults are retained; narrow trace calibrations are never silently applied to
 uncovered Runtime/policy/shape domains. See [runtime costs](docs/runtime-cost-calibration.md)
 and the [retrospective study](docs/runtime-cost-20261116/README.md).
+Whole-step-only observations can explicitly select
+[affine fitting with a frozen process-stability gate](docs/runtime-step-calibration.md);
+unstable training processes yield a saved rejection without executable costs.
+The [new controlled AMD study](docs/runtime-step-20261117/README.md) retains
+the failed uncontrolled comparison, queue/Graph ablations and three fresh
+forward sessions. It grants no automatic calibration transfer to other domains.
+For source-ordered stationarity checks and an explicitly bounded whole-step
+lookup Profile, see [Prefill state calibration](docs/prefill-state-calibration.md).
+The [prepared Prefill study](docs/prefill-state-20261117/README.md) includes
+CPU/HIP/GPU diagnosis, retained warmups, frozen forecasts and 33/33 new AMD
+validation cells within 10% error. Acceptance is limited to its declared domain.
 
 ## Run pipeline and CPU swap examples
 

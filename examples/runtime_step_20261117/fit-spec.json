@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "kind": "step_cost_fit_spec_v1",
+  "algorithm": "whole_step_nonnegative_affine_session_medians_v1",
+  "split_sha256": "2a33ebdda245acaf54bd72a6afb0480e27adf2162bc9cc67a885463397ce00df",
+  "dataset_sha256": "081ffcbbbddb051f901e5d7dd5ba5b997e6ee4b568f460b630579dd6f3f5c4fe",
+  "aggregation": "equal_weight_session_phase_shape_medians",
+  "stability": {
+    "metric": "same_domain_shape_max_session_median_over_min",
+    "max_training_process_ratio": 1.25,
+    "minimum_sessions_per_domain": 2,
+    "minimum_sessions_per_shape": 2,
+    "minimum_distinct_shapes": 2
+  },
+  "fit_spec_sha256": "5970af776227113cf60c9f4701355b143bd438266ee30a5cf337115e6c1f23d0"
+}

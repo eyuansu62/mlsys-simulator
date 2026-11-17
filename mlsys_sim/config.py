@@ -243,7 +243,12 @@ def validate_experiment(experiment: Experiment) -> None:
         _invalid("calibration.runtime_config_sha256", "must be empty or a lowercase SHA256 hex digest")
     from .analytical_cost import validate_analytical_costs
     validate_analytical_costs(experiment)
-    if calibration.timing_boundary != "step_includes_output_and_sampling_v1":
+    if calibration.timing_boundary == "reported_l2_step_hook_wall_v1":
+        if calibration.backend != "profile":
+            raise SimulationError("UNSUPPORTED_MECHANISM", "Reported step-wall timing requires backend=profile")
+        if not calibration.runtime_config_sha256:
+            _invalid("calibration.runtime_config_sha256", "reported step-wall timing requires an explicit SHA256 digest")
+    elif calibration.timing_boundary != "step_includes_output_and_sampling_v1":
         raise SimulationError("UNSUPPORTED_MECHANISM", "unsupported step timing boundary")
     if not calibration.profile_version:
         _invalid("calibration.profile_version", "must not be empty")

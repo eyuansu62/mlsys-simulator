@@ -353,6 +353,14 @@ def validate_analytical_costs(dataset: dict, artifact: dict, *, max_relative_err
     training_groups: dict[str, list[dict]] = defaultdict(list)
     for name in artifact["split"]["training_record_ids"]:
         training_groups[_domain_key(by_id[name])].append(by_id[name])
+    if artifact.get("algorithm") == ALGORITHM:
+        if "step_fit_spec" in artifact or "fit_spec_sha256" in artifact:
+            _error("Component fits cannot carry whole-step fit-policy metadata")
+        for selected in training_groups.values():
+            components = [row for row in selected if row["kind"] == "gpu_components"]
+            if (len({row["shape"] for row in components}) < 2
+                    or not any(row["kind"] == "step_wall" for row in selected)):
+                _error("Component fits require component training shapes and step-wall records")
     costs = {}
     for diagnostic, cost in zip(artifact["diagnostics"], artifact["cost_specs"]):
         if not isinstance(diagnostic, dict) or not isinstance(cost, dict):
@@ -401,10 +409,14 @@ def validate_analytical_costs(dataset: dict, artifact: dict, *, max_relative_err
     if set(costs) != set(training_groups):
         _error("Duplicate or missing fitted cost domains")
     boundaries = {row["domain"]["timing_boundary"] for members in training_groups.values() for row in members}
-    if (len(boundaries) != 1 or artifact.get("algorithm") != ALGORITHM
+    from .step_cost_calibration import STEP_ALGORITHM, validate_step_fit_metadata
+
+    if (len(boundaries) != 1 or artifact.get("algorithm") not in {ALGORITHM, STEP_ALGORITHM}
             or artifact["calibration_patch"].get("backend") != "analytical"
             or artifact["calibration_patch"].get("analytical_cost_timing_boundary") != next(iter(boundaries))):
         _error("Fitted cost family or timing boundary differs from its training domain")
+    if artifact["algorithm"] == STEP_ALGORITHM:
+        validate_step_fit_metadata(data, artifact)
     result = {"schema_version": 1, "kind": "analytical_cost_validation_v1",
         "fit_sha256": artifact["fit_sha256"], "dataset_sha256": artifact["dataset_sha256"],
         "split_sha256": artifact["split"]["split_sha256"], "max_relative_error": threshold,

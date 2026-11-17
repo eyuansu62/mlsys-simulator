@@ -87,6 +87,9 @@ def _contract(value: Any, name: str, *, measured: bool = False) -> dict:
         _keys(contract["execution"], {field.name for field in fields(ExecutionSpec)}
               - {"detailed_events", "max_events"}, set(), f"{name}.execution")
         runtime, topology = identity["runtime"], identity["topology"]
+        from .step_profile import REPORTED_STEP_BOUNDARY
+        reported_profile = ({"backend": "profile", "profile_path": "__comparison_identity_only__"}
+                            if runtime["timing_boundary"] == REPORTED_STEP_BOUNDARY else {})
         reconstructed = experiment_from_dict({
             "strategy": contract["strategy"], "evaluation": contract["evaluation"],
             "execution": contract["execution"],
@@ -96,13 +99,14 @@ def _contract(value: Any, name: str, *, measured: bool = False) -> dict:
             "calibration": {"runtime_name": runtime["name"], "runtime_version": runtime["version"],
                             "driver_version": runtime["driver_version"], "rocm_version": runtime["rocm_version"],
                             "rccl_version": runtime["rccl_version"], "timing_boundary": runtime["timing_boundary"],
-                            "runtime_config_sha256": runtime.get("runtime_config_sha256", "")},
+                            "runtime_config_sha256": runtime.get("runtime_config_sha256", ""),
+                            **reported_profile},
         })
         if profile_identity(reconstructed) != identity:
             _error("comparison_contract strategy and hardware identity disagree")
     except SimulationError as exc:
         raise SimulationError("INVALID_COMPARISON_INPUT", f"Invalid comparison contract: {exc}") from exc
-    if (contract["timing_boundary"] != "step_includes_output_and_sampling_v1"
+    if (contract["timing_boundary"] not in {"step_includes_output_and_sampling_v1", REPORTED_STEP_BOUNDARY}
             or contract["timing_boundary"] != contract["identity"]["runtime"]["timing_boundary"]):
         _error("comparison_contract uses an unsupported or inconsistent timing boundary")
     normalized_strategy = strategy_dict(reconstructed.strategy)

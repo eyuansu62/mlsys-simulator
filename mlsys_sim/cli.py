@@ -489,6 +489,9 @@ def _calibrate(args: argparse.Namespace, manifest: dict) -> dict:
         raise SimulationError("INVALID_ARGUMENT", "--native-pp-model requires --native-pp-communication")
     _record_input(manifest, args.dataset)
     workspace = getattr(args, "workspace", False)
+    stationarity_path = getattr(args, "stationarity_policy", None)
+    if stationarity_path is not None and (workspace or native or args.communication):
+        raise SimulationError("INVALID_ARGUMENT", "--stationarity-policy requires a reported-step Profile dataset")
     if workspace:
         from .workspace import calibrate_workspace, load_workspace_dataset
         dataset = load_workspace_dataset(args.dataset, allow_test_fixture=args.allow_test_fixture)
@@ -512,11 +515,23 @@ def _calibrate(args: argparse.Namespace, manifest: dict) -> dict:
             parent = load_profile(args.parent_profile, allow_test_fixture=args.allow_test_fixture)
     fit = (calibrate_workspace if workspace else calibrate_pp_communication if native
            else calibrate_communication if args.communication else calibrate_dataset)
-    options = ({"method": {"affine": "nonnegative_affine_ols_v1",
+    options: dict[str, Any] = ({"method": {"affine": "nonnegative_affine_ols_v1",
                           "size-lookup": "piecewise_size_lookup_v1"}[native_model]}
                if native_model is not None else {})
-    profile = fit(dataset, profile_version=args.profile_version,
-                  parent_profile=parent, allow_test_fixture=args.allow_test_fixture, **options)
+    if stationarity_path is not None:
+        from .step_profile import calibrate_step_profile
+        policy, raw = _read_json(stationarity_path)
+        _record_input(manifest, stationarity_path, raw)
+        profile = calibrate_step_profile(dataset, policy, profile_version=args.profile_version,
+                                        parent_profile=parent, allow_test_fixture=args.allow_test_fixture)
+        if profile.get("kind") == "step_profile_rejected_v1":
+            _write_json(args.out / "dataset.json", dataset)
+            _write_json(args.out / "profile-rejected.json", profile)
+            return {"status": "REJECTED", "mode": "calibrate",
+                    "profile_kind": profile["kind"], "artifact": "profile-rejected.json"}
+    else:
+        profile = fit(dataset, profile_version=args.profile_version,
+                      parent_profile=parent, allow_test_fixture=args.allow_test_fixture, **options)
     _write_json(args.out / "dataset.json", dataset)
     _write_json(args.out / "profile.json", profile)
     manifest.update(profile_version=profile["profile_version"], source=profile["source"],
@@ -1049,6 +1064,8 @@ def _arguments(parser: argparse.ArgumentParser, mode: str) -> None:
         if mode == "calibrate":
             parser.add_argument("--profile-version", required=True)
             parser.add_argument("--parent-profile", type=Path)
+            parser.add_argument("--stationarity-policy", type=Path,
+                                help="Explicit frozen ordered-series policy for reported hook-wall Profiles")
             communication = parser.add_mutually_exclusive_group()
             communication.add_argument("--communication", action="store_true")
             communication.add_argument("--native-pp-communication", action="store_true")
@@ -1138,7 +1155,7 @@ def main(argv: list[str] | None = None, *, mode: str | None = None) -> int:
     print(json.dumps(summary, sort_keys=True, allow_nan=False))
     if acceptance_failed and result.get("status") == "COMPLETED":
         return 3
-    return 0 if result.get("status") == "COMPLETED" else (3 if result.get("status") == "UNRESOLVED" else 2)
+    return 0 if result.get("status") == "COMPLETED" else (3 if result.get("status") in {"UNRESOLVED", "REJECTED"} else 2)
 
 
 if __name__ == "__main__":

@@ -1,0 +1,7 @@
+{
+  "qwen3-0.6b": {
+    "calibration": "calibrations/model-0.json",
+    "experiment": "experiments/model-0.json",
+    "identity_sha256": "b98c2fe368d719d0c7b2890a66a2321556016dd378ae72fcfeec0e6f8808bb54"
+  }
+}
