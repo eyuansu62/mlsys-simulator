@@ -234,6 +234,7 @@ def _simulation(args: argparse.Namespace, manifest: dict) -> dict:
                      "calibration_source": original.calibration.backend,
                      "profile_version": original.calibration.profile_version})
     experiment, profile = original, None
+    runtime_profile = None
     replica_profiles: list[dict] = []
     origin = None
     if original.calibration.backend == "profile" and original.strategy.replicas > 1:
@@ -283,6 +284,27 @@ def _simulation(args: argparse.Namespace, manifest: dict) -> dict:
             "experiment": fingerprint_config,
             "replica_profile_sha256": [item["sha256"] for item in replica_profiles],
         }).encode()).hexdigest()
+    elif original.calibration.backend == "runtime":
+        from .runtime_cost import validate_runtime_cost_model
+
+        origin = Path(original.calibration.profile_path or "").resolve()
+        payload, raw = _read_json(origin)
+        runtime_profile = validate_runtime_cost_model(payload, experiment=original,
+            allow_test_fixture=original.calibration.allow_test_fixture)
+        snapshot = args.out / "runtime-cost.json"
+        with snapshot.open("xb") as stream:
+            stream.write(raw)
+        runtime_hash = hashlib.sha256(raw).hexdigest()
+        _record_input(manifest, origin, raw)
+        manifest.update(runtime_cost_sha256=runtime_hash, runtime_cost_snapshot="runtime-cost.json",
+            runtime_cost_reader="runtime_cost_v1", origin_profile_path=str(origin),
+            profile_version=runtime_profile["calibration_id"],
+            calibration_source=("measured_runtime_cost" if runtime_profile["source"]["kind"] == "measured"
+                                else "test_fixture_runtime_cost"))
+        experiment = replace(original, calibration=replace(original.calibration,
+                                                           profile_path=str(snapshot.resolve())))
+        manifest["config_sha256"] = hashlib.sha256(
+            _json({"experiment": fingerprint_config, "runtime_cost_sha256": runtime_hash}).encode()).hexdigest()
     elif original.calibration.backend == "profile":
         from .profiles import validate_profile
 
@@ -350,6 +372,8 @@ def _simulation(args: argparse.Namespace, manifest: dict) -> dict:
             "native_pp_communication_profile_sha256": [item["sha256"] for item in communication_profiles]}
         if profile is not None:
             fingerprint["profile_sha256"] = manifest["profile_sha256"]
+        if runtime_profile is not None:
+            fingerprint["runtime_cost_sha256"] = manifest["runtime_cost_sha256"]
         if replica_profiles:
             fingerprint["replica_profile_sha256"] = [item["sha256"] for item in replica_profiles]
         manifest["config_sha256"] = hashlib.sha256(_json(fingerprint).encode()).hexdigest()
@@ -391,6 +415,8 @@ def _simulation(args: argparse.Namespace, manifest: dict) -> dict:
             "workspace_profile_sha256": [item["sha256"] for item in workspace_profiles]}
         if profile is not None:
             fingerprint["profile_sha256"] = manifest["profile_sha256"]
+        if runtime_profile is not None:
+            fingerprint["runtime_cost_sha256"] = manifest["runtime_cost_sha256"]
         if replica_profiles:
             fingerprint["replica_profile_sha256"] = [item["sha256"] for item in replica_profiles]
         if communication_profiles:
@@ -412,6 +438,12 @@ def _simulation(args: argparse.Namespace, manifest: dict) -> dict:
         provenance = result.get("profile_provenance")
         if isinstance(provenance, dict):
             provenance.update(origin_profile_path=str(origin), snapshot_file="profile.json")
+            manifest["profile_provenance"] = dict(provenance)
+    if runtime_profile is not None:
+        provenance = result.get("profile_provenance")
+        if isinstance(provenance, dict):
+            provenance.update(origin_profile_path=str(origin), snapshot_file="runtime-cost.json",
+                              reader="runtime_cost_v1")
             manifest["profile_provenance"] = dict(provenance)
     if replica_profiles:
         indexed = {item["replica_index"]: item for item in replica_profiles}

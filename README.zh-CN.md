@@ -3,7 +3,7 @@
 [English](README.md) · [Python API](docs/api.md) · [校准](docs/calibration.md) ·
 [验证规范](docs/validation-protocol.md) · [系统规范](docs/specification.md) · [PP 与 CPU swap](docs/pipeline-and-swap.md) · [Prefix Cache 与分块预填充](docs/prefix-cache-and-chunking.md) · [混合批处理](docs/mixed-batching.md) · [多副本路由](docs/multi-replica.md) · [ROCm 采集](docs/rocm-collection.md) · [Qwen3 与 vLLM 内部 hook](docs/qwen3-and-vllm-hooks.md) · [原生 PP 采样与 Profile](docs/native-pp-capture.md) · [原生 PP 通信微基准与校准](docs/native-pp-communication.md) · [量化存储](docs/quantization.md) · [Workspace 与容量验证](docs/workspace-and-capacity.md)
 
-1.21 版增加[固定开销与Attention成本校准](docs/runtime-cost-calibration.md)：按阶段、配置Graph/eager和后端绑定运行域，冻结训练与事后独立分组留出，旧默认值不静默改变。保留[Agent 专用同步接口](docs/agent-integration.md)、[本地 Web 实验台](docs/web-interface.md)、[冻结预测与独立闭环验证](docs/closed-loop-validation.md)、[联合约束筛选与课程η/β导入](docs/course-constraints-and-calibration.md)、量化存储、TP/PP、缓存、分块、混批、CPU swap、多副本与已有采集工具。源码见[GitHub](https://github.com/eyuansu62/mlsys-simulator)，许可证仍待选择，尚未发布PyPI。
+1.24 版增加[EngineCore整步成本后端](docs/runtime-core-costs.md)：显式 `backend="runtime"`、独立计时边界、每阶段／精确batch的非负仿射模型，以及固定准备和quiet原生采集。原始证明、稳定性拒绝和完整运行域保持可追溯，不自动授予硬件精度。保留[固定开销与Attention成本校准](docs/runtime-cost-calibration.md)、[Agent 专用同步接口](docs/agent-integration.md)、[本地 Web 实验台](docs/web-interface.md)、[冻结预测与独立闭环验证](docs/closed-loop-validation.md)、[联合约束筛选与课程η/β导入](docs/course-constraints-and-calibration.md)、量化存储、TP/PP、缓存、分块、混批、CPU swap、多副本与已有采集工具。源码见[GitHub](https://github.com/eyuansu62/mlsys-simulator)，许可证仍待选择，尚未发布PyPI。
 
 按[课程工作流](docs/course-workflows.md)的六条命令可直接生成图文报告、CSV与SVG。52节点32B/7B示例明确为冻结的人工教学轨迹，硬件参数为声明假设；负载边界是有限网格的观测结果，保留全部seed、失败和非单调情况，不建立新的真机精度结论。
 
@@ -12,6 +12,12 @@
 单卡和TP2已完成完整训练及冻结后独立验证；1.14的PP2也完成闭环，每个cohort各48条记录/48条rank观测、16种stage精确形状，覆盖率100%、字节误差0、低估0。结论仅限实际采样配置和保留形状，详见[Worker Workspace 验证记录](docs/workspace-stage-validation.md)。
 
 新完成的[Prefill稳态真机报告](docs/prefill-state-20261117/README.md)包含CPU/HIP/GPU时间线、固定逐形状暖机与主线程亲和性对照。重新冻结后，3个新进程的33/33格均在10%误差内；Prefill平均1.05%、最大3.56%，结论限于报告声明的准备条件。
+
+新的 `runtime` 后端通过 `profile_path` 显式选择实际artifact，目标为
+`engine_core_step_wall_v1`，不把旧0.6B窄域Profile或4B的39格失败记录改名覆盖。
+默认Web和Agent仍使用原有声明；软件支持不等于新AMD训练／forward已通过。
+Python拟合、普通CLI与逐phase预测、完整内存／Runtime绑定及未知域拒绝规则见
+[EngineCore整步成本说明](docs/runtime-core-costs.md)。核心无新增运行依赖。
 
 ## 安装和运行
 

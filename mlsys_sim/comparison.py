@@ -90,6 +90,8 @@ def _contract(value: Any, name: str, *, measured: bool = False) -> dict:
         from .step_profile import REPORTED_STEP_BOUNDARY
         reported_profile = ({"backend": "profile", "profile_path": "__comparison_identity_only__"}
                             if runtime["timing_boundary"] == REPORTED_STEP_BOUNDARY else {})
+        runtime_cost = ({"backend": "runtime", "profile_path": "__comparison_identity_only__"}
+                        if runtime["timing_boundary"] == "engine_core_step_wall_v1" else {})
         reconstructed = experiment_from_dict({
             "strategy": contract["strategy"], "evaluation": contract["evaluation"],
             "execution": contract["execution"],
@@ -100,13 +102,14 @@ def _contract(value: Any, name: str, *, measured: bool = False) -> dict:
                             "driver_version": runtime["driver_version"], "rocm_version": runtime["rocm_version"],
                             "rccl_version": runtime["rccl_version"], "timing_boundary": runtime["timing_boundary"],
                             "runtime_config_sha256": runtime.get("runtime_config_sha256", ""),
-                            **reported_profile},
+                            **reported_profile, **runtime_cost},
         })
         if profile_identity(reconstructed) != identity:
             _error("comparison_contract strategy and hardware identity disagree")
     except SimulationError as exc:
         raise SimulationError("INVALID_COMPARISON_INPUT", f"Invalid comparison contract: {exc}") from exc
-    if (contract["timing_boundary"] not in {"step_includes_output_and_sampling_v1", REPORTED_STEP_BOUNDARY}
+    if (contract["timing_boundary"] not in {"step_includes_output_and_sampling_v1", REPORTED_STEP_BOUNDARY,
+                                          "engine_core_step_wall_v1"}
             or contract["timing_boundary"] != contract["identity"]["runtime"]["timing_boundary"]):
         _error("comparison_contract uses an unsupported or inconsistent timing boundary")
     normalized_strategy = strategy_dict(reconstructed.strategy)

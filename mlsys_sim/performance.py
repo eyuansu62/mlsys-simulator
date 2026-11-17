@@ -74,6 +74,9 @@ class AnalyticalModel:
         if experiment.calibration.backend == "profile":
             raise SimulationError("UNSUPPORTED_MECHANISM",
                                   "Use create_performance_model for whole-stage profile predictions")
+        if experiment.calibration.backend == "runtime":
+            raise SimulationError("UNSUPPORTED_MECHANISM",
+                                  "Use create_performance_model for Runtime cost predictions")
         self.experiment = experiment
         self.provenance: dict | None = None
         if experiment.calibration.analytical_costs:

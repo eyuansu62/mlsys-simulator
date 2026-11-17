@@ -30,6 +30,47 @@ assert "vllm" not in sys.modules, "Optional serving dependency was imported eage
 from mlsys_sim.vllm_capacity_adapter import kv_pool_factory
 assert callable(kv_pool_factory) and callable(mlsys_sim.validate_profile_repeats)
 assert "torch" not in sys.modules and "vllm" not in sys.modules
+from mlsys_sim.runtime_cost import RUNTIME_COST_BOUNDARY
+runtime_exp = Experiment(calibration=CalibrationSpec(backend="runtime",
+    profile_path="runtime-fixture-model.json", profile_version="installed-runtime-fixture-v1",
+    allow_test_fixture=True, runtime_name="fixture-runtime", runtime_version="fixture-v1",
+    runtime_config_sha256="d" * 64, timing_boundary=RUNTIME_COST_BOUNDARY))
+runtime_domain = mlsys_sim.runtime_cost_domain(runtime_exp)
+runtime_rule = {"phase": "prefill", "batch_size": 1,
+    "min_query_tokens": 1, "max_query_tokens": 1024,
+    "min_context_tokens": 0, "max_context_tokens": 0,
+    "min_total_query_tokens": 1, "max_total_query_tokens": 1024,
+    "min_total_context_tokens": 0, "max_total_context_tokens": 0,
+    "max_total_tokens": 2048, "max_sequence_tokens": 2048}
+runtime_policy = mlsys_sim.freeze_runtime_cost_policy([runtime_rule], min_samples_per_shape_session=4)
+nominal_exp = replace(runtime_exp, calibration=replace(runtime_exp.calibration,
+    backend="analytical", profile_path=None, allow_test_fixture=False,
+    timing_boundary="step_includes_output_and_sampling_v1"))
+nominal_model = mlsys_sim.AnalyticalModel(nominal_exp)
+runtime_records = []
+for session in ("installed-session-a", "installed-session-b"):
+    order = 0
+    for query in (8, 1024):
+        duration = 2 * nominal_model.estimate_step("prefill", [query], [0]).duration_ms + 3
+        for repeat in range(4):
+            order += 1
+            runtime_records.append({"record_id": session + ":" + str(order), "session_id": session,
+                "group_id": "query-" + str(query), "source_order": order, "phase": "prefill",
+                "stage_index": 0, "query_tokens": [query], "context_lengths": [0],
+                "duration_ms": duration, "workspace_peak_bytes": None})
+runtime_data = {"schema_version": 1, "kind": "runtime_cost_dataset_v1", "dataset_id": "installed-runtime-fixture",
+    "domain": runtime_domain, "source": {"kind": "test_fixture", "reference": "Installed-wheel CPU fixture only"},
+    "records": runtime_records}
+runtime_fit = mlsys_sim.fit_runtime_costs(runtime_data, runtime_policy,
+    calibration_id="installed-runtime-fixture-v1", allow_test_fixture=True)
+assert runtime_fit["kind"] == "runtime_cost_model_v1"
+Path("runtime-fixture-model.json").write_text(json.dumps(runtime_fit))
+runtime_model = mlsys_sim.RuntimeCostModel(runtime_exp)
+runtime_step = runtime_model.estimate_step("prefill", [256], [0])
+assert runtime_step.source == "runtime_cost_calibrated"
+assert abs(runtime_step.duration_ms - (2 * nominal_model.estimate_step("prefill", [256], [0]).duration_ms + 3)) < 1e-10
+assert runtime_model.workspace_bytes([256], "prefill", context_lengths=[0]) is None
+assert "torch" not in sys.modules and "vllm" not in sys.modules
 import gzip
 from mlsys_sim.cost_calibration import validate_analytical_costs
 from mlsys_sim.performance import AnalyticalModel
@@ -99,7 +140,9 @@ assert all(callable(getattr(mlsys_sim, name)) for name in (
     "get_agent_catalog", "validate_agent_request", "validate_agent_response", "simulate_sequential",
     "freeze_cost_split", "fit_analytical_costs", "validate_analytical_costs",
     "freeze_step_fit_spec", "fit_step_costs", "freeze_stationarity_policy",
-    "check_step_stationarity", "step_wall_domain", "calibrate_step_profile"))
+    "check_step_stationarity", "step_wall_domain", "calibrate_step_profile",
+    "RuntimeCostModel", "freeze_runtime_cost_policy", "fit_runtime_costs", "validate_runtime_cost_model",
+    "runtime_cost_domain", "load_runtime_cost"))
 from mlsys_sim.load_validation_report import write_closed_loop_study_report
 from mlsys_sim.vllm_sla_worker import formal_server_evidence
 assert callable(write_closed_loop_study_report) and callable(formal_server_evidence)
@@ -341,7 +384,8 @@ def verify(dist: Path) -> dict:
                        "closed_loop_capture", "load_validation_report", "vllm_sla_worker",
                        "web", "web_simulation", "agent_adapter", "agent_service",
                        "agent_contract", "agent_catalog", "sequential", "serialization",
-                       "analytical_cost", "cost_calibration", "step_cost_calibration", "step_profile", "cost_cli", "cost_report"):
+                       "analytical_cost", "cost_calibration", "step_cost_calibration", "step_profile", "cost_cli", "cost_report",
+                       "runtime_cost", "runtime_cost_capture"):
             assert f"mlsys_sim/{module}.py" in names
         for asset in ("index.html", "style.css", "app.js"):
             assert f"mlsys_sim/web_assets/{asset}" in names, f"Wheel missing Web UI asset {asset}"
@@ -350,6 +394,9 @@ def verify(dist: Path) -> dict:
     with tarfile.open(sdists[0]) as archive:
         source_names = {"/".join(member.name.split("/")[1:]) for member in archive.getmembers()}
         for required in ("pyproject.toml", "README.md", "README.zh-CN.md",
+                         "docs/runtime-core-costs.md", "tests/test_runtime_cost.py",
+                         "tests/test_runtime_cost_capture.py", "tests/test_runtime_cost_integration.py",
+                         "tests/test_runtime_cost_budget.py",
                          "examples/memory_pressure.json", "tests/test_public_api.py", "docs/web-interface.md",
                          "docs/agent-integration.md", "examples/agent/README.md", "examples/agent/sources.json",
                          "docs/runtime-cost-calibration.md", "docs/runtime-cost-20261116/README.md",

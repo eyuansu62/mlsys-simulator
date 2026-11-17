@@ -19,7 +19,8 @@ collection adapters instrument an installed Runtime separately from simulation.
 [Independent closed-loop validation](docs/closed-loop-validation.md) ·
 [Workspace and capacity validation](docs/workspace-and-capacity.md) · [Contributing](CONTRIBUTING.md)
 
-**Version 1.21 software scope:** Explicit Runtime-scoped fixed/Attention cost
+**Version 1.24 software scope:** An opt-in EngineCore-step Runtime cost backend
+with phase/exact-batch affine fitting and source-bound capture, plus explicit Runtime-scoped fixed/Attention cost
 calibration and retrospective held-out reports, plus a versioned exact-workload Agent service with
 sequential/DAG release semantics, plus local model/hardware/load forms and analytical
 latency, throughput and memory charts, plus frozen finite-cohort closed-loop predictions,
@@ -163,6 +164,17 @@ lookup Profile, see [Prefill state calibration](docs/prefill-state-calibration.m
 The [prepared Prefill study](docs/prefill-state-20261117/README.md) includes
 CPU/HIP/GPU diagnosis, retained warmups, frozen forecasts and 33/33 new AMD
 validation cells within 10% error. Acceptance is limited to its declared domain.
+
+For explicit EngineCore-step wall costs, select `calibration.backend="runtime"`
+with the actual Runtime-cost artifact in `profile_path` and the distinct
+`engine_core_step_wall_v1` boundary. Python fitting freezes stationarity and
+phase/exact-batch bounds, retaining raw proof and any rejection; ordinary
+simulation and per-phase prediction CLIs preserve its original artifact bytes.
+The optional native collector supports fixed nonadaptive preparation and quiet
+formal progress. See [EngineCore costs](docs/runtime-core-costs.md).
+The older 0.6B Profile and the failed 4B 39-cohort study keep their original
+boundaries and conclusions; neither the default Web nor Agent catalog silently
+switches to this backend. No new hardware-accuracy result follows from the feature.
 
 ## Run pipeline and CPU swap examples
 

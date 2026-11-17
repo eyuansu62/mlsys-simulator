@@ -8,6 +8,7 @@ import hashlib
 import json
 from pathlib import Path
 import sys
+import tempfile
 
 from .analytical_cost import analytical_cost_identity
 from .config import experiment_from_dict
@@ -106,9 +107,11 @@ def main(argv: list[str] | None = None) -> int:
     predict = commands.add_parser("predict", help="Predict one declared phase and shape")
     predict.add_argument("--experiment", required=True, type=Path, help="Inline JSON experiment (or JSON.gz), no file references")
     predict.add_argument("--calibration", type=Path)
-    predict.add_argument("--phase", choices=["prefill", "decode"], required=True)
+    predict.add_argument("--phase", choices=["prefill", "decode", "mixed"], required=True)
     predict.add_argument("--query-tokens", type=int, nargs="+", required=True)
     predict.add_argument("--context-lengths", type=int, nargs="+", required=True)
+    predict.add_argument("--request-phases", choices=["prefill", "decode"], nargs="+",
+                         help="Explicit ordered member phases for a mixed batch")
     for command in (freeze, fit, validate, predict):
         command.add_argument("--out", type=Path, required=True)
     args = parser.parse_args(argv)
@@ -117,6 +120,7 @@ def main(argv: list[str] | None = None) -> int:
             raise SimulationError("COST_OUTPUT_EXISTS", "Output directory must be new; frozen results are not overwritten")
         inputs = {}
         if args.command == "predict":
+            runtime_snapshot = None
             mapping, inputs["experiment"] = _read(args.experiment)
             if any(isinstance(mapping.get(key), str) for key in
                    ("workload", "infra", "strategy", "calibration", "evaluation", "execution")):
@@ -130,22 +134,44 @@ def main(argv: list[str] | None = None) -> int:
                 mapping = experiment_dict(experiment)
                 mapping["calibration"] = calibration
                 experiment = experiment_from_dict(mapping)
-            if experiment.calibration.backend == "profile":
-                from .profiles import ProfileModel
+            if args.request_phases is not None and args.phase != "mixed":
+                raise SimulationError("INVALID_COST_INPUT", "Member phases require --phase mixed")
+            if experiment.calibration.backend in {"profile", "runtime"}:
+                from .profiles import create_performance_model
                 profile_root = (args.calibration or args.experiment).parent
                 path = Path(experiment.calibration.profile_path or "")
                 experiment = replace(experiment, calibration=replace(experiment.calibration,
                     profile_path=str((profile_root / path).resolve())))
-                model = ProfileModel(experiment)
-                inputs["profile"] = model.provenance["sha256"]
-                estimate = model.estimate_step(args.phase, args.query_tokens, args.context_lengths)
+                if experiment.calibration.backend == "runtime":
+                    from .capacity import _bind_inputs, _profile_inputs
+                    snapshots = _profile_inputs(experiment)
+                    runtime_snapshot = next(item for item in snapshots if item["field"] == "profile_path")
+                    with tempfile.TemporaryDirectory(prefix="mlsys-runtime-phase-") as temporary:
+                        bound = _bind_inputs(experiment, snapshots, Path(temporary))
+                        model = create_performance_model(bound)
+                else:
+                    model = create_performance_model(experiment)
+                provenance = model.provenance
+                if not isinstance(provenance, dict):
+                    raise SimulationError("INVALID_COST_INPUT", "Selected cost model has no input provenance")
+                role = "runtime_cost" if experiment.calibration.backend == "runtime" else "profile"
+                inputs[role] = provenance["sha256"]
+                estimate = model.estimate_step(args.phase, args.query_tokens, args.context_lengths,
+                                               request_phases=args.request_phases)
             else:
-                estimate = AnalyticalModel(experiment).estimate_step(args.phase, args.query_tokens, args.context_lengths)
+                estimate = AnalyticalModel(experiment).estimate_step(args.phase, args.query_tokens, args.context_lengths,
+                                                                    request_phases=args.request_phases)
             result = {"kind": "phase_cost_prediction_v1", "phase": args.phase,
                 "query_tokens": args.query_tokens, "context_lengths": args.context_lengths,
                 "estimate": asdict(estimate), "hardware_validated": False,
                 "memory_feasibility": "not_assessed; isolated phase cost only"}
+            if args.phase == "mixed":
+                result["request_phases"] = args.request_phases
             args.out.mkdir(parents=True)
+            if runtime_snapshot is not None:
+                (args.out / "runtime-cost.json").write_bytes(runtime_snapshot["raw_json"].encode("utf-8"))
+                _write(args.out / "runtime-cost-input.json", {
+                    key: value for key, value in runtime_snapshot.items() if key != "raw_json"})
             _write(args.out / "prediction.json", result)
             _manifest(args.out, args.command, inputs)
             print(json.dumps({"status": "COMPLETED", "duration_ms": estimate.duration_ms,
