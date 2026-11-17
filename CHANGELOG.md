@@ -10,6 +10,12 @@
   unchanged; new-boundary duration uses medians of per-session exact-shape medians.
 - Per-phase Profile prediction, comparison-contract and calibration CLI support;
   snapshots are verified once and subsequent queries keep domain/fixture guards.
+- Preserved AMD CPU/HIP/GPU timelines and controlled per-shape warmup/main-thread
+  affinity ablations. Two training processes and three fresh forward processes
+  yield all33cells/3636steps within10%: Prefill MAPE1.05%, maximum3.56%; Decode
+  MAPE0.89%, maximum2.85%. Warmups remain separate, earlier failures unchanged.
+  Published raw proof, immutable predictions, replay tests and illustrated report
+  cover only the prepared single-device domain, without a broader SLA claim.
 
 ## 1.22.0 — 2026-11-17
 

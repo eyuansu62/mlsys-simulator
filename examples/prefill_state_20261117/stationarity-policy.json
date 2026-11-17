@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "kind": "reported_step_stationarity_policy_v1",
+  "timing_boundary": "reported_l2_step_hook_wall_v1",
+  "phases": {
+    "prefill": {
+      "sample_count": 100,
+      "block_size": 20
+    },
+    "decode": {
+      "sample_count": 128,
+      "block_size": 32
+    }
+  },
+  "max_within_series_median_ratio": 1.1,
+  "max_cross_session_median_ratio": 1.1,
+  "minimum_training_sessions_per_group": 2,
+  "aggregation": "source-ordered contiguous blocks; no sorting, dropping or trimming",
+  "policy_sha256": "c81e551f20fd03c3912321cd9b7e4edb57b5cf87663fc95176ca6cd29d78c92d"
+}

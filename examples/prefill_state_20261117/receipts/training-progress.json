@@ -1,0 +1,43 @@
+{
+  "status": "completed",
+  "phase": "steady_prefill_profile_training",
+  "completed": 2,
+  "jobs": [
+    {
+      "session_id": "train-a",
+      "status": "completed",
+      "started_at_utc": "2026-11-17T01:31:53.839113+00:00",
+      "started_monotonic_ns": 60553450081261,
+      "configuration_sha256": "503ce739a5ae957eb99d14c6d5c84dee469c1b69359d8639af536f670fd07fb1",
+      "sampler_sha256": "591322e39d25c74c67b2014de62769979a3fe10b211877cb20607197f63c22f4",
+      "returncode": 0,
+      "finished_at_utc": "2026-11-17T01:35:05.869048+00:00",
+      "finished_monotonic_ns": 60745480025734,
+      "record_sha256": "89937cdbc241d1ae605b085d8981c3b613e94d1d1fd9f1d7aca446d5b82762f4",
+      "context_sha256": "9e44610f1e8aec6f792eb9a51d72fd17e9af6d7cf7f5d93d35696352befc4955",
+      "control_evidence_sha256": "51ed06640abac88f6cef816c2e0882e1976740eda05a0175cc965f564bdb45fb",
+      "phase_warmup_sha256": "c2fd67c863d65a8d65da9e259a19229ac2c3f7561799e82e0e93ddf1acc1973d",
+      "monitor_sha256": "e24fdd1437f84366f8815729334462546a796790281eb62fa68250d7c094941f"
+    },
+    {
+      "session_id": "train-b",
+      "status": "completed",
+      "started_at_utc": "2026-11-17T01:35:10.485765+00:00",
+      "started_monotonic_ns": 60750096721748,
+      "configuration_sha256": "503ce739a5ae957eb99d14c6d5c84dee469c1b69359d8639af536f670fd07fb1",
+      "sampler_sha256": "591322e39d25c74c67b2014de62769979a3fe10b211877cb20607197f63c22f4",
+      "returncode": 0,
+      "finished_at_utc": "2026-11-17T01:38:22.515169+00:00",
+      "finished_monotonic_ns": 60942126133544,
+      "record_sha256": "018799278ab3d3f9691d80510940e8dc81b479494bca65be8d92201c7c08b9cc",
+      "context_sha256": "a23227fd6fd05037c3ee9070b09b90a605fbe26dfb947dc3e1efa716211a4854",
+      "control_evidence_sha256": "24b8f68883b4de539a901400fc120270f794ea6aa1ade43c44c2f12628536e26",
+      "phase_warmup_sha256": "1a69dce29a82771733faffb387397004f2f34e420e85875699eff7a9a038f9f3",
+      "monitor_sha256": "ee9a882c4d1a26b8e0bd56b3dda089fe2495444fa04c27ac26ee9eee31cdb18e"
+    }
+  ],
+  "sampler_sha256": "591322e39d25c74c67b2014de62769979a3fe10b211877cb20607197f63c22f4",
+  "configuration_sha256": "503ce739a5ae957eb99d14c6d5c84dee469c1b69359d8639af536f670fd07fb1",
+  "active": "train-b",
+  "elapsed_s": 189.0
+}

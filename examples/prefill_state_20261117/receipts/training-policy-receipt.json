@@ -1,0 +1,6 @@
+{
+  "kind": "training_stationarity_policy_receipt_v1",
+  "committed_at_utc": "2026-11-17T01:33:34.198895+00:00",
+  "policy_raw_sha256": "0414b7e8980db59b1daf24cacdd25a9e75014cfaf799fe47bef42329f21c1dd5",
+  "formal_training_cells_present": 0
+}

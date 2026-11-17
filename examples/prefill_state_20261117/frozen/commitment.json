@@ -1,0 +1,35 @@
+{
+  "schema_version": 1,
+  "kind": "prefill_profile_prediction_commitment_v1",
+  "files": {
+    "inputs.json": {
+      "raw_sha256": "75726a50b85fd831e1f7cc3ddcae953a86053273a6b653548b553a023e516548",
+      "canonical_payload_sha256": "0eff8c56e65e984f884a12811279a821ef0fdf8256b844869fb71acf83d00ee3"
+    },
+    "predictions.json": {
+      "raw_sha256": "8275c066a4f0117a0c39ae69c857193a6729c90e8124678938de637d5fe2153a",
+      "canonical_payload_sha256": "bda5f27a5f0bb0d9099b12d89b226ba7273eb297f65213322ec7afae07e41022"
+    },
+    "profile.json": {
+      "raw_sha256": "a4fff424ed82c37d1cab8772f5e252d87c8cefbc166e11c923f1b13e75ae4664",
+      "canonical_payload_sha256": "18ecdb19309aa82d2af1e0b32b12d9c3f3cf3d2b3eac4bc7747155b37e578cc6"
+    }
+  },
+  "profile_raw_sha256": "a4fff424ed82c37d1cab8772f5e252d87c8cefbc166e11c923f1b13e75ae4664",
+  "simulator_commit": "ef2285eafef63ba0041f54332b63b5e0f2fb7f2b",
+  "stationarity_policy_sha256": "c81e551f20fd03c3912321cd9b7e4edb57b5cf87663fc95176ca6cd29d78c92d",
+  "expected_sessions": 3,
+  "expected_cells": 33,
+  "expected_steps": 3636,
+  "acceptance": {
+    "metric": "per-session-shape median absolute relative error",
+    "max_relative_error": 0.1,
+    "require_full_coverage": true,
+    "all_cells": true,
+    "all_repetitions": true,
+    "stationarity_required": true,
+    "warmup_is_not_accuracy_data": true,
+    "no_refit_or_threshold_changes_after_forward": true,
+    "independent_unit": "fresh acquisition process; reported steps nested; main/repeat share processes"
+  }
+}
