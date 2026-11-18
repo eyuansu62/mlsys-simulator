@@ -1,0 +1,32 @@
+{
+  "kind": "qwen4b_local_publication_software_validation_v1",
+  "frozen_engine_source_commit": "4169cbafc7b614bf5c3540647f81ab7ae45944db",
+  "measured_receipt_sha256": "2b7bb2c2a3b49613deeb04d97cfd1b22c8d98749b0280ad9bcec40995e471b82",
+  "original_evaluation_report_sha256": "678e7acdefccd936e198a75074ec6cafa1e3272c93c76c5ad7553d8a3a5c86b0",
+  "cpu_regression": {
+    "total": 1736,
+    "skipped": 6,
+    "status": "PASS"
+  },
+  "ruff": "PASS",
+  "mypy": {
+    "source_files": 86,
+    "status": "PASS"
+  },
+  "javascript_syntax": "PASS",
+  "compile": "PASS",
+  "visual_qa": {
+    "online-metrics.png": "b4ed36cc8ce492542dbe67ca7f811c9e47159ba8150f89e74d6ac7c72a4797f3",
+    "cell-errors.png": "bcd1179841931679d7db635eba9097e51dda842321731a89854778259388eb06",
+    "sample-wait-evidence.png": "40d564df05bbadef13d1d7c3c9e3b8f732f720b3e6ee967f955fa366c7884d0f"
+  },
+  "log_sha256": {
+    "unit-publication-final.log": "dc7fc3c95d0b58eef991414eec5ae94585eda4697a8aff83f099de26ae9a9943",
+    "ruff-publication-final.log": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18",
+    "mypy-publication-final.log": "4432ea8a51346dacb7344e3393565a90e4190c96071130e18ee89d6f190e5145",
+    "javascript-publication-final.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "compile-publication-final.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "published-artifact-tests.log": "71da25a20e9423f252ce2444c0be5d44db3cf803dd936fc6f0b94eafb8848694"
+  },
+  "scope": "Local software and artifact validation, separate from original hardware accuracy FAIL; final-head CI is recorded on PR13 before merge"
+}

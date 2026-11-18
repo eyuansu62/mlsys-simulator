@@ -1,0 +1,26 @@
+{
+  "constraints": {
+    "latency": {
+      "p99_e2e_ms": 500,
+      "p99_tpot_ms": 50,
+      "p99_ttft_ms": 500
+    },
+    "min_completed_samples": 512,
+    "schema_version": 1,
+    "throughput": {
+      "basis": "elapsed",
+      "min_output_tokens_per_s": 20
+    }
+  },
+  "max_relative_error": {
+    "elapsed_output_tokens_per_s": 0.15,
+    "end_to_end_p99_ms": 0.25,
+    "tpot_p99_ms": 0.25,
+    "ttft_p99_ms": 0.25
+  },
+  "min_completed_samples": 512,
+  "prediction_frozen_at": "2026-11-18T09:49:16.929114+00:00",
+  "schema_version": 1,
+  "timing_boundary": "server_token_ready_v1",
+  "prediction_payload_sha256": "6a0bb280a29443537c286db2711516e4f286873b6e2392354467429a17fd6689"
+}

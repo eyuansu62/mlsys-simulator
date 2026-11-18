@@ -1,0 +1,41 @@
+{
+  "kind": "qwen4b_public_calibration_history_v1",
+  "entries": [
+    {
+      "id": "v2-native-affinity",
+      "role": "calibration_rejected_not_forward",
+      "description": "原生线程亲和性下的连续采样；原始稳定性拒绝保留，不进入最终接受模型。",
+      "status": "REJECTED",
+      "rejection_count": 1538,
+      "formal_records": 38512,
+      "minimum_samples": 4,
+      "source_raw_sha256": "47d66130667cb112a80aa521c286ca7abc08aa561e10ac2114a467b06481eb07",
+      "source_canonical_sha256": "b595be4de3b9b1362c62d184c694786ee7afb2dd8472e9e4f7c7f2f2311274e9",
+      "published_file": "rejections/v2-native-affinity.json.gz"
+    },
+    {
+      "id": "v3-cpu10-n4",
+      "role": "calibration_rejected_not_forward",
+      "description": "固定主线程 CPU10、每 probe 四次采样；原始稳定性拒绝保留。",
+      "status": "REJECTED",
+      "rejection_count": 18,
+      "formal_records": 38512,
+      "minimum_samples": 4,
+      "source_raw_sha256": "e8a95ea7bbe741edbd3ac99ea4438b72f6f0d8402aa2c924994d33196df87ba2",
+      "source_canonical_sha256": "f410d4dcede10ddd548424879933c6736f6796533c3c1bcc904df7882bf88ddb",
+      "published_file": "rejections/v3-cpu10-n4.json.gz"
+    },
+    {
+      "id": "v4-cpu10-n8",
+      "role": "calibration_rejected_not_forward",
+      "description": "固定主线程 CPU10、每 probe 八次采样；原始稳定性拒绝保留，未放宽 1.10 门槛。",
+      "status": "REJECTED",
+      "rejection_count": 8,
+      "formal_records": 77024,
+      "minimum_samples": 8,
+      "source_raw_sha256": "72289986780e8b21beb2c9c21f9da643e1235c486d1f6163f01a2db510a8ab32",
+      "source_canonical_sha256": "3c1dffe47eac40fa32ae8f30042ae0c40744023403f399e0e5f8d20e3d1b95c7",
+      "published_file": "rejections/v4-cpu10-n8.json.gz"
+    }
+  ]
+}

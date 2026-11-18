@@ -1,0 +1,1 @@
+{"cohort":"short","concurrency_grid":[1,2,4,8,16,32],"input_lengths":[64,128],"max_run_ms":900000.0,"output_tokens":16,"prompt_token_id":100,"replications":3,"requests_per_run":512,"schema_version":1,"seed":2026111703,"study_id":"qwen4b-online-20261117","think_ms":0.0,"timeout_ms":30000.0}

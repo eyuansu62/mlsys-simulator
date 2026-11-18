@@ -1,0 +1,83 @@
+{
+  "kind": "controlled_micro_calibration_plan_v5",
+  "declared_at_utc": "2026-11-18T04:33:54.965271+00:00",
+  "role": "NEW_CALIBRATION_ONLY_NOT_HOLDOUT",
+  "source_commit": "4169cbafc7b614bf5c3540647f81ab7ae45944db",
+  "fresh_processes": 2,
+  "main_thread_cpu": 10,
+  "max_output_tokens": 16,
+  "formal_repetitions": 32,
+  "probe_warmup_repetitions": 1,
+  "pure_batches": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15,
+    16
+  ],
+  "pure_lengths": [
+    64,
+    128,
+    256,
+    512,
+    1024
+  ],
+  "mixed_batches": [
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15,
+    16
+  ],
+  "mixed_decode_count": "floor(batch/2)",
+  "mixed_initial_lengths": [
+    64,
+    1024
+  ],
+  "mixed_new_lengths": [
+    64,
+    256,
+    1024
+  ],
+  "fixed_warmup": "public fixed20 cohorts,16 outputs; close synchronizedRunner binding before micro warm probes",
+  "fit_selection": "all completed active Core steps from each initial enqueue through target full-BDecode/mixed return, including first-token bootstrap; predeclared chronology/operation only, never duration",
+  "abort_cleanup": "native internal=True after target; explicit Engine.step until scheduler finished IDs drained; allraw retained, cleanup must have noactive members and is notfit",
+  "reset_requirements": [
+    "scheduler requests/running/waiting/finished IDs0",
+    "Runner requests/input_batch IDs0",
+    "KV free same initial1364",
+    "no GPU synchronize added"
+  ],
+  "warm_pass_checks": "actual47 phase/exactB cells each>=2 distinct nominalanchors and geometry; whole round rejects on mismatch, no extra probes",
+  "normalization_checks": "every actual exactshape/session>=32 and even; rawSHA/durations/sourceorder all exact; originalfitting min8/within1.10/cross1.10 unchanged",
+  "envelope": {
+    "max_query_tokens": 1024,
+    "max_context_tokens": 1039,
+    "decode_min_context_tokens": 64,
+    "max_sequence_tokens": 2048,
+    "max_total_query_tokens": 2048
+  },
+  "full_forward_authorized": false,
+  "all_prior_failed_and_rejected_evidence_preserved": true
+}

@@ -187,8 +187,8 @@ def validate_experiment(experiment: Experiment) -> None:
                                       "swap_h2d_bandwidth_gbps"))
     if memory.gpu_memory_utilization is not None and not 0 < memory.gpu_memory_utilization <= 1:
         _invalid("strategy.memory.gpu_memory_utilization", "must be in (0, 1]")
-    if calibration.backend not in ("analytical", "synthetic", "profile"):
-        raise SimulationError("UNSUPPORTED_MECHANISM", "supported backends are analytical, synthetic and profile")
+    if calibration.backend not in ("analytical", "synthetic", "profile", "runtime"):
+        raise SimulationError("UNSUPPORTED_MECHANISM", "supported backends are analytical, synthetic, profile and runtime")
     communication_selected = (calibration.native_pp_communication_profile_path is not None
                               or bool(calibration.replica_native_pp_communication_profile_paths))
     workspace_selected = (calibration.workspace_profile_path is not None
@@ -219,7 +219,16 @@ def validate_experiment(experiment: Experiment) -> None:
     elif (calibration.native_pp_communication_profile_version
           or calibration.native_pp_communication_allow_extrapolation):
         _invalid("calibration", "native PP communication overrides require an explicitly selected Profile")
-    if calibration.backend == "profile":
+    if calibration.backend == "runtime":
+        if strategy.replicas != 1 or strategy.tensor_parallel_size != 1 or strategy.pipeline_parallel_size != 1:
+            raise SimulationError("UNSUPPORTED_MECHANISM", "runtime costs require one replica with TP1/PP1")
+        if calibration.profile_path is None or not calibration.profile_path.strip():
+            _invalid("calibration.profile_path", "runtime backend requires a Runtime cost file")
+        if calibration.replica_profile_paths or calibration.allow_extrapolation or calibration.analytical_costs:
+            _invalid("calibration", "runtime costs do not accept replica paths, extrapolation or analytical cost entries")
+        if calibration.timing_boundary != "engine_core_step_wall_v1":
+            raise SimulationError("UNSUPPORTED_MECHANISM", "runtime costs require the engine-core step-wall boundary")
+    elif calibration.backend == "profile":
         if strategy.replicas == 1:
             if calibration.profile_path is None or not calibration.profile_path.strip():
                 _invalid("calibration.profile_path", "profile backend requires a profile file")
@@ -243,7 +252,12 @@ def validate_experiment(experiment: Experiment) -> None:
         _invalid("calibration.runtime_config_sha256", "must be empty or a lowercase SHA256 hex digest")
     from .analytical_cost import validate_analytical_costs
     validate_analytical_costs(experiment)
-    if calibration.timing_boundary == "reported_l2_step_hook_wall_v1":
+    if calibration.timing_boundary == "engine_core_step_wall_v1":
+        if calibration.backend != "runtime":
+            raise SimulationError("UNSUPPORTED_MECHANISM", "Engine-core step-wall timing requires backend=runtime")
+        if not calibration.runtime_config_sha256:
+            _invalid("calibration.runtime_config_sha256", "engine-core timing requires an explicit SHA256 digest")
+    elif calibration.timing_boundary == "reported_l2_step_hook_wall_v1":
         if calibration.backend != "profile":
             raise SimulationError("UNSUPPORTED_MECHANISM", "Reported step-wall timing requires backend=profile")
         if not calibration.runtime_config_sha256:

@@ -88,7 +88,11 @@ def report_simulation(sim: Any) -> SimulationResult:
     profile = getattr(sim.performance, "profile", None)
     calibration_source = sim.exp.calibration.backend
     profile_version = sim.exp.calibration.profile_version
-    if profile is not None:
+    if profile is not None and sim.exp.calibration.backend == "runtime":
+        calibration_source = ("measured_runtime_cost" if profile["source"]["kind"] == "measured"
+                              else "test_fixture_runtime_cost")
+        profile_version = profile["calibration_id"]
+    elif profile is not None:
         calibration_source = ("measured_profile" if profile["source"]["kind"] == "measured"
                               else "test_fixture_profile")
         profile_version = profile["profile_version"]

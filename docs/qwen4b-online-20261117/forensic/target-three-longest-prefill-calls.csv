@@ -1,0 +1,4 @@
+record_id,source_order,phase,batch_size,shape,started_from_origin_ms,wall_ms,whole_call_thread_cpu_ms,wall_minus_thread_cpu_ms
+sla-63e906102b62467b9845435b073f6683:core:391,391,prefill,2,"[""prefill"",[128,64],[0,0],[""prefill"",""prefill""]]",995.171729,42.906492,42.900308,0.006183999999997525
+sla-63e906102b62467b9845435b073f6683:core:1479,1479,prefill,2,"[""prefill"",[128,64],[0,0],[""prefill"",""prefill""]]",21008.006929,41.510629,41.515306,-0.00467700000000093
+sla-63e906102b62467b9845435b073f6683:core:3015,3015,prefill,2,"[""prefill"",[128,64],[0,0],[""prefill"",""prefill""]]",49366.794478,39.038255,39.013943,0.024312000000001888

@@ -201,18 +201,45 @@ def _selected_paths(experiment: Experiment, field: str) -> tuple[str, ...]:
     return (selected,)
 
 
-def _profile_inputs(experiment: Experiment, max_bytes: int = _MAX_BYTES) -> list[dict]:
+def _runtime_cost_input(experiment: Experiment, field: str) -> bool:
+    return experiment.calibration.backend == "runtime" and field == "profile_path"
+
+
+def _validate_runtime_cost_input(experiment: Experiment, payload: dict) -> None:
+    from .runtime_cost import validate_runtime_cost_model
+    validate_runtime_cost_model(payload, experiment=experiment,
+                                allow_test_fixture=experiment.calibration.allow_test_fixture)
+
+
+def _runtime_cost_budgets() -> tuple[int, int]:
+    from .runtime_cost import _MAX_BYTES as file_limit
+
+    # A raw model and its canonical JSON are each bounded by the reader. The
+    # embedded raw_json can add quote/backslash/whitespace escaping, plus the
+    # canonical Unicode expansion. Keep a separate aggregate snapshot budget.
+    return file_limit, 3 * file_limit + 64 * 1024
+
+
+def _profile_inputs(experiment: Experiment, max_bytes: int | None = None) -> list[dict]:
+    runtime = experiment.calibration.backend == "runtime"
+    file_limit, snapshot_limit = _runtime_cost_budgets() if runtime else (_MAX_BYTES, _MAX_BYTES)
+    budget = snapshot_limit if max_bytes is None else max_bytes
     result: list[dict] = []
     for field in _PROFILE_FIELDS:
         paths = _selected_paths(experiment, field)
         for index, path in enumerate(paths):
             used = len(canonical_json(result).encode())
-            payload, raw = _read(Path(path), max(1, max_bytes - used))
+            remaining = min(file_limit, budget - used) if runtime else budget - used
+            payload, raw = _read(Path(path), max(1, remaining))
             source = _source(payload.get("source"), True)
-            result.append({"field": field, "index": index, "origin_path": str(Path(path).resolve()),
+            item = {"field": field, "index": index, "origin_path": str(Path(path).resolve()),
                 "sha256": hashlib.sha256(raw).hexdigest(), "source_kind": source["kind"],
-                "raw_json": raw.decode("utf-8")})
-            if len(canonical_json(result).encode()) > max_bytes:
+                "raw_json": raw.decode("utf-8")}
+            if _runtime_cost_input(experiment, field):
+                _validate_runtime_cost_input(experiment, payload)
+                item["reader"] = "runtime_cost_v1"
+            result.append(item)
+            if len(canonical_json(result).encode()) > budget:
                 _fail("Capacity Profile inputs exceed the complete sweep budget", "COLLECTION_OUTPUT_LIMIT")
     return result
 
@@ -220,6 +247,10 @@ def _profile_inputs(experiment: Experiment, max_bytes: int = _MAX_BYTES) -> list
 def _validate_inputs(experiment: Experiment, supplied: Any) -> list[dict]:
     if not isinstance(supplied, list) or len(supplied) > 192:
         _fail("profile_inputs must be a bounded array")
+    runtime = experiment.calibration.backend == "runtime"
+    file_limit, snapshot_limit = _runtime_cost_budgets() if runtime else (_MAX_BYTES, _MAX_BYTES)
+    if runtime and len(canonical_json(supplied).encode()) > snapshot_limit:
+        _fail("Runtime cost snapshots exceed their complete byte budget", "COLLECTION_OUTPUT_LIMIT")
     expected = {}
     for field in _PROFILE_FIELDS:
         paths = _selected_paths(experiment, field)
@@ -227,21 +258,37 @@ def _validate_inputs(experiment: Experiment, supplied: Any) -> list[dict]:
     seen = set()
     result = []
     for item in supplied:
-        item = _object(item, {"field", "index", "origin_path", "sha256", "source_kind", "raw_json"}, set(), "profile input")
+        item = _object(item, {"field", "index", "origin_path", "sha256", "source_kind", "raw_json"},
+                       {"reader"}, "profile input")
         field, index = item["field"], _integer(item["index"], "profile index")
         key = field, index
         if key not in expected or key in seen or not isinstance(item["raw_json"], str):
             _fail("Profile inputs do not match the selected configuration")
         raw = item["raw_json"].encode("utf-8")
-        if len(raw) > _MAX_BYTES or hashlib.sha256(raw).hexdigest() != _digest(item["sha256"], "profile SHA256"):
+        if runtime and len(raw) > file_limit:
+            _fail("Runtime cost snapshot exceeds its reader file limit", "COLLECTION_OUTPUT_LIMIT")
+        if len(raw) > file_limit or hashlib.sha256(raw).hexdigest() != _digest(item["sha256"], "profile SHA256"):
             _fail("Profile input bytes differ from their captured SHA256")
+        runtime_cost = _runtime_cost_input(experiment, field)
+        if (runtime_cost and item.get("reader") != "runtime_cost_v1"
+                or not runtime_cost and "reader" in item):
+            _fail("Profile snapshot reader differs from the selected backend")
+        def unique(pairs):
+            result = {}
+            for name, value in pairs:
+                if name in result:
+                    _fail("Duplicate JSON field in Runtime cost snapshot")
+                result[name] = value
+            return result
         try:
-            payload = json.loads(item["raw_json"])
+            payload = json.loads(item["raw_json"], object_pairs_hook=unique) if runtime_cost else json.loads(item["raw_json"])
         except (ValueError, TypeError) as exc:
             raise SimulationError("INVALID_CAPACITY_DATASET", "Profile snapshot must be JSON") from exc
         source = _source(payload.get("source") if isinstance(payload, dict) else None, True)
         if source["kind"] != item["source_kind"]:
             _fail("Profile input source differs from its captured bytes")
+        if runtime_cost:
+            _validate_runtime_cost_input(experiment, payload)
         _text(item["origin_path"], "profile origin_path")
         seen.add(key)
         result.append(deepcopy(item))
@@ -251,6 +298,8 @@ def _validate_inputs(experiment: Experiment, supplied: Any) -> list[dict]:
 
 
 def _bind_inputs(experiment: Experiment, inputs: list[dict], directory: Path) -> Experiment:
+    if experiment.calibration.backend == "runtime":
+        inputs = _validate_inputs(experiment, inputs)
     changes: dict[str, Any] = {}
     for item in inputs:
         path = directory / f"{item['field']}-{item['index']}.json"

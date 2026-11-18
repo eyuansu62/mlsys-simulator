@@ -24,6 +24,7 @@ from .schema import Experiment, SimulationError, StepEstimate
 
 if TYPE_CHECKING:
     from .performance import AnalyticalModel
+    from .runtime_cost import RuntimeCostModel
 
 _ADDITIVE_MODEL_FLAGS = {"tie_word_embeddings", "qk_norm", "final_norm"}
 _ADDITIVE_MODEL_FIELDS = _ADDITIVE_MODEL_FLAGS | {"architecture_config_sha256", "weight_dequant"}
@@ -184,7 +185,9 @@ def _identity(value: Any) -> dict:
                             "rccl_version": runtime["rccl_version"], "timing_boundary": runtime["timing_boundary"],
                             "runtime_config_sha256": runtime.get("runtime_config_sha256", ""),
                             **({"backend": "profile", "profile_path": "__identity_only__.json"}
-                               if runtime["timing_boundary"] == "reported_l2_step_hook_wall_v1" else {})},
+                               if runtime["timing_boundary"] == "reported_l2_step_hook_wall_v1" else {}),
+                            **({"backend": "runtime", "profile_path": "__identity_only__.json"}
+                               if runtime["timing_boundary"] == "engine_core_step_wall_v1" else {})},
         })
     except SimulationError as exc:
         raise SimulationError("INVALID_PROFILE", f"Invalid identity: {exc}") from exc
@@ -630,7 +633,10 @@ class ProfileModel:
         return result.breakdown["profile"]["workspace_peak_bytes"]
 
 
-def create_performance_model(experiment: Experiment) -> "AnalyticalModel | ProfileModel":
+def create_performance_model(experiment: Experiment) -> "AnalyticalModel | ProfileModel | RuntimeCostModel":
+    if experiment.calibration.backend == "runtime":
+        from .runtime_cost import RuntimeCostModel
+        return RuntimeCostModel(experiment)
     if experiment.calibration.backend == "profile":
         return ProfileModel(experiment)
     from .performance import AnalyticalModel
