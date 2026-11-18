@@ -1,0 +1,42 @@
+{
+  "kind": "qwen4b_v5_calibration_method_disclosure_v1",
+  "role": "CALIBRATION_NOT_FORWARD",
+  "fresh_processes": 2,
+  "formal_repetitions_per_probe": 32,
+  "minimum_observed_exact_shape_repeats_per_session": 32,
+  "max_output_tokens": 16,
+  "selection": {
+    "selection": "all completed active Core steps from each initial enqueue through target full-BDecode/mixed return, including first-token bootstrap; predeclared chronology/operation only, never duration",
+    "no_duration_selection": true,
+    "all_bootstrap_included": true,
+    "abort_cleanup_raw_retained_not_fit": true
+  },
+  "abort_cleanup": "native internal=True after target; explicit Engine.step until scheduler finished IDs drained; allraw retained, cleanup must have noactive members and is notfit",
+  "reset_requirements": [
+    "scheduler requests/running/waiting/finished IDs0",
+    "Runner requests/input_batch IDs0",
+    "KV free same initial1364",
+    "no GPU synchronize added"
+  ],
+  "declared_at_utc": "2026-11-18T04:33:54.965271+00:00",
+  "main_thread_cpu": 10,
+  "selection_rule_utf8_sha256": "646282fcdf5c85d7b2d64793a3b1e1a2b5de00412ae4278b2bd0390324bb3768",
+  "minimum_fit_gate": 8,
+  "within_shape_ratio_gate": 1.1,
+  "cross_session_ratio_gate": 1.1,
+  "files": {
+    "micro-plan-v5.json": {
+      "raw_sha256": "119f69c72c94ea7cd9022dc0141b3cd34778487fa968db036b49f23506136409",
+      "canonical_sha256": "9875ee915f32e08823d102f5e1940292127b71be207b9fd285f5f01da0fc18c7"
+    },
+    "selection-protocol.json": {
+      "raw_sha256": "3f069a35dd18908b6f381458c6c17913309f400ecb256584a3ec2a552b38eb38",
+      "canonical_sha256": "570f7f552b7c7bc3d86ad7b00572642ec9b6b5b14c1709588ae716c47161d012"
+    },
+    "calibration-v5-policy-receipt.json": {
+      "raw_sha256": "07ac76525dba03bc08de4efc47aa1c1ead3423557eda02ac14b9b4c8e59dc9b4",
+      "canonical_sha256": "f86854e4d0336cdb70cd2c3a2014cb2a85a0d046770e7302668288e8d43cae76"
+    }
+  },
+  "limitation": "Active Core prefixes, not naturally completed 16-output autoregressive calibration; abort/empty-flush/Runner-KV reset raw records remain excluded by predeclared operation, never latency"
+}

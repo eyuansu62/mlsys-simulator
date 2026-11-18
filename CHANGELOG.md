@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.24.0 — 2026-11-17
+## 1.24.0 — 2026-11-18
 
 - Opt-in `backend="runtime"` with an actual `runtime_cost_model_v1` artifact at
   `profile_path`, using the distinct `engine_core_step_wall_v1` target. Each
@@ -18,6 +18,12 @@
   exact artifact snapshots, source-deleted replay and comparison contracts.
   Existing CLI/API/Web/Agent defaults, old 0.6B Profiles and historical 4B failures
   remain; no new runtime dependencies or automatic calibration promotion.
+- Published 54 frozen online trials on RX9070XT/Qwen3-4B MRv1 eager, with
+  27,648 requests. The strict hardware accuracy verdict remains FAIL: 53/54
+  cells meet every budget; one short-C2 TTFT P99 error reaches 30.59%.
+  Maximum throughput error is 5.04%, with no SLA misclassifications. Original
+  calibration rejections and one completed but unscored interrupted acquisition
+  remain preserved; the holdout changes neither coefficients nor thresholds.
 
 ## 1.23.0 — 2026-11-17
 

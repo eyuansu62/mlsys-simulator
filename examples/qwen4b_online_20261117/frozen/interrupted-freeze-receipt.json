@@ -1,0 +1,557 @@
+{
+  "canonical_prediction_payload_sha256": {
+    "baseline": "6a0bb280a29443537c286db2711516e4f286873b6e2392354467429a17fd6689",
+    "long": "bb8f45db7c3e73d115d852a81e299c4fb232c5649473afece761d4ae5a88330b",
+    "short": "497700f6aa01c2d359759699ac3ec14c5d51907b1f8b6b7a35736214d732ef35"
+  },
+  "checkpoint_manifest": [
+    {
+      "bytes": 99,
+      "file": ".cache/huggingface/download/.gitattributes.metadata",
+      "sha256": "19339f128f528f826c93485a4156d6cf607c7e5639f8ec1b10349556734e943b"
+    },
+    {
+      "bytes": 100,
+      "file": ".cache/huggingface/download/LICENSE.metadata",
+      "sha256": "158f9b272b49cbc43e49fbd281d1b02722b5d7d1bfb7de450bc5d25b0102f873"
+    },
+    {
+      "bytes": 101,
+      "file": ".cache/huggingface/download/README.md.metadata",
+      "sha256": "5cd0dfc2a07247f1d9920d26797d7ec655ed0d11a011f8711e447879bb5ee933"
+    },
+    {
+      "bytes": 101,
+      "file": ".cache/huggingface/download/config.json.metadata",
+      "sha256": "e6264b5a859122e9c5e5a8d31726a88d3ece15ef4164c1068ca9659e2de61e6b"
+    },
+    {
+      "bytes": 101,
+      "file": ".cache/huggingface/download/generation_config.json.metadata",
+      "sha256": "a5265f8f8f40c12e193d1a480169e340bc119b29911eb290cc12291138ffee5c"
+    },
+    {
+      "bytes": 101,
+      "file": ".cache/huggingface/download/merges.txt.metadata",
+      "sha256": "78b4f48f3729a5ab3ec05d42ce498cb6c9564599502586ad3ebb69cfeb357b76"
+    },
+    {
+      "bytes": 124,
+      "file": ".cache/huggingface/download/model-00001-of-00003.safetensors.metadata",
+      "sha256": "f8d24b9dcd7ca60c8480ee6bee6332a1e1acfb3e0ee9e1b1c618aabfe069597a"
+    },
+    {
+      "bytes": 125,
+      "file": ".cache/huggingface/download/model-00002-of-00003.safetensors.metadata",
+      "sha256": "8ab59c438de6166d72291e24c9db83c8879f5dfc34fc400863bac978b4d0f869"
+    },
+    {
+      "bytes": 125,
+      "file": ".cache/huggingface/download/model-00003-of-00003.safetensors.metadata",
+      "sha256": "379e37d664f4686f35f71d7361f0d87634287bca06fd4f45f429b180a075b726"
+    },
+    {
+      "bytes": 101,
+      "file": ".cache/huggingface/download/model.safetensors.index.json.metadata",
+      "sha256": "83ae7ac3db0d58e0fe3f5c5ce20aaa93a04798ab40175fb4acade0f3741fd08b"
+    },
+    {
+      "bytes": 125,
+      "file": ".cache/huggingface/download/tokenizer.json.metadata",
+      "sha256": "07f03a946cced524000ef332fc7f4357841372a15762e58c5733f26392edf2cd"
+    },
+    {
+      "bytes": 99,
+      "file": ".cache/huggingface/download/tokenizer_config.json.metadata",
+      "sha256": "bb844c0cae715cf1b6f575da5364a90d1f985176d0d92ea227cd1936d175e758"
+    },
+    {
+      "bytes": 101,
+      "file": ".cache/huggingface/download/vocab.json.metadata",
+      "sha256": "0cf1d19a8896cfa31d68a79a08c89c1a484dc540af24784c3acc392e6cb4cd62"
+    },
+    {
+      "bytes": 2215,
+      "file": ".cache/huggingface/trees/1cfa9a7208912126459214e8b04321603b3df60c.json",
+      "sha256": "1a8579eb5625188611857bf5f457dcbce38f40b73493ea5b6d92f28a9a88a057"
+    },
+    {
+      "bytes": 726,
+      "file": "config.json",
+      "sha256": "8ba006f74fecfaaeb392872a60f4a480e7ec9860153d2e1b769ec81f9a147f8a"
+    },
+    {
+      "bytes": 239,
+      "file": "generation_config.json",
+      "sha256": "2325da0f15bb848e018c5ae071b7943332e9f871d6b60e2ed22ca97d4cb993d2"
+    },
+    {
+      "bytes": 3957900840,
+      "file": "model-00001-of-00003.safetensors",
+      "sha256": "328a91d3122359d5547f9d79521205bc0a46e1f79a792dfe650e99fc2d651223"
+    },
+    {
+      "bytes": 3987450520,
+      "file": "model-00002-of-00003.safetensors",
+      "sha256": "6cd087b316306a68c562436b5492edbcf6e16c6dba3a1308279caa5a58e21ca5"
+    },
+    {
+      "bytes": 99630640,
+      "file": "model-00003-of-00003.safetensors",
+      "sha256": "e4bf436957184f4eeb86a80e9db394503f1f56446b2e6b7edeac5b81470f4ca1"
+    },
+    {
+      "bytes": 32819,
+      "file": "model.safetensors.index.json",
+      "sha256": "6dc0981b8829fead746441f68f38f24c5ca4a3a66351f652c26c6df0efc43ab2"
+    },
+    {
+      "bytes": 11422654,
+      "file": "tokenizer.json",
+      "sha256": "aeb13307a71acd8fe81861d94ad54ab689df773318809eed3cbe794b4492dae4"
+    },
+    {
+      "bytes": 9732,
+      "file": "tokenizer_config.json",
+      "sha256": "d5d09f07b48c3086c508b30d1c9114bd1189145b74e982a265350c923acd8101"
+    },
+    {
+      "bytes": 2776833,
+      "file": "vocab.json",
+      "sha256": "ca10d7e9fb3ed18575dd1e277a2579c16d108e32f27439684afa0e10b1440910"
+    }
+  ],
+  "checkpoint_manifest_sha256": "16539acffdc3fbdd62f6b832a494d80229c3f05a829a3af677c0876e80833efd",
+  "code_files_sha256": {
+    "__init__.py": "cb4a4191f5e0d518d07f5177e10deae417d4b7ce2e7ac42fde55ac3d37b7f128",
+    "__main__.py": "935a1c1166b0c1ea35a82256345000bf2c73ded718d77773bc27a71ecce28f7d",
+    "agent_adapter.py": "5101c45583ef016bb30f3b3d3d7c24521775166fc2920fed576f45e994ff2807",
+    "agent_catalog.py": "dae805646f8dda6f56fdc9306d9ab7a77f56d693d666a713f02d381a987aeb3b",
+    "agent_contract.py": "742e2014b8f74a628f9af9797f6c4e91e29f692c56b824110bc0039fddb9830d",
+    "agent_service.py": "e44105e019b0563b1bd85f098e35cf3efee04b8a3380b1fcad843d6bf32dac66",
+    "analytical_cost.py": "6206f135e37f28cdcdd661354c3b2698a68876988d2651136baba50e26033fa7",
+    "batching.py": "3f517c478b6caef62a56a8b39b750abc7fe689ef5fc4b0c7db3a0e5c6eff57a1",
+    "calibration.py": "3c091fe0324bf8c789cf554bf9e428de6ff815448dc650e4b077474966d58720",
+    "capacity.py": "dc84e60f265078265c2d11b683849530f51e127126f7c5a36c0956b67f6cadeb",
+    "capacity_worker.py": "3bc52f9a0df8ba919dd55c87bf212bad2c7e9216619543e4248f1210012c6720",
+    "cli.py": "7dd79d48701736162d9809f71af13fd9a2a41f3430ea270f08a0909829e31c20",
+    "closed_loop_capture.py": "19895b384c2c8df2b124bb51eef67d9146a9a0a3b6bc619007e9840ae4e254aa",
+    "communication_calibration.py": "f740e7157a3a8a7474887f842082cd29b6fe0e7ec176512a4befcfabd4158663",
+    "comparison.py": "28e36b9315b8da0b657c0e147eb1e8b81bde8f87c7b89d7314263333128e3e43",
+    "config.py": "4654723432e2b67ba11454a7a5487055b2cf1f66c662a419e9e32c8830bf0ca2",
+    "constraints.py": "a6b883c0b6799eb17cc9af390216f7b66668dc01d1e961e9e6e334569c3ba785",
+    "cost_calibration.py": "88a40fef678de97af6750df07436476ee44711218559cab0a1dc5bd5a3bf74bd",
+    "cost_cli.py": "c2f6ce85e7fef85bc0e97838e0f1154fa0b233bafebd8aa321ca0cb0d5eaa812",
+    "cost_report.py": "b2e7438967e2a56bb394bed991e7d7ecca6b380fbb60d34a32567e00e6880964",
+    "course_calibration.py": "8011fe66ccd4f27dae876dc9458bd868ac58c06fb81457c9d274a60bf4470f3f",
+    "course_roofline.py": "f87c554fc21944c1c1e202be8f5352c5838f46f0969d1e03eaa575038d4a2ca0",
+    "dag.py": "86c5d0b4e9761e2eeed822c2dbb7a7d6bdf9fc4de6b0aa24bc02f4de11515c5a",
+    "engine.py": "2d179c76db18e1884265c684a1a90cc0818c1e597126a4c2362428fa89af3017",
+    "event_driver.py": "3423bd739aa17b6273735ff6cfd1e88e4df5697ea18314911f6e4a65fdf1f022",
+    "hardware.py": "7003e6f0de96e2b1389fe9447a522c25448778655ec913700e9b15e610a00bb4",
+    "hardware_validation.py": "d58f1ca9ff7cce69ca70aae891d792c643abda6dc999832c952ace4cc543720f",
+    "layout.py": "e5cf44ec76789b2757dbafbb18fc809de2edd27f6c08ad0b4dbdcdf2483a3e30",
+    "load_sweep.py": "3f7b54b315a37be05b885d7d01d9c51dc93f7eb326188ce03f50c6085e9467e9",
+    "load_validation.py": "3a7d8af3fd2abb4cf8c20eafc693422052af1f04d117784c4fcec81779b84f19",
+    "load_validation_report.py": "32605941e02ae36addb4bc60142e7b8d86eaad06f01fd2416d841045babdadee",
+    "memory.py": "ba1109d9575b2c0839a3304ddae8121c37d2e50901a457de58c132664adec20d",
+    "performance.py": "e3a6dc365ecb8bf676508e5c090fdea2be64e24a8c8256f22873661628f26a89",
+    "pipeline.py": "ed577b7809ed2d6207792c251e2554d268957f419aa4693a49a172d9f1f65ce6",
+    "pp_benchmark.py": "c1218b9cb478e2be30d56cbdd17e5f6745942f2cf525481e1bbd982f9bae9bc2",
+    "pp_benchmark_worker.py": "23530f3f732da8de6467d093e206d75b951ce5e630ede866889099f1b9428277",
+    "pp_communication.py": "1fa0b5a91c03bba86135ae4039b1e7dbd7bff6ff0204330ec3400b46a85d16e7",
+    "pp_transport.py": "7859e6f3dbfc6a3ea9a690dfa5522e4c4a2497c16ec0e17b4f680b3a2325efd5",
+    "profiles.py": "30ebcaf9479f56518c948246790342b555775e99ce050d27f5bacb221e1d72c1",
+    "qwen3.py": "ffe38d21de4025a6d6a6aa0f1fdf6a721fd3dade8f9cdbb0d3ecba703717d678",
+    "rccl_adapter.py": "603c5763eebcf383b1ffb014667086e0aec1276e18e1b9d11f33184d231fbeb9",
+    "release_adapter.py": "e01639f90696f4996b25e975ba657beaced756ae7911b120e6056345c0aeea01",
+    "replicas.py": "fb33360057ab24aad3e6dc823b3ede0a74f72d681954208bfd502f163abea3c5",
+    "reporting.py": "0dcff00f4cd29a96ed65bcd071fe701b4e7db32720ba5201cc6fc7b51ababad3",
+    "rocm_steps.py": "04e5ebb588b7a8ab7c120219b93574f513a6fa259a0973bf69b05a74352fd4f5",
+    "runtime_adapter.py": "b5286d20a5e40418d46e12f5c6a173808c12fdfb2de10d867c1d71655e406520",
+    "runtime_cost.py": "dd52c83f0d22a303e72d4aa7dc5bbe418def561c831862f501e14ebf34860a4b",
+    "runtime_cost_capture.py": "6859830da7edebe2a4c1b5ec1f841c7451fff889bfec25573a908719ec1005a0",
+    "schema.py": "4c91281a08403d2a7a614b1a4d72094a6a0cbbe837b1dcad7a44396ae532c07a",
+    "screening.py": "02e6f17dff560d28eb77a9747426c28345c05c67a4c375b2adcfdf036bd00107",
+    "sequential.py": "a1a17e28b254fcce128ccc79c7200bc776107682a1470ccd61d617e351edaf97",
+    "serialization.py": "b6ad87f2d400bfc83edbcedd969dd7e03272349be2c461a771ec417de4330f28",
+    "state.py": "21debcbcb4b9ae52b0b645b563f69dc53086b78794216df4367c8f8b5f8810e0",
+    "step_cost_calibration.py": "66be5eee9fe01ae51f8e205f8224ff10ed1849648e3445e08c276bf3eff63a58",
+    "step_profile.py": "56c71f993c8f2266fd26419899f4e61c6e0d5867abdd4630ded8d22efe4a4d4b",
+    "swap.py": "de5de637a8ff27ffb9aa86c47da887bec7055274984427b650daec1c0f16fc3e",
+    "vllm_capacity_adapter.py": "ab5db4c81adad702ad7f8a505092c55c22b238ec1d0bcc8e9c745f43e894916e",
+    "vllm_capture.py": "50bff73d5095aac5ffef7a9e07bc9cf07e556dc60b82d25d77fc9638ac9f8353",
+    "vllm_hooks.py": "fe2c6a38e609f4e7ab95e6f931f2695e866a56465cf6ed93dc04b058909f9532",
+    "vllm_sla_worker.py": "5ec0c26a206a0bbf8b101ae2fe70f59f36b8fcbedc3b1441d70f21eb8314aa01",
+    "web.py": "72eeba9d68d677af8082793fa49724cefc5e0297d03106f304d1bac70f100f67",
+    "web_assets/__init__.py": "21ed91966f64742be491a033dfbf32260da8bc64e2bcc666a4f333739645aacd",
+    "web_simulation.py": "357bd444b1cbd62ddda22ff8dee09bda0a5b57c2de45b7b5f35370a18f407eeb",
+    "workload.py": "be96d4d8c0e6f18ff296db452b06d917588e1465631815de3e9a781561fef5e1",
+    "workspace.py": "30bb96a8de08868dd959aa371decbe1d0a65c38d0ed6aa131c9240dfc206afda",
+    "workspace_capture.py": "07a01ba08e20cb5eca6d101cca5a5d61afd3224c79cc7202c5ec2257224d31c6"
+  },
+  "container_code_root": "/app/work/site/mlsys_sim",
+  "container_id": "1e36ba5a2cd0d322af268a742669ee1fafcc953371d8ca80580a76c20b303a47",
+  "container_image_id": "sha256:e0ea9a10b729573ea8598bdc073bda0ea382fe1037eec7c0761b6fa7f46baaf4",
+  "container_name": "mlsys-4b-online-ff4c4d95b9",
+  "container_owner_label": {
+    "mlsys.owner": "4b-online-20261117"
+  },
+  "container_work_root": "/app/work",
+  "experiment_sha256": "4064d4cc6b736d3d7d660e143a0b19714ec4533c62a154ff5074c860b5116007",
+  "files_sha256": {
+    "baseline.spec.json": "9dfd3107649dce47c30ca93655386ab3f6ab4b769fd89e8bdd01121ebe932133",
+    "calibration-dataset.json": "8efd00f7ef999cb4e8f53b7d46bc41461111800e67d36f22ff562eea65f890d0",
+    "calibration-experiment.json": "32c1175d79460a6e13b2358f139e0ba6c2c673de5b961a6f7da52d09ff2a1fc4",
+    "calibration-source-commitments.json": "dfb3a3393f84eb2114cf4b6b9cddf1022ffb950e2a62abeb919d88a27c651036",
+    "evaluate_forward.py": "34cde56cbb9388796ee1fe65e519015f419a96171e8295a587560fa50af88b69",
+    "experiment.json": "4064d4cc6b736d3d7d660e143a0b19714ec4533c62a154ff5074c860b5116007",
+    "forward-plan.json": "ac038006c807fe4c8d3dafac5dc59d251defeda8ec7d391277c15c2a69d0205d",
+    "forward_controller.py": "1ec35cd21a98e1c311c3acaae4abe9ab8847a24b9a2022efeff0c3afd7bb9799",
+    "freeze_course_sla_commitment.py": "36944599b61f30bdcc524d7dee2b993d0b1640e7cfa8b10bb9d6ae05269858a5",
+    "freeze_online.py": "df4feffdbfa4d6b5396530cf20321c9d67679316961559ae35a4346ee22dc8d8",
+    "gpu-preflight.json": "99265106e9999bd18e40ccb7d1d6ccb8e4482be40c29e32688ad1eb76590bd39",
+    "input-inventory.json": "f2536751fe47ebb403b44938f6e1f6cd8d6ca19adaf9979be2d4f03631646750",
+    "jobs.json": "8831bf799facfcfc8ba677dfd79cab2c9ab2b9e5159237b7956133aa58216efb",
+    "long.spec.json": "7c83ea2fac1a2f9907724d31100ae58eb5de856036b2adaf8e1c5ceb75a7e31c",
+    "prediction-completeness.json": "04551afdfb785e6a9d158029c4ef79d2f7e407756a6ff3c0dcec01beb8a63ea5",
+    "premeasurement-correction.json": "a22da4dacaa406e725961415e50018b3567e4d46f36ad267c81abd824b651768",
+    "previous-freeze-receipt.json": "ae27fc3bb542a0b955f019c937bc6c01a782cd4253b094d2f1134699c8cbdc07",
+    "primary-prediction-baseline.json.gz": "57938a1d0ea5e2aa94dacff86734f76ec02c07f3dcd7988582479c564b94dcb4",
+    "primary-prediction-long.json.gz": "92447da53a27cf9219b768ceaadc6edcc32e083af7401b3e454c3df11d289066",
+    "primary-prediction-short.json.gz": "54d93b4f3a7bc6e01e363f04a86361d2dd729f569b70f47849b3707815732369",
+    "runtime-cost-model.json": "1d377e020e3d001fc0e03e80ee25492e672def7bbb67de20e387c3f8fcd3ea4e",
+    "short.spec.json": "7122730dd9dc7251440ad173f7087f77793243d835387f3445e1d0f48a6da839",
+    "source-lineage.json": "a38f19749a343e59d524c4d78d85c7457e442b94706a42ff2c30fae4f7be20c7",
+    "training-plan.json": "119f69c72c94ea7cd9022dc0141b3cd34778487fa968db036b49f23506136409",
+    "validation-contract.template.json": "b3fbfff4535be07e80e31259a5f100974e5025388cde43396c1b6bed0e2f66c6",
+    "manifest.json": "84bbb4877e2f66c79cd8be5987685d2f0224532819df61f195317499b1442f0e",
+    "baseline.validation-contract.json": "20dea5f476a32dbc355bf18a1ce81ee09e3c2b9c7709086bfeca65cb64d0ff04",
+    "long.validation-contract.json": "61937c698322c94d1e344568226d4846fdec23848b6b0d6202498daaab84bd73",
+    "short.validation-contract.json": "1c090bdb5f5d0e3300ef5a9706ce339ccbd6cd3e96db13065532b8b6007075c4"
+  },
+  "gpu_preflight": {
+    "actual_idle_observation_performed": false,
+    "idle_consecutive_samples": 2,
+    "idle_evidence_policy": {
+      "busy_unavailable_is_zero": false,
+      "kfd_proc_path": "/sys/class/kfd/kfd/proc",
+      "readable_busy_percent": 0,
+      "require_no_owned_worker": true,
+      "require_readable_empty_kfd_proc": true,
+      "suspended_busy_error_errno": 16,
+      "suspended_power_states": [
+        "D3hot",
+        "D3cold"
+      ],
+      "suspended_runtime_status": "suspended",
+      "version": "readable_zero_or_runtime_suspended_v2"
+    },
+    "idle_max_used_bytes": 536870912,
+    "idle_max_wait_s": 120.0,
+    "idle_sample_interval_s": 0.5,
+    "kind": "qwen4b_gpu_idle_preflight_v1",
+    "max_busy_percent": 0,
+    "metadata_probe_reference": "live-gpu-model-metadata.stdout",
+    "model_path": "/mnt/public/models/Qwen3-4B",
+    "model_symlink_count": 0,
+    "model_symlink_violations": [],
+    "never_kill_other_tasks": true,
+    "pci": "0000:32:00.0",
+    "residual_process_markers": [
+      "training_worker.py",
+      "mlsys_sim.vllm_sla_worker",
+      "diagnostic_worker.py",
+      "diagnostic_worker_v2.py",
+      "live_micro_selftest_worker.py",
+      "live_micro_calibration_v5_worker.py"
+    ],
+    "sysfs_total_vram_bytes": 17095983104,
+    "threshold_role": "Root preregistered protocol thresholds; not fitted from active calibration or forward results",
+    "torch_total_memory_bytes": 17095983104,
+    "unknown_busy_or_process_inventory_is_idle": false
+  },
+  "identity": {
+    "devices": [
+      {
+        "compute_tflops": 195.0,
+        "id": "gpu0",
+        "memory_bandwidth_gbps": 640.0,
+        "memory_bytes": 17095983104,
+        "name": "AMD Radeon RX 9070 XT"
+      }
+    ],
+    "execution": {
+      "communication_buffer_bytes": 0,
+      "graph_bytes": 0,
+      "kv_block_tokens": 16,
+      "runtime_bytes": 1073741824
+    },
+    "model": {
+      "activation_bytes": 2.0,
+      "activation_dtype": "bfloat16",
+      "architecture_config_sha256": "f27adcaf3cf45423f86940d9c8b9f55c1568274b4272d63a991325a28f4a4baa",
+      "final_norm": true,
+      "head_dim": 128,
+      "hidden_size": 2560,
+      "intermediate_size": 9728,
+      "kv_bytes": 2.0,
+      "kv_dtype": "bfloat16",
+      "name": "Qwen3-4B",
+      "num_attention_heads": 32,
+      "num_kv_heads": 8,
+      "num_layers": 36,
+      "qk_norm": true,
+      "revision": "local-checkpoint-sha256:16539acffdc3fbdd62f6b832a494d80229c3f05a829a3af677c0876e80833efd",
+      "tie_word_embeddings": true,
+      "vocab_size": 151936,
+      "weight_bytes": 2.0,
+      "weight_dtype": "bfloat16"
+    },
+    "parallelism": {
+      "pipeline_parallel_size": 1,
+      "shard_plan": "megatron_dense_no_sp",
+      "stage_layers": [
+        36
+      ],
+      "tensor_parallel_size": 1
+    },
+    "runtime": {
+      "driver_version": "6.16.13",
+      "name": "vllm",
+      "rccl_version": "2.30.7",
+      "rocm_version": "10.1.0",
+      "runtime_config_sha256": "6ceb7969f1f9008abae587bfc922cb07c480539977fc97e48eda33fc70bd1509",
+      "timing_boundary": "engine_core_step_wall_v1",
+      "version": "0.29.1.dev0+g98dff2a81.d20261002"
+    },
+    "topology": {
+      "link_bandwidth_gbps": 20.0,
+      "link_latency_us": 5.0,
+      "name": "single-node-uncontended"
+    }
+  },
+  "identity_sha256": "20aaa2ce3bb5f2cbd7ca5ae361e0c4817cb1d1ae59cb94e3692335356e896d58",
+  "kind": "course_sla_prediction_freeze_receipt",
+  "local_manifest_sha256": "f2536751fe47ebb403b44938f6e1f6cd8d6ca19adaf9979be2d4f03631646750",
+  "model_container_path": "/app/models/Qwen3-4B",
+  "prediction_artifacts_sha256": {
+    "baseline": "95a8379eb9b61d2fbefc689cbbcdca0725481efbb04b9ce4d970107284737e9f",
+    "long": "465fa0e8d28f2a4d0d3ade7193ced8637ca53025bddef10c3fbbceb2f64b9869",
+    "short": "31cdb37c879a21ac80646964557d24881577869f6ea291050f465ded40d86e28"
+  },
+  "prediction_artifacts_stored_locally": true,
+  "primary_acceptance": {
+    "all_cells_all_repetitions": true,
+    "false_safe_cells_allowed": 0,
+    "max_relative_error": {
+      "elapsed_output_tokens_per_s": 0.15,
+      "end_to_end_p99_ms": 0.25,
+      "tpot_p99_ms": 0.25,
+      "ttft_p99_ms": 0.25
+    },
+    "min_completed_samples": 512
+  },
+  "runtime_config_sha256": "6ceb7969f1f9008abae587bfc922cb07c480539977fc97e48eda33fc70bd1509",
+  "runtime_execution_config": {
+    "actual_attention_backends": [
+      "ROCM_ATTN"
+    ],
+    "api_revision": "98dff2a81",
+    "async_scheduling": false,
+    "attention_config": {
+      "attention_backend": null,
+      "backend": null
+    },
+    "cache_config": {
+      "block_size": 16,
+      "cache_dtype": "auto",
+      "cpu_offload_gb": null,
+      "enable_prefix_caching": false,
+      "gpu_memory_utilization": 0.92,
+      "kv_cache_memory_bytes": 3221225472,
+      "kv_sharing_fast_prefill": false,
+      "num_gpu_blocks_override": null,
+      "swap_space": null
+    },
+    "compilation_config": {
+      "backend": "inductor",
+      "compile_sizes": [],
+      "cudagraph_capture_sizes": [],
+      "cudagraph_copy_inputs": false,
+      "cudagraph_mode": "NONE",
+      "cudagraph_num_of_warmups": 0,
+      "custom_ops": [
+        "+sparse_attn_indexer",
+        "all"
+      ],
+      "max_cudagraph_capture_size": 0,
+      "mode": 0,
+      "splitting_ops": []
+    },
+    "compilation_pass_config": {
+      "eliminate_noops": true,
+      "enable_qk_norm_rope_fusion": false,
+      "enable_sp": false,
+      "fi_allreduce_fusion_max_size_mb": null,
+      "fuse_act_padding": false,
+      "fuse_act_quant": true,
+      "fuse_allreduce_rms": null,
+      "fuse_attn_quant": false,
+      "fuse_gemm_comms": false,
+      "fuse_mla_dual_rms_norm": null,
+      "fuse_norm_quant": true,
+      "fuse_qk_norm_rope_kvcache": false,
+      "fuse_rope_kvcache": null,
+      "fuse_rope_kvcache_cat_mla": false,
+      "rope_kvcache_fusion_max_token_num": 256,
+      "sp_min_token_num": null
+    },
+    "environment": {
+      "GPU_MAX_HW_QUEUES": null,
+      "HIP_FORCE_DEV_KERNARG": "1",
+      "HSA_NO_SCRATCH_RECLAIM": "1",
+      "NCCL_ALGO": null,
+      "NCCL_PROTO": null,
+      "VLLM_ATTENTION_BACKEND": null,
+      "VLLM_ROCM_USE_AITER": null,
+      "VLLM_ROCM_USE_AITER_LINEAR": null,
+      "VLLM_ROCM_USE_AITER_MHA": null,
+      "VLLM_ROCM_USE_AITER_PAGED_ATTN": null,
+      "VLLM_ROCM_USE_AITER_RMSNORM": null,
+      "VLLM_ROCM_USE_AITER_ROPE": null,
+      "VLLM_USE_TRITON_FLASH_ATTN": null,
+      "VLLM_USE_V2_MODEL_RUNNER": "0"
+    },
+    "model_config": {
+      "enforce_eager": true,
+      "max_model_len": 2048
+    },
+    "parallel_config": {
+      "data_parallel_size": 1,
+      "decode_context_parallel_size": 1,
+      "enable_expert_parallel": false,
+      "prefill_context_parallel_size": 1,
+      "use_ubatching": false
+    },
+    "pipeline_parallel_size": 1,
+    "runtime_cost_preparation": {
+      "cpu_host": {
+        "cpu10_siblings": "10,22",
+        "cpu_governors": {
+          "policy0": "powersave",
+          "policy1": "powersave",
+          "policy10": "powersave",
+          "policy11": "powersave",
+          "policy12": "powersave",
+          "policy13": "powersave",
+          "policy14": "powersave",
+          "policy15": "powersave",
+          "policy16": "powersave",
+          "policy17": "powersave",
+          "policy18": "powersave",
+          "policy19": "powersave",
+          "policy2": "powersave",
+          "policy20": "powersave",
+          "policy21": "powersave",
+          "policy22": "powersave",
+          "policy23": "powersave",
+          "policy3": "powersave",
+          "policy4": "powersave",
+          "policy5": "powersave",
+          "policy6": "powersave",
+          "policy7": "powersave",
+          "policy8": "powersave",
+          "policy9": "powersave"
+        },
+        "cpu_model": "AMD Ryzen 9 3900X 12-Core Processor",
+        "scaling_drivers": {
+          "policy0": "amd-pstate-epp",
+          "policy1": "amd-pstate-epp",
+          "policy10": "amd-pstate-epp",
+          "policy11": "amd-pstate-epp",
+          "policy12": "amd-pstate-epp",
+          "policy13": "amd-pstate-epp",
+          "policy14": "amd-pstate-epp",
+          "policy15": "amd-pstate-epp",
+          "policy16": "amd-pstate-epp",
+          "policy17": "amd-pstate-epp",
+          "policy18": "amd-pstate-epp",
+          "policy19": "amd-pstate-epp",
+          "policy2": "amd-pstate-epp",
+          "policy20": "amd-pstate-epp",
+          "policy21": "amd-pstate-epp",
+          "policy22": "amd-pstate-epp",
+          "policy23": "amd-pstate-epp",
+          "policy3": "amd-pstate-epp",
+          "policy4": "amd-pstate-epp",
+          "policy5": "amd-pstate-epp",
+          "policy6": "amd-pstate-epp",
+          "policy7": "amd-pstate-epp",
+          "policy8": "amd-pstate-epp",
+          "policy9": "amd-pstate-epp"
+        }
+      },
+      "formal_progress": "buffered_until_end",
+      "gpu_synchronization_added": false,
+      "kind": "runtime_cost_preparation_v1",
+      "latency_adaptive": false,
+      "main_thread_cpu": 10,
+      "observer_protocol": "instrumented_engine_core_step_wall_v1",
+      "observer_source_sha256": "6859830da7edebe2a4c1b5ec1f841c7451fff889bfec25573a908719ec1005a0",
+      "scheduler_capture_required": true,
+      "warmup_batches": [
+        1,
+        4,
+        8,
+        16
+      ],
+      "warmup_output_tokens": 16,
+      "warmup_prompt_lengths": [
+        64,
+        128,
+        256,
+        512,
+        1024
+      ]
+    },
+    "sampling_policy": {
+      "frequency_penalty": 0.0,
+      "logprobs": null,
+      "min_p": 0.0,
+      "presence_penalty": 0.0,
+      "prompt_logprobs": null,
+      "repetition_penalty": 1.0,
+      "temperature": 0,
+      "top_k": 0,
+      "top_p": 1.0
+    },
+    "scheduler_config": {
+      "enable_chunked_prefill": true,
+      "long_prefill_token_threshold": 0,
+      "max_long_partial_prefills": null,
+      "max_num_batched_tokens": 2048,
+      "max_num_partial_prefills": null,
+      "max_num_seqs": 16,
+      "policy": "fcfs"
+    },
+    "tensor_parallel_size": 1,
+    "torch_build": {
+      "hip_build_version": "7.16.26385",
+      "torch_version": "2.13.0+rocm10.1.0"
+    }
+  },
+  "scheduler_config_sha256": "56fd3a49349079133b45228bd18c71226321547bf82ff217b0689c309e07d258",
+  "source_commit": "4169cbafc7b614bf5c3540647f81ab7ae45944db",
+  "source_mode": "measured_calibration",
+  "specs_sha256": {
+    "baseline": "9dfd3107649dce47c30ca93655386ab3f6ab4b769fd89e8bdd01121ebe932133",
+    "long": "7c83ea2fac1a2f9907724d31100ae58eb5de856036b2adaf8e1c5ceb75a7e31c",
+    "short": "7122730dd9dc7251440ad173f7087f77793243d835387f3445e1d0f48a6da839"
+  },
+  "study_id": "qwen4b-online-20261117",
+  "frozen_at": "2026-11-18T08:51:15.185015+00:00",
+  "remote_freeze_monotonic_ns": 173314796704299,
+  "measurement_started": false,
+  "boot_id_sha256": "ec3f2801eb56c51fafd709070c7094b0e4e27402cadcb3e39c74d419f371d44d"
+}

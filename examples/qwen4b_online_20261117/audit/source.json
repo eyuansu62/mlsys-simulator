@@ -1,0 +1,26 @@
+{
+  "kind": "qwen4b_frozen_cpu_evaluator_source_v1",
+  "original_frozen_name": "evaluate_forward.py",
+  "published_file": "evaluate_forward.py",
+  "raw_sha256": "34cde56cbb9388796ee1fe65e519015f419a96171e8295a587560fa50af88b69",
+  "manually_reviewed_raw_sha256": "34cde56cbb9388796ee1fe65e519015f419a96171e8295a587560fa50af88b69",
+  "freeze_receipt_raw_sha256": "2b7bb2c2a3b49613deeb04d97cfd1b22c8d98749b0280ad9bcec40995e471b82",
+  "library_source_commit": "4169cbafc7b614bf5c3540647f81ab7ae45944db",
+  "source_commit_scope": "The Git commit identifies the simulator library; this ancillary evaluator is identified by its separately frozen bytes and SHA, not claimed to be in that commit",
+  "role": "Independent raw-evidence CPU audit; no sampling, fitting, arrival-replayed prediction or GPU launch",
+  "dependencies": [
+    "__future__",
+    "argparse",
+    "csv",
+    "datetime",
+    "decimal",
+    "gzip",
+    "hashlib",
+    "json",
+    "math",
+    "pathlib",
+    "random",
+    "re",
+    "typing"
+  ]
+}

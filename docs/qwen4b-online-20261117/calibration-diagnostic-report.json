@@ -1,0 +1,460 @@
+{
+  "all_integrity_checks_pass": true,
+  "cells": [
+    {
+      "cohort": "baseline",
+      "comparison": {
+        "false_safe": false,
+        "false_unsafe": false,
+        "measured_sla": "safe",
+        "metric_pass": {
+          "elapsed_output_tokens_per_s": true,
+          "end_to_end_p99_ms": true,
+          "tpot_p99_ms": true,
+          "ttft_p99_ms": true
+        },
+        "predicted_sla": "safe",
+        "relative_errors": {
+          "elapsed_output_tokens_per_s": 0.04082354972982289,
+          "end_to_end_p99_ms": 0.003860991022484653,
+          "tpot_p99_ms": 0.021221357886830484,
+          "ttft_p99_ms": 0.05425555071316197
+        },
+        "status": "PASS",
+        "unknown": false
+      },
+      "concurrency": 4,
+      "integrity_error": null,
+      "label": "baseline-c4",
+      "measured": {
+        "completed_requests": 128,
+        "elapsed_ms": 10767.625639,
+        "elapsed_output_tokens_per_s": 190.19977743117374,
+        "elapsed_requests_per_s": 11.887486089448359,
+        "end_to_end_p99_ms": 349.46033093,
+        "output_tokens": 2048,
+        "tpot_p99_ms": 18.6723042,
+        "ttft_p99_ms": 72.72317023000001
+      },
+      "predicted": {
+        "completed_requests": 128,
+        "elapsed_ms": 11225.907012173846,
+        "elapsed_output_tokens_per_s": 182.43514735861098,
+        "elapsed_requests_per_s": 11.402196709913186,
+        "end_to_end_p99_ms": 350.80959413043524,
+        "output_tokens": 2048,
+        "tpot_p99_ms": 18.27605255000003,
+        "ttft_p99_ms": 76.66880588043568
+      },
+      "replication": 0,
+      "role": "CALIBRATION_DIAGNOSTIC_NOT_HOLDOUT"
+    },
+    {
+      "cohort": "baseline",
+      "comparison": {
+        "false_safe": false,
+        "false_unsafe": true,
+        "measured_sla": "safe",
+        "metric_pass": {
+          "elapsed_output_tokens_per_s": true,
+          "end_to_end_p99_ms": true,
+          "tpot_p99_ms": true,
+          "ttft_p99_ms": true
+        },
+        "predicted_sla": "unsafe",
+        "relative_errors": {
+          "elapsed_output_tokens_per_s": 0.025743554583398973,
+          "end_to_end_p99_ms": 0.023198085045276432,
+          "tpot_p99_ms": 0.015902097691036617,
+          "ttft_p99_ms": 0.031817595158447655
+        },
+        "status": "PASS",
+        "unknown": false
+      },
+      "concurrency": 8,
+      "integrity_error": null,
+      "label": "baseline-c8",
+      "measured": {
+        "completed_requests": 128,
+        "elapsed_ms": 7858.948916,
+        "elapsed_output_tokens_per_s": 260.5946446388633,
+        "elapsed_requests_per_s": 16.287165289928957,
+        "end_to_end_p99_ms": 492.73280420000003,
+        "output_tokens": 2048,
+        "tpot_p99_ms": 23.784602133333333,
+        "ttft_p99_ms": 137.35068520000002
+      },
+      "predicted": {
+        "completed_requests": 128,
+        "elapsed_ms": 8066.612187142822,
+        "elapsed_output_tokens_per_s": 253.88601218046128,
+        "elapsed_requests_per_s": 15.86787576127883,
+        "end_to_end_p99_ms": 504.1632616964292,
+        "output_tokens": 2048,
+        "tpot_p99_ms": 24.162827200000038,
+        "ttft_p99_ms": 141.720853696429
+      },
+      "replication": 0,
+      "role": "CALIBRATION_DIAGNOSTIC_NOT_HOLDOUT"
+    },
+    {
+      "cohort": "baseline",
+      "comparison": {
+        "false_safe": false,
+        "false_unsafe": false,
+        "measured_sla": "unsafe",
+        "metric_pass": {
+          "elapsed_output_tokens_per_s": true,
+          "end_to_end_p99_ms": true,
+          "tpot_p99_ms": true,
+          "ttft_p99_ms": true
+        },
+        "predicted_sla": "unsafe",
+        "relative_errors": {
+          "elapsed_output_tokens_per_s": 0.02900852848919635,
+          "end_to_end_p99_ms": 0.04941813488890632,
+          "tpot_p99_ms": 0.033961331447817766,
+          "ttft_p99_ms": 0.06353818084799863
+        },
+        "status": "PASS",
+        "unknown": false
+      },
+      "concurrency": 16,
+      "integrity_error": null,
+      "label": "baseline-c16",
+      "measured": {
+        "completed_requests": 128,
+        "elapsed_ms": 5075.761343,
+        "elapsed_output_tokens_per_s": 403.4862676954668,
+        "elapsed_requests_per_s": 25.217891730966674,
+        "end_to_end_p99_ms": 763.85262191,
+        "output_tokens": 2048,
+        "tpot_p99_ms": 39.31426764133333,
+        "ttft_p99_ms": 279.97884063
+      },
+      "predicted": {
+        "completed_requests": 128,
+        "elapsed_ms": 5227.4005405036405,
+        "elapsed_output_tokens_per_s": 391.7817248040233,
+        "elapsed_requests_per_s": 24.486357800251458,
+        "end_to_end_p99_ms": 801.6007938147932,
+        "output_tokens": 2048,
+        "tpot_p99_ms": 40.64943251532887,
+        "ttft_p99_ms": 297.7681868395619
+      },
+      "replication": 0,
+      "role": "CALIBRATION_DIAGNOSTIC_NOT_HOLDOUT"
+    },
+    {
+      "cohort": "short",
+      "comparison": {
+        "false_safe": false,
+        "false_unsafe": false,
+        "measured_sla": "safe",
+        "metric_pass": {
+          "elapsed_output_tokens_per_s": true,
+          "end_to_end_p99_ms": true,
+          "tpot_p99_ms": true,
+          "ttft_p99_ms": true
+        },
+        "predicted_sla": "safe",
+        "relative_errors": {
+          "elapsed_output_tokens_per_s": 0.03728638487359795,
+          "end_to_end_p99_ms": 0.0008519058542681325,
+          "tpot_p99_ms": 0.02878606120908758,
+          "ttft_p99_ms": 0.06648200559957562
+        },
+        "status": "PASS",
+        "unknown": false
+      },
+      "concurrency": 4,
+      "integrity_error": null,
+      "label": "short-c4",
+      "measured": {
+        "completed_requests": 128,
+        "elapsed_ms": 9470.130452,
+        "elapsed_output_tokens_per_s": 216.25890059069695,
+        "elapsed_requests_per_s": 13.51618128691856,
+        "end_to_end_p99_ms": 312.7295606,
+        "output_tokens": 2048,
+        "tpot_p99_ms": 18.8177412,
+        "ttft_p99_ms": 35.93342973
+      },
+      "predicted": {
+        "completed_requests": 128,
+        "elapsed_ms": 9836.913390652104,
+        "elapsed_output_tokens_per_s": 208.19538799093107,
+        "elapsed_requests_per_s": 13.012211749433192,
+        "end_to_end_p99_ms": 312.4631444565222,
+        "output_tokens": 2048,
+        "tpot_p99_ms": 18.27605255000003,
+        "ttft_p99_ms": 38.32235620652182
+      },
+      "replication": 0,
+      "role": "CALIBRATION_DIAGNOSTIC_NOT_HOLDOUT"
+    },
+    {
+      "cohort": "short",
+      "comparison": {
+        "false_safe": false,
+        "false_unsafe": false,
+        "measured_sla": "safe",
+        "metric_pass": {
+          "elapsed_output_tokens_per_s": true,
+          "end_to_end_p99_ms": true,
+          "tpot_p99_ms": true,
+          "ttft_p99_ms": true
+        },
+        "predicted_sla": "safe",
+        "relative_errors": {
+          "elapsed_output_tokens_per_s": 0.035465859579315515,
+          "end_to_end_p99_ms": 0.002344555197192019,
+          "tpot_p99_ms": 0.016773482288971304,
+          "ttft_p99_ms": 0.003768833940824667
+        },
+        "status": "PASS",
+        "unknown": false
+      },
+      "concurrency": 8,
+      "integrity_error": null,
+      "label": "short-c8",
+      "measured": {
+        "completed_requests": 128,
+        "elapsed_ms": 6467.965191,
+        "elapsed_output_tokens_per_s": 316.63744926298256,
+        "elapsed_requests_per_s": 19.78984057893641,
+        "end_to_end_p99_ms": 423.85788952999997,
+        "output_tokens": 2048,
+        "tpot_p99_ms": 24.575036133333334,
+        "ttft_p99_ms": 62.64533963
+      },
+      "predicted": {
+        "completed_requests": 128,
+        "elapsed_ms": 6705.791863602649,
+        "elapsed_output_tokens_per_s": 305.407629949869,
+        "elapsed_requests_per_s": 19.08797687186681,
+        "end_to_end_p99_ms": 424.85164774776837,
+        "output_tokens": 2048,
+        "tpot_p99_ms": 24.162827200000038,
+        "ttft_p99_ms": 62.40923974776797
+      },
+      "replication": 0,
+      "role": "CALIBRATION_DIAGNOSTIC_NOT_HOLDOUT"
+    },
+    {
+      "cohort": "short",
+      "comparison": {
+        "false_safe": false,
+        "false_unsafe": false,
+        "measured_sla": "safe",
+        "metric_pass": {
+          "elapsed_output_tokens_per_s": true,
+          "end_to_end_p99_ms": true,
+          "tpot_p99_ms": true,
+          "ttft_p99_ms": true
+        },
+        "predicted_sla": "safe",
+        "relative_errors": {
+          "elapsed_output_tokens_per_s": 0.024534018618543166,
+          "end_to_end_p99_ms": 0.021981135613196725,
+          "tpot_p99_ms": 0.018429187033088632,
+          "ttft_p99_ms": 0.03325783938767369
+        },
+        "status": "PASS",
+        "unknown": false
+      },
+      "concurrency": 16,
+      "integrity_error": null,
+      "label": "short-c16",
+      "measured": {
+        "completed_requests": 128,
+        "elapsed_ms": 3707.110829,
+        "elapsed_output_tokens_per_s": 552.4517864367308,
+        "elapsed_requests_per_s": 34.528236652295675,
+        "end_to_end_p99_ms": 475.56700113,
+        "output_tokens": 2048,
+        "tpot_p99_ms": 24.110207133333333,
+        "ttft_p99_ms": 113.91389413
+      },
+      "predicted": {
+        "completed_requests": 128,
+        "elapsed_ms": 3800.3486536249907,
+        "elapsed_output_tokens_per_s": 538.8979240224446,
+        "elapsed_requests_per_s": 33.68112025140279,
+        "end_to_end_p99_ms": 486.0205038749998,
+        "output_tokens": 2048,
+        "tpot_p99_ms": 24.55453865000004,
+        "ttft_p99_ms": 117.70242412500001
+      },
+      "replication": 0,
+      "role": "CALIBRATION_DIAGNOSTIC_NOT_HOLDOUT"
+    },
+    {
+      "cohort": "long",
+      "comparison": {
+        "false_safe": false,
+        "false_unsafe": false,
+        "measured_sla": "unsafe",
+        "metric_pass": {
+          "elapsed_output_tokens_per_s": true,
+          "end_to_end_p99_ms": true,
+          "tpot_p99_ms": true,
+          "ttft_p99_ms": true
+        },
+        "predicted_sla": "unsafe",
+        "relative_errors": {
+          "elapsed_output_tokens_per_s": 0.011953183211638971,
+          "end_to_end_p99_ms": 0.007191951676969246,
+          "tpot_p99_ms": 0.028725312585489576,
+          "ttft_p99_ms": 0.017672204836070283
+        },
+        "status": "PASS",
+        "unknown": false
+      },
+      "concurrency": 4,
+      "integrity_error": null,
+      "label": "long-c4",
+      "measured": {
+        "completed_requests": 128,
+        "elapsed_ms": 15732.275796,
+        "elapsed_output_tokens_per_s": 130.17824163244794,
+        "elapsed_requests_per_s": 8.136140102027996,
+        "end_to_end_p99_ms": 632.1040716500002,
+        "output_tokens": 2048,
+        "tpot_p99_ms": 32.734323063333335,
+        "ttft_p99_ms": 271.98310517000016
+      },
+      "predicted": {
+        "completed_requests": 128,
+        "elapsed_ms": 15546.446275380475,
+        "elapsed_output_tokens_per_s": 131.7342860048496,
+        "elapsed_requests_per_s": 8.2333928753031,
+        "end_to_end_p99_ms": 627.5580097118778,
+        "output_tokens": 2048,
+        "tpot_p99_ms": 31.794019401064684,
+        "ttft_p99_ms": 267.17656402348547
+      },
+      "replication": 0,
+      "role": "CALIBRATION_DIAGNOSTIC_NOT_HOLDOUT"
+    },
+    {
+      "cohort": "long",
+      "comparison": {
+        "false_safe": false,
+        "false_unsafe": false,
+        "measured_sla": "unsafe",
+        "metric_pass": {
+          "elapsed_output_tokens_per_s": true,
+          "end_to_end_p99_ms": true,
+          "tpot_p99_ms": true,
+          "ttft_p99_ms": true
+        },
+        "predicted_sla": "unsafe",
+        "relative_errors": {
+          "elapsed_output_tokens_per_s": 0.00041422667020432093,
+          "end_to_end_p99_ms": 0.021786163310068926,
+          "tpot_p99_ms": 0.01676808151138269,
+          "ttft_p99_ms": 0.020038662032005067
+        },
+        "status": "PASS",
+        "unknown": false
+      },
+      "concurrency": 8,
+      "integrity_error": null,
+      "label": "long-c8",
+      "measured": {
+        "completed_requests": 128,
+        "elapsed_ms": 12367.548175,
+        "elapsed_output_tokens_per_s": 165.5946652498081,
+        "elapsed_requests_per_s": 10.349666578113005,
+        "end_to_end_p99_ms": 1124.2412033599999,
+        "output_tokens": 2048,
+        "tpot_p99_ms": 51.38825954666667,
+        "ttft_p99_ms": 477.99133436
+      },
+      "predicted": {
+        "completed_requests": 128,
+        "elapsed_ms": 12362.427327892325,
+        "elapsed_output_tokens_per_s": 165.66325897659812,
+        "elapsed_requests_per_s": 10.353953686037382,
+        "end_to_end_p99_ms": 1099.7483009036905,
+        "output_tokens": 2048,
+        "tpot_p99_ms": 50.52657702186007,
+        "ttft_p99_ms": 468.4130275565328
+      },
+      "replication": 0,
+      "role": "CALIBRATION_DIAGNOSTIC_NOT_HOLDOUT"
+    },
+    {
+      "cohort": "long",
+      "comparison": {
+        "false_safe": false,
+        "false_unsafe": false,
+        "measured_sla": "unsafe",
+        "metric_pass": {
+          "elapsed_output_tokens_per_s": true,
+          "end_to_end_p99_ms": true,
+          "tpot_p99_ms": true,
+          "ttft_p99_ms": true
+        },
+        "predicted_sla": "unsafe",
+        "relative_errors": {
+          "elapsed_output_tokens_per_s": 0.027741289941050268,
+          "end_to_end_p99_ms": 0.03466276858880167,
+          "tpot_p99_ms": 0.05030994768395166,
+          "ttft_p99_ms": 0.05495861292311847
+        },
+        "status": "PASS",
+        "unknown": false
+      },
+      "concurrency": 16,
+      "integrity_error": null,
+      "label": "long-c16",
+      "measured": {
+        "completed_requests": 128,
+        "elapsed_ms": 9741.901048,
+        "elapsed_output_tokens_per_s": 210.22590867112655,
+        "elapsed_requests_per_s": 13.13911929194541,
+        "end_to_end_p99_ms": 2047.3351817900007,
+        "output_tokens": 2048,
+        "tpot_p99_ms": 78.13540287533334,
+        "ttft_p99_ms": 1069.3517301000004
+      },
+      "predicted": {
+        "completed_requests": 128,
+        "elapsed_ms": 9478.942943470513,
+        "elapsed_output_tokens_per_s": 216.05784655669302,
+        "elapsed_requests_per_s": 13.503615409793314,
+        "end_to_end_p99_ms": 1976.3688761599017,
+        "output_tokens": 2048,
+        "tpot_p99_ms": 74.20441484441083,
+        "ttft_p99_ms": 1010.5816422867674
+      },
+      "replication": 0,
+      "role": "CALIBRATION_DIAGNOSTIC_NOT_HOLDOUT"
+    }
+  ],
+  "evaluator_source_sha256": "34cde56cbb9388796ee1fe65e519015f419a96171e8295a587560fa50af88b69",
+  "independent_acceptance": false,
+  "kind": "qwen4b_calibration_diagnostic_report_v4",
+  "model_sha256": "afd24539c6e2ddc5e956bd6b8efc40382103f490e3b06a060d1fd5326273cb4a",
+  "note": "These new training diagnostics may locate model/scheduler defects. They are not the declared unseen54cell forward acceptance.",
+  "prediction_commitments_verified": true,
+  "role": "CALIBRATION_DIAGNOSTIC_NOT_HOLDOUT",
+  "runtime_config_sha256": "6ceb7969f1f9008abae587bfc922cb07c480539977fc97e48eda33fc70bd1509",
+  "runtime_session_counts": {
+    "sla-1b118581a3744ae6b190d2b0bb5b8c1d": 1,
+    "sla-4385533a707a4f918653f72511eb3cac": 1,
+    "sla-5142e456c23344a5acd83bdd50e8a082": 1,
+    "sla-623b46a27e70406ba11bd38ec228ff75": 1,
+    "sla-8090a5f723834814a94771d33a907736": 1,
+    "sla-c4c25bee5f8f4ccb961a62f5b5afae0c": 1,
+    "sla-d223e1f92880411abbb1a828da44cd1c": 1,
+    "sla-ded3d48ad04848eea80c553e2f7d4c90": 1,
+    "sla-ff622eb39b75414587a04bc442a120f3": 1
+  },
+  "training_sessions": [
+    "micro5-a-38aa8fc651184c58bcb08ff8508e693b",
+    "micro5-b-543dd7b04fdc40098555aafadeb5ae9e"
+  ]
+}

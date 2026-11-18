@@ -1,0 +1,155 @@
+{
+  "schema_version": 1,
+  "kind": "qwen4b_original_runtime_cpu_regression_v1",
+  "source_commit": "4169cbafc7b614bf5c3540647f81ab7ae45944db",
+  "runtime_model": {
+    "raw_sha256": "1d377e020e3d001fc0e03e80ee25492e672def7bbb67de20e387c3f8fcd3ea4e",
+    "model_sha256": "afd24539c6e2ddc5e956bd6b8efc40382103f490e3b06a060d1fd5326273cb4a",
+    "parameters_sha256": "3975a62adc206efc9dbe29f62a98668cf5291761b25155247d81d92008c1112f"
+  },
+  "training_record_count": 33088,
+  "parameter_count": 47,
+  "timing_boundary": "engine_core_step_wall_v1",
+  "hardware_validated": false,
+  "scope": "CPU artifact regression only; not new hardware, Workspace capacity, or prediction-accuracy validation",
+  "reference": {
+    "kind": "accepted_model_existing_cpu_replay",
+    "python_version": "3.14.3",
+    "selection": "One actual training geometry per phase at batch4 and batch5, selected from the completed 248-shape replay; no forward measurements or fitting"
+  },
+  "queries": [
+    {
+      "context_lengths": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "phase": "prefill",
+      "query_id": "bc4f701af24671d0eca76d50db4408db7b953a1250c083e206e94702a0cb2021",
+      "query_tokens": [
+        128,
+        128,
+        128,
+        128
+      ],
+      "stage_index": 0,
+      "duration_ms": 42.58307283695651,
+      "workspace_peak_bytes": null
+    },
+    {
+      "context_lengths": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "phase": "prefill",
+      "query_id": "9ad83a9db4326bdff107a7222cec24574a7523b9a8a093e6a190477e2236a161",
+      "query_tokens": [
+        128,
+        128,
+        128,
+        128,
+        128
+      ],
+      "stage_index": 0,
+      "duration_ms": 51.59325057142858,
+      "workspace_peak_bytes": null
+    },
+    {
+      "context_lengths": [
+        1026,
+        1026,
+        1025,
+        1024
+      ],
+      "phase": "decode",
+      "query_id": "91b4311371b22e6cabb5d65631d3e0e6dbf2451b56b8261c6a6ed3ca8bdf246e",
+      "query_tokens": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "stage_index": 0,
+      "duration_ms": 18.27605255,
+      "workspace_peak_bytes": null
+    },
+    {
+      "context_lengths": [
+        1026,
+        1026,
+        1025,
+        1024,
+        1024
+      ],
+      "phase": "decode",
+      "query_id": "bf1b6015561e97fa053bf1f75fc840aa90bd119a81c4a5d53861a189115e258a",
+      "query_tokens": [
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      "stage_index": 0,
+      "duration_ms": 18.676620615867304,
+      "workspace_peak_bytes": null
+    },
+    {
+      "context_lengths": [
+        1024,
+        1024,
+        0,
+        0
+      ],
+      "phase": "mixed",
+      "query_id": "d816fc6802f57229f47bf2b7c6a101d222a98090c2dbb666d2e3e4822ccf7c2d",
+      "query_tokens": [
+        1,
+        1,
+        1024,
+        1022
+      ],
+      "request_phases": [
+        "decode",
+        "decode",
+        "prefill",
+        "prefill"
+      ],
+      "stage_index": 0,
+      "duration_ms": 159.27445832600847,
+      "workspace_peak_bytes": null
+    },
+    {
+      "context_lengths": [
+        1024,
+        1024,
+        0,
+        0,
+        0
+      ],
+      "phase": "mixed",
+      "query_id": "3f0860b7f2f69e89b646cf521c377cdd83d94a5125fc118b940d20bd962856cf",
+      "query_tokens": [
+        1,
+        1,
+        256,
+        256,
+        256
+      ],
+      "request_phases": [
+        "decode",
+        "decode",
+        "prefill",
+        "prefill",
+        "prefill"
+      ],
+      "stage_index": 0,
+      "duration_ms": 69.6214977136503,
+      "workspace_peak_bytes": null
+    }
+  ]
+}

@@ -1,0 +1,6 @@
+{
+  "selection": "all completed active Core steps from each initial enqueue through target full-BDecode/mixed return, including first-token bootstrap; predeclared chronology/operation only, never duration",
+  "no_duration_selection": true,
+  "all_bootstrap_included": true,
+  "abort_cleanup_raw_retained_not_fit": true
+}

@@ -54,7 +54,14 @@ Reports contain HTML/CSV/SVG and explicit prediction provenance. The 52-node
 32B/7B candidate example is a frozen synthetic teaching trace; empirical load
 boundaries and declared hardware rates do not establish real deployment accuracy.
 
-The [RX9070XT/Qwen3-4B course study](docs/course-sla-9070xt-20261111/README.md)
+The newer [Qwen3-4B online Core-cost study](docs/qwen4b-online-20261117/README.md)
+retains 54 frozen-prediction trials, 27,648 requests and all earlier rejected or
+interrupted attempts. Its strict accuracy verdict is **FAIL**: 53/54 cells meet
+every error budget; one short-prompt C2 repeat has 30.59% TTFT P99 error against
+the 25% limit. Throughput error is at most 5.04%, and all 54 SLA classifications
+agree. Calibration coefficients and thresholds were not changed using the holdout.
+
+The earlier [RX9070XT/Qwen3-4B course study](docs/course-sla-9070xt-20261111/README.md)
 retains 39 fresh-Runtime cohorts and 39,000 completed requests after a remote
 prediction-hash commitment. Collection passed, but the imported primitive model
 missed its preregistered accuracy targets: its predicted safe client cap was 16,
@@ -174,7 +181,7 @@ The optional native collector supports fixed nonadaptive preparation and quiet
 formal progress. See [EngineCore costs](docs/runtime-core-costs.md).
 The older 0.6B Profile and the failed 4B 39-cohort study keep their original
 boundaries and conclusions; neither the default Web nor Agent catalog silently
-switches to this backend. No new hardware-accuracy result follows from the feature.
+switches to this backend. Selecting it alone grants no general hardware-accuracy claim.
 
 ## Run pipeline and CPU swap examples
 

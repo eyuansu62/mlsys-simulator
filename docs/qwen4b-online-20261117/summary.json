@@ -1,0 +1,320 @@
+{
+  "schema_version": 1,
+  "kind": "qwen4b_online_public_summary_v1",
+  "status": "FAIL",
+  "expected_cells": 54,
+  "evaluated_cells": 54,
+  "passing_cells": 53,
+  "fresh_runtime_sessions": 54,
+  "reported_runtime_sessions": 54,
+  "measured_requests": 27648,
+  "measured_output_tokens": 442368,
+  "false_safe_cells": 0,
+  "false_unsafe_cells": 0,
+  "unknown_cells": 0,
+  "expected_requests": 27648,
+  "expected_output_tokens": 442368,
+  "metrics": {
+    "ttft_p99_ms": {
+      "cell_mape": 0.06044950575599079,
+      "max_cell_relative_error": 0.30588205882648445,
+      "evaluable_cells": 54,
+      "pass_cells": 53,
+      "expected_cells": 54,
+      "limit": 0.25
+    },
+    "tpot_p99_ms": {
+      "cell_mape": 0.04465540118228666,
+      "max_cell_relative_error": 0.23742278441399967,
+      "evaluable_cells": 54,
+      "pass_cells": 54,
+      "expected_cells": 54,
+      "limit": 0.25
+    },
+    "end_to_end_p99_ms": {
+      "cell_mape": 0.033414970070052424,
+      "max_cell_relative_error": 0.2303115155890707,
+      "evaluable_cells": 54,
+      "pass_cells": 54,
+      "expected_cells": 54,
+      "limit": 0.25
+    },
+    "elapsed_output_tokens_per_s": {
+      "cell_mape": 0.024351309287768595,
+      "max_cell_relative_error": 0.05038698185460826,
+      "evaluable_cells": 54,
+      "pass_cells": 54,
+      "expected_cells": 54,
+      "limit": 0.15
+    }
+  },
+  "safe_grid_points": {
+    "baseline": {
+      "predicted_sla": {
+        "largest_all_repeat_safe_observed_grid_point": 4,
+        "safe_grid_nonmonotonic": false,
+        "global_capacity_established": false,
+        "interpolated": false
+      },
+      "measured_sla": {
+        "largest_all_repeat_safe_observed_grid_point": 4,
+        "safe_grid_nonmonotonic": false,
+        "global_capacity_established": false,
+        "interpolated": false
+      }
+    },
+    "short": {
+      "predicted_sla": {
+        "largest_all_repeat_safe_observed_grid_point": 16,
+        "safe_grid_nonmonotonic": false,
+        "global_capacity_established": false,
+        "interpolated": false
+      },
+      "measured_sla": {
+        "largest_all_repeat_safe_observed_grid_point": 16,
+        "safe_grid_nonmonotonic": false,
+        "global_capacity_established": false,
+        "interpolated": false
+      }
+    },
+    "long": {
+      "predicted_sla": {
+        "largest_all_repeat_safe_observed_grid_point": 2,
+        "safe_grid_nonmonotonic": false,
+        "global_capacity_established": false,
+        "interpolated": false
+      },
+      "measured_sla": {
+        "largest_all_repeat_safe_observed_grid_point": 2,
+        "safe_grid_nonmonotonic": false,
+        "global_capacity_established": false,
+        "interpolated": false
+      }
+    }
+  },
+  "source_commit": "4169cbafc7b614bf5c3540647f81ab7ae45944db",
+  "host_frozen_at_utc": "2026-11-18T09:49:16.929114+00:00",
+  "freeze_receipt_raw_sha256": "2b7bb2c2a3b49613deeb04d97cfd1b22c8d98749b0280ad9bcec40995e471b82",
+  "runtime_config_sha256": "6ceb7969f1f9008abae587bfc922cb07c480539977fc97e48eda33fc70bd1509",
+  "model_sha256": "afd24539c6e2ddc5e956bd6b8efc40382103f490e3b06a060d1fd5326273cb4a",
+  "calibration_records": 33088,
+  "calibration_sessions": 2,
+  "calibration_policy_sha256": "21d1e73905744813d0f7259954957d068dcb6adea770828c03ada55cf9214f96",
+  "hardware_validated": false,
+  "scoped_hardware_measurement_performed": true,
+  "refitted_on_forward": false,
+  "software_evidence": {
+    "kind": "qwen4b_software_evidence_v1",
+    "source_commit": "4169cbafc7b614bf5c3540647f81ab7ae45944db",
+    "cpu_regression": {
+      "total": 1732,
+      "skipped": 6,
+      "status": "PASS"
+    },
+    "runtime_cpu_tests": {
+      "total": 51,
+      "status": "PASS"
+    },
+    "ruff": "PASS",
+    "mypy": {
+      "source_files": 86,
+      "status": "PASS"
+    },
+    "javascript_syntax": "PASS",
+    "wheel_sdist_twine_installed_smoke": "PASS",
+    "ci": {
+      "head_commit": "4169cbafc7b614bf5c3540647f81ab7ae45944db",
+      "checks": 10,
+      "all_success": true,
+      "urls": [
+        "https://github.com/eyuansu62/mlsys-simulator/actions/runs/44236846823",
+        "https://github.com/eyuansu62/mlsys-simulator/actions/runs/44236853146"
+      ]
+    },
+    "log_sha256": {
+      "unit-abort-final.log": "ae9e68cc274e46875c6ca8282642c940563d84781f4f47e91555d374e34398ea",
+      "runtime-numeric-tests.log": "bbd3c862b4aa0bcded0341e7bb7fd92aca3dd36635a5f20ff043d13a3ecaf1f7",
+      "build-source4169.log": "f0e3acaae2e08805ff6340b536df6cae2150e6cb3ee9d40d5ea5da0896dd5a4d",
+      "package-source4169.log": "4fa43852787dcd8b90beba66a90d505e9d11da1f5b171427895556983d3da586",
+      "twine-source4169.log": "3e8d5a789ba1bc6821556314df98d732ad38bc81c9a2e21ee1a9d0f3307c7a42",
+      "ci-4169-watch.log": "02ba2fe6885cf40ea304f021bb3f9b2da2ec0de2583d50fe3f023f6430e28922"
+    },
+    "scope": "Software implementation checks; does not promote unfinished or failed hardware accuracy. Final data regressions and final-head CI must be recorded separately before merge.",
+    "distribution_sha256": {
+      "mlsys_simulator-1.24.0-py3-none-any.whl": "f4bccfc7390a26437feab12889b9b09d676cbca6c22dc37418f4054b6367d572",
+      "mlsys_simulator-1.24.0.tar.gz": "90b1072b238de5acd950243ae9aba846d35ccc0d26199e697483ce45b5d3ccdc"
+    }
+  },
+  "metric_scope": "Per-cell request P99 and finite-cohort elapsed throughput; scalar-error means are conditional on evaluable cells, never coverage substitutes",
+  "limits": [
+    "512-request empirical P99 has about five tail observations; no population confidence guarantee",
+    "Only the frozen Qwen3-4B MRv1 eager measured domain, including its declared CPU affinity, is evaluated",
+    "Integrity failures, numerical failures, false-unsafe and unknown cells are retained"
+  ],
+  "premeasurement_correction": {
+    "kind": "zero_formal_premeasurement_correction_disclosure_v1",
+    "role": "BEFORE_FORMAL_NOT_A_54_CELL_FAILURE",
+    "formal_attempt_count": 0,
+    "owned_formal_gpu_worker_launch_count": 0,
+    "prediction_payloads_reused_without_recomputation": true,
+    "coefficients_refit": false,
+    "reason": "The previous controller failed before formal state creation: large sysctl boot-ID read returned ENOMEM.",
+    "large_read_requested_bytes": 8388608,
+    "large_read_errno": 12,
+    "corrected_read_requested_bytes": 4096,
+    "previous_receipt_raw_sha256": "ae27fc3bb542a0b955f019c937bc6c01a782cd4253b094d2f1134699c8cbdc07",
+    "bootfix_result_receipt_raw_sha256": "5f7a7ca76764dcdfa5cebd78f0754b7e86260625d269622ab519ad04d82aabfc",
+    "correction_raw_sha256": "a22da4dacaa406e725961415e50018b3567e4d46f36ad267c81abd824b651768",
+    "correction_canonical_sha256": "81e80485308bda4ebf39028b1781357377669470b55e36659d5dcaa42bd030c7",
+    "previous_frozen_at": "2026-11-18T06:22:19.612188+00:00",
+    "new_frozen_at": "2026-11-18T08:51:15.185015+00:00",
+    "retained_original_attempt": "retained-frozen-attempt1",
+    "previous_frozen_file_count_including_receipt": 28,
+    "failure_evidence_sha256": {
+      "formal-forward-v5-controller.log": "b90800c617286b9b96f4a3bee2fa522a1e7e09e01e7d0b260ecd518ef115e58a",
+      "formal-forward-v5-start.json": "cf41f5e6ea07dd53e28a40144c545411d4a9aea1b4b03e291f62e3ef4a2a89e5",
+      "prelaunch-boot-read-size-evidence.json": "d19e15210628a4f74f29a61030ff5d0d4278d73e0fa572be06f5a55184af4b90"
+    }
+  },
+  "acquisition_recovery": {
+    "kind": "blind_interrupted_acquisition_recovery_disclosure_v1",
+    "role": "ONE_RETAINED_UNSCORED_COLLECTION_PLUS_NEW_PRIMARY54",
+    "retained_real_acquisitions": 1,
+    "primary_planned_acquisitions": 54,
+    "total_acquisition_attempts_including_retained": 55,
+    "old_collection_status": {
+      "api_feedback_status": "COMPLETED",
+      "phase": "formal",
+      "session_id": "sla-ff3e83a04d4f4f80b0419b2e17fc54db",
+      "shutdown": "completed",
+      "status": "COMPLETED"
+    },
+    "old_completed_requests": 512,
+    "old_completed_output_tokens": 8192,
+    "output_count_basis": "Whitelist completed request count times the unchanged frozen16-output target; not the step_count field",
+    "old_accuracy_read_or_scored": false,
+    "old_collection_declared_invalid": false,
+    "old_collection_used_for_calibration": false,
+    "retained_old_raw_files": 11,
+    "retained_old_raw_file_sha256": {
+      "formal/01-baseline-c1-r0/api-feedback.json": "3bfcc92773cb717bb45c7e914109f5f714589b972aa5bfbdb5199d7770f33816",
+      "formal/01-baseline-c1-r0/capture-config.json": "095f14c66f3ef3a202a79cc4210a35858f4bb9887b654b8e612f8ace5edfff37",
+      "formal/01-baseline-c1-r0/captures/sla-ff3e83a04d4f4f80b0419b2e17fc54db-r0-s0-tp0-pid4758-3c55fa5d552b40029255b96a39f967de.json": "c3087f0899f8606c147a81c7e8afcb87457881e352b2bb0798180832635df3d2",
+      "formal/01-baseline-c1-r0/captures/sla-ff3e83a04d4f4f80b0419b2e17fc54db-scheduler-r0-pid4758-3b60b381217b40d8bc85f720fc4e9dd9.json": "8e3ab5199775539953060d07ef9d13cc9005e466eb2ed725754a3d68f1e88f7b",
+      "formal/01-baseline-c1-r0/formal-progress.json": "e965823c31a0f4e9aef6c74a92b13c8ecc4819fead1f91b49f5affea785f36fa",
+      "formal/01-baseline-c1-r0/observed-run.json": "e192ef158f63a96cb5ba9c2ff642f2dfa7523615aef24bccedb2dc562c6347e9",
+      "formal/01-baseline-c1-r0/runner-binding.json": "c3087f0899f8606c147a81c7e8afcb87457881e352b2bb0798180832635df3d2",
+      "formal/01-baseline-c1-r0/runtime-cost-capture.json": "2077630cf5e4e5f4a065e00300edd1ee08c507b549ab0256bdc4f3cece568167",
+      "formal/01-baseline-c1-r0/runtime-cost-dataset.json": "af1c62b29b39bd9d520dbf26599506b5e3493b55e0e0f65d27652ca888eb394f",
+      "formal/01-baseline-c1-r0/server-trace.json": "e5fba47835ae8eeb95fb83ba70b1ed9c7ee924555bd32acaa06bbbc30c5907f9",
+      "formal/01-baseline-c1-r0/summary.json": "a86b08d0873bff747d0e04326bfdb057ce181db8f028a03ac681ffe2d502d5c0"
+    },
+    "retained_root": "retained-interrupted-acquisition1",
+    "blind_decided_at_utc": "2026-11-18T09:44:06.840103+00:00",
+    "unchanged_original_payloads": 23,
+    "predictions_recomputed": false,
+    "model_refit": false,
+    "controller_repair_scope": "Only returned-worker directory ownership and host postprocessing; native worker command and raw bytes/modes unchanged.",
+    "interrupted_receipt_raw_sha256": "5f7a7ca76764dcdfa5cebd78f0754b7e86260625d269622ab519ad04d82aabfc",
+    "current_receipt_raw_sha256": "2b7bb2c2a3b49613deeb04d97cfd1b22c8d98749b0280ad9bcec40995e471b82",
+    "metadata_raw_sha256": {
+      "acquisition-recovery.json": "c5380ccc4b595a36715c7a1eed79c449e6ff07a992c28a00fcab72df75167400",
+      "interrupted-freeze-receipt.json": "5f7a7ca76764dcdfa5cebd78f0754b7e86260625d269622ab519ad04d82aabfc",
+      "interrupted-attempt-inventory.json": "3e38d0f8a2c6d802642a0abbb2512f3ab64219dc60fc739aa33b5e611138034a",
+      "blind-recovery-decision-v3.json": "0c99525ced041a95337cb70e8415d64d9264ca4f74a14c5f45719551fce16126",
+      "ownership-preflight-v3.receipt.json": "737d31679a370753a3b640005854f0e8eddb082b194eeb39cb839f6e8ae6e22d",
+      "interrupted-whitelist-status-v3.json": "d2e4c244324c2959e7cc6423f381ea158e2c3c39074801476fc678ee006970cd"
+    }
+  },
+  "public_report_view": {
+    "redacted_error_cells": 0,
+    "original_report_raw_sha256": "678e7acdefccd936e198a75074ec6cafa1e3272c93c76c5ad7553d8a3a5c86b0",
+    "original_report_canonical_sha256": "6978d0bc30320a7d8e93d6e608545d1a2ace3dd7d782947d22fa5df169c9fff9",
+    "policy": "Only free-text error paths/pointers/addresses may be redacted; metrics, flags, status and denominators unchanged"
+  },
+  "calibration_protocol": {
+    "kind": "qwen4b_v5_calibration_method_disclosure_v1",
+    "role": "CALIBRATION_NOT_FORWARD",
+    "fresh_processes": 2,
+    "formal_repetitions_per_probe": 32,
+    "minimum_observed_exact_shape_repeats_per_session": 32,
+    "max_output_tokens": 16,
+    "selection": {
+      "selection": "all completed active Core steps from each initial enqueue through target full-BDecode/mixed return, including first-token bootstrap; predeclared chronology/operation only, never duration",
+      "no_duration_selection": true,
+      "all_bootstrap_included": true,
+      "abort_cleanup_raw_retained_not_fit": true
+    },
+    "abort_cleanup": "native internal=True after target; explicit Engine.step until scheduler finished IDs drained; allraw retained, cleanup must have noactive members and is notfit",
+    "reset_requirements": [
+      "scheduler requests/running/waiting/finished IDs0",
+      "Runner requests/input_batch IDs0",
+      "KV free same initial1364",
+      "no GPU synchronize added"
+    ],
+    "declared_at_utc": "2026-11-18T04:33:54.965271+00:00",
+    "main_thread_cpu": 10,
+    "selection_rule_utf8_sha256": "646282fcdf5c85d7b2d64793a3b1e1a2b5de00412ae4278b2bd0390324bb3768",
+    "minimum_fit_gate": 8,
+    "within_shape_ratio_gate": 1.1,
+    "cross_session_ratio_gate": 1.1,
+    "files": {
+      "micro-plan-v5.json": {
+        "raw_sha256": "119f69c72c94ea7cd9022dc0141b3cd34778487fa968db036b49f23506136409",
+        "canonical_sha256": "9875ee915f32e08823d102f5e1940292127b71be207b9fd285f5f01da0fc18c7"
+      },
+      "selection-protocol.json": {
+        "raw_sha256": "3f069a35dd18908b6f381458c6c17913309f400ecb256584a3ec2a552b38eb38",
+        "canonical_sha256": "570f7f552b7c7bc3d86ad7b00572642ec9b6b5b14c1709588ae716c47161d012"
+      },
+      "calibration-v5-policy-receipt.json": {
+        "raw_sha256": "07ac76525dba03bc08de4efc47aa1c1ead3423557eda02ac14b9b4c8e59dc9b4",
+        "canonical_sha256": "f86854e4d0336cdb70cd2c3a2014cb2a85a0d046770e7302668288e8d43cae76"
+      }
+    },
+    "limitation": "Active Core prefixes, not naturally completed 16-output autoregressive calibration; abort/empty-flush/Runner-KV reset raw records remain excluded by predeclared operation, never latency"
+  },
+  "calibration_diagnostics": {
+    "kind": "qwen4b_calibration_diagnostic_public_summary_v1",
+    "role": "CALIBRATION_DIAGNOSTIC_NOT_HOLDOUT",
+    "independent_acceptance": false,
+    "cells": 9,
+    "requests_per_cell": 128,
+    "false_safe_cells": 0,
+    "false_unsafe_cells": 1,
+    "unknown_cells": 0,
+    "executed_steps": 2708,
+    "exact_training_shape_hit_steps": 108,
+    "within_nominal_span_steps": 2698,
+    "outside_nominal_span_steps": 10,
+    "unknown_steps": 0,
+    "all_queries_within_declared_envelope": true,
+    "by_phase": {
+      "prefill": {
+        "executed_steps": 108,
+        "exact_training_shape_hit_steps": 53,
+        "within_nominal_span_steps": 105,
+        "unknown_steps": 0
+      },
+      "decode": {
+        "executed_steps": 2302,
+        "exact_training_shape_hit_steps": 53,
+        "within_nominal_span_steps": 2302,
+        "unknown_steps": 0
+      },
+      "mixed": {
+        "executed_steps": 298,
+        "exact_training_shape_hit_steps": 2,
+        "within_nominal_span_steps": 291,
+        "unknown_steps": 0
+      }
+    },
+    "model_sha256": "afd24539c6e2ddc5e956bd6b8efc40382103f490e3b06a060d1fd5326273cb4a",
+    "report_raw_sha256": "efe0403d2542d94c61a90d077b31c65d9b2160d34db200c906f0ba56df079d09",
+    "coverage_raw_sha256": "ad1dc94ce0696640491ab11a62a20bb99de6c403cc59edc91dd079f2c51cc7f1",
+    "report_canonical_sha256": "9e98e9b7d85a35ccb0044445c20c51cf114eabc47181ef5afef7fc280141d2e5",
+    "coverage_canonical_sha256": "2e2c375387030c45850cf27e9b3085fc8d178bff8bd49998b8b3b2b62b3b0f50",
+    "count_unit": "Executed Core steps, including repeat occurrences; phase hit counts are not unique geometry counts",
+    "scope": "This9-cell N128 diagnostic is not combined with the independent54-cell N512 forward acceptance"
+  }
+}

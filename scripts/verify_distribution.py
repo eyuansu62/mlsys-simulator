@@ -1,6 +1,8 @@
 """Verify distribution contents and an installed wheel outside the checkout."""
 
 import argparse
+import gzip
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -75,6 +77,21 @@ import gzip
 from mlsys_sim.cost_calibration import validate_analytical_costs
 from mlsys_sim.performance import AnalyticalModel
 from mlsys_sim.config import load_experiment
+import math
+core_root = Path("runtime-core-inputs")
+core_cases = json.loads((core_root / "cpu-regression-cases.json").read_bytes())
+core_exp = load_experiment(core_root / "experiment.json")
+core_model = mlsys_sim.RuntimeCostModel(core_exp)
+assert core_model.provenance["sha256"] == core_cases["runtime_model"]["raw_sha256"]
+for case in core_cases["queries"]:
+    core_step = core_model.estimate_step(case["phase"], case["query_tokens"], case["context_lengths"],
+        case["stage_index"], request_phases=case.get("request_phases"))
+    assert core_step.source == "runtime_cost_calibrated"
+    assert math.isclose(core_step.duration_ms, case["duration_ms"], rel_tol=1e-10, abs_tol=1e-12)
+    assert core_step.breakdown["runtime_cost"]["hardware_validated"] is False
+    assert core_model.workspace_bytes(case["query_tokens"], case["phase"], case["stage_index"],
+        context_lengths=case["context_lengths"], request_phases=case.get("request_phases")) is None
+assert "torch" not in sys.modules and "vllm" not in sys.modules
 cost_root = Path("cost-inputs")
 cost_dataset = json.loads(gzip.decompress((cost_root / "dataset.json.gz").read_bytes()))
 cost_fit = json.loads(gzip.decompress((cost_root / "fit.json.gz").read_bytes()))
@@ -397,6 +414,16 @@ def verify(dist: Path) -> dict:
                          "docs/runtime-core-costs.md", "tests/test_runtime_cost.py",
                          "tests/test_runtime_cost_capture.py", "tests/test_runtime_cost_integration.py",
                          "tests/test_runtime_cost_budget.py",
+                         "docs/qwen4b-online-20261117/README.md",
+                         "docs/qwen4b-online-20261117/report.json.gz",
+                         "docs/qwen4b-online-20261117/online-metrics.png",
+                         "docs/qwen4b-online-20261117/cell-errors.svg",
+                         "docs/qwen4b-online-20261117/sample-wait-evidence.png",
+                         "examples/qwen4b_online_20261117/replay-inventory.json",
+                         "examples/qwen4b_online_20261117/calibration/runtime-cost-model.json.gz",
+                         "examples/qwen4b_online_20261117/cpu-regression-cases.json",
+                         "examples/qwen4b_online_20261117/audit/evaluate_forward.py",
+                         "tests/test_published_qwen4b_runtime.py",
                          "examples/memory_pressure.json", "tests/test_public_api.py", "docs/web-interface.md",
                          "docs/agent-integration.md", "examples/agent/README.md", "examples/agent/sources.json",
                          "docs/runtime-cost-calibration.md", "docs/runtime-cost-20261116/README.md",
@@ -556,6 +583,19 @@ def verify(dist: Path) -> dict:
                 prefill_target = prefill_inputs / source.relative_to(prefill_source)
                 prefill_target.parent.mkdir(parents=True, exist_ok=True)
                 prefill_target.write_bytes(source.read_bytes())
+        core_source = Path(__file__).resolve().parents[1] / "examples/qwen4b_online_20261117"
+        core_inputs = outside / "runtime-core-inputs"
+        core_inputs.mkdir()
+        inventory = json.loads((core_source / "replay-inventory.json").read_bytes())
+        core_targets = {"replay/runtime-cost-model.json", "replay/experiment.json", "replay/cpu-regression-cases.json"}
+        selected = [row for row in inventory["artifacts"] if row["replay_target"] in core_targets]
+        assert len(selected) == 3 and {row["replay_target"] for row in selected} == core_targets
+        for row in selected:
+            stored = (core_source / row["published_file"]).read_bytes()
+            assert hashlib.sha256(stored).hexdigest() == row["published_sha256"]
+            raw = gzip.decompress(stored) if row["storage"] == "gzip" else stored
+            assert hashlib.sha256(raw).hexdigest() == row["source_raw_sha256"]
+            (core_inputs / Path(row["replay_target"]).name).write_bytes(raw)
         run([str(python), "-I", "-c", SMOKE_CODE], outside, env)
         run([str(python), "-I", "-m", "mlsys_sim.vllm_sla_worker", "--help"], outside, env)
         web_console = binaries / ("mlsys-sim-web.exe" if os.name == "nt" else "mlsys-sim-web")
@@ -965,6 +1005,7 @@ def verify(dist: Path) -> dict:
             "installed_course_chapter1_workload_load_and_dag": "passed",
             "installed_joint_constraints_screening_and_course_calibration": "passed",
             "installed_finite_closed_loop_and_lazy_sla_worker": "passed",
+            "installed_original_runtime_core_model_cpu_replay": "passed",
             "installed_calibration_comparison_holdout": "passed"}
 
 

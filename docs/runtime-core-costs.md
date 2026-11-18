@@ -5,10 +5,15 @@
 EngineCore整步墙钟。旧解析模型、whole-stage lookup Profile、旧reported-hook校准和
 Web／Agent默认值不自动改用这个后端；核心库没有新增运行依赖。
 
-本页说明软件接口与证据要求，不把尚未完成的AMD训练或forward采样写成精度通过。
+这里拟合的是模拟器的耗时系数：Qwen权重只读，仅执行推理，没有反向传播或权重更新。
+本页说明软件接口与证据要求，不把校准残差写成独立forward精度通过。
 既有[0.6B prepared Prefill窄域报告](prefill-state-20261117/README.md)及
 [4B 39格闭环研究的失败结果](course-sla-9070xt-20261111/README.md)保持原样，
 它们都不能自动授权新计时边界、模型或在线SLA范围。
+
+新的[Qwen3-4B独立在线报告](qwen4b-online-20261117/README.md)包含54组测前冻结验证。
+53/54格满足全部误差门槛；一个短输入C2重复的TTFT P99误差为30.59%，因此整体仍为FAIL。
+这组结果与校准残差分别报告，不自动授权其它运行域。
 
 ## 新计时边界
 
@@ -55,10 +60,10 @@ mixed要求至少两个成员及明确的逐成员phase。它不插值batch，�
 是此有界函数的预测，不表示每个形状已经被实测。没有对应cell、超界或与调度预算
 冲突时返回 `OUT_OF_CALIBRATION_DOMAIN`，不静默回退到解析／旧Profile。
 
-## Python拟合：先冻结政策，再接收训练数据
+## Python拟合：先冻结政策，再接收校准数据
 
 当前没有专门的runtime拟合CLI；使用以下Python API。
-`freeze_runtime_cost_policy` 的值应来自测前协议，不能看完训练或留出结果再放宽。
+`freeze_runtime_cost_policy` 的值应来自测前协议，不能看完校准或留出结果再放宽。
 下列cell只展示格式，不是已测网格或可直接借用的硬件声明：
 
 ```python
@@ -82,28 +87,28 @@ policy = freeze_runtime_cost_policy(
 with Path("runtime-policy.json").open("x", encoding="utf-8") as handle:
     json.dump(policy, handle, ensure_ascii=False, indent=2)
 
-# 在政策已经落盘之后进行独立训练采样。此处不启动GPU或生成假观测。
+# 在政策已经落盘之后进行独立校准采样。此处不启动GPU或生成假观测。
 training = json.loads(Path("runtime-cost-dataset.json").read_text(encoding="utf-8"))
 artifact = fit_runtime_costs(training, policy, calibration_id="owned-core-cost-v1")
 with Path("runtime-cost.json").open("x", encoding="utf-8") as handle:
     json.dump(artifact, handle, ensure_ascii=False, indent=2)
 if artifact["kind"] != "runtime_cost_model_v1":
-    raise SystemExit("训练门禁拒绝：保留拒绝artifact，不执行或挑选部分参数")
+    raise SystemExit("校准门禁拒绝：保留拒绝artifact，不执行或挑选部分参数")
 ```
 
-训练dataset为 `runtime_cost_dataset_v1`，包含 `runtime_cost_domain_v1`、实际来源以及完整
+校准dataset为 `runtime_cost_dataset_v1`，包含 `runtime_cost_domain_v1`、实际来源以及完整
 records。每行保留 `record_id/session_id/group_id/source_order`、phase、stage0、query／context
 数组和正的 `duration_ms`；mixed额外保留 `request_phases`。`source_order` 必须按采集进程
 严格递增，不允许按record ID排序后重建。Workspace可为null；缺失的资源观察不写成0。
 来源只有 `measured` 或需显式 `allow_test_fixture=True` 的 `test_fixture`；fixture不升级为实测。
 
 默认门禁要求每个进程／精确形状至少8个完整、偶数个样本，保留原顺序分成等长两半，
-比较两半中位数；同一形状至少有两个独立训练session，并比较session中位数。
+比较两半中位数；同一形状至少有两个独立校准session，并比较session中位数。
 每个phase／exact-B还须至少两个可识别的不同解析坐标。默认两种比值上限均为1.10。
 不稳定、样本不足或不可识别时输出 `runtime_cost_rejected_v1`，保留原因且不拟合可执行参数。
 
 拟合对每个“session／精确形状”的中位数等权，而不是让高频形状凭原始步数占更多权重。
-artifact保留冻结policy、完整归一化训练dataset、原顺序、各样本残差、非负约束诊断和SHA。
+artifact保留冻结policy、完整归一化校准dataset、原顺序、各样本残差、非负约束诊断和SHA。
 加载器会重新检查这些一致性证据；它们不等价于外部硬件认证，也不替代独立forward验证。
 
 数值重放保留artifact原始参数与 `model_sha256`。原始观测、来源、运行域、冻结政策、ID和
@@ -116,7 +121,7 @@ artifact保留冻结policy、完整归一化训练dataset、原顺序、各样�
 ## 加载与模拟
 
 `profile_path` 必须指向实际的 `runtime_cost_model_v1` artifact，不能指向旧lookup Profile或
-训练拒绝文件。应从artifact的domain恢复完整配置，而不是凭模型名称补造绑定值：
+校准拒绝文件。应从artifact的domain恢复完整配置，而不是凭模型名称补造绑定值：
 
 Runtime模型及其完整原始证明的JSON上限为128 MiB，默认快照预算为384 MiB加64 KiB，
 包含原始JSON字符串转义开销。旧阶段Profile默认16 MiB和用户显式指定的更小预算保持不变。
@@ -193,5 +198,5 @@ token事件仍存在，其政策进入Runtime指纹。主线程CPU编号必须�
 当前资源数据仍含raw Torch allocator诊断，不能自动代表完整物理Workspace。
 
 正式forward还须使用 `--phase formal` 和测前的 `--freeze-receipt`，绑定实际Runtime SHA、
-checkpoint及采集源码；使用独立session，保持训练artifact与预测冻结字节不变。
+checkpoint及采集源码；使用独立session，保持校准artifact与预测冻结字节不变。
 拟合完整性、稳定性门禁通过与闭环P99／SLA预测通过是不同结论，需分别报告。

@@ -1,0 +1,79 @@
+{
+  "cause": "UNKNOWN beyond the observed Core boundary; this evidence package does not separate contemporaneous HIP/GPU/OS causes",
+  "cells": [
+    {
+      "actual_p99_other_core_ms": 0.0,
+      "actual_p99_outside_core_ms": 0.0557148000000018,
+      "actual_p99_own_core_ms": 32.53408426999998,
+      "actual_ttft_p90_ms": 29.021055,
+      "actual_ttft_p95_ms": 29.11869995,
+      "actual_ttft_p99_ms": 32.589799069999984,
+      "core_wall_median_ms": 17.642555,
+      "core_wall_p99_ms": 28.8828555,
+      "formal_core_calls": 4096,
+      "frozen_ttft_p99_ms": 26.653614877315704,
+      "label": "18-short-c2-r0",
+      "original_cell_status": "PASS",
+      "requests": 512,
+      "ttft_relative_error": 0.18214853610891818
+    },
+    {
+      "actual_p99_other_core_ms": 0.0,
+      "actual_p99_outside_core_ms": 0.19210719999999767,
+      "actual_p99_own_core_ms": 29.3038027,
+      "actual_ttft_p90_ms": 28.974923000000004,
+      "actual_ttft_p95_ms": 29.0674655,
+      "actual_ttft_p99_ms": 29.4959099,
+      "core_wall_median_ms": 17.545439000000002,
+      "core_wall_p99_ms": 28.815636,
+      "formal_core_calls": 4096,
+      "frozen_ttft_p99_ms": 26.653614877315704,
+      "label": "28-short-c2-r1",
+      "original_cell_status": "PASS",
+      "requests": 512,
+      "ttft_relative_error": 0.09636234421384281
+    },
+    {
+      "actual_p99_other_core_ms": 0.0,
+      "actual_p99_outside_core_ms": 0.06532520000000207,
+      "actual_p99_own_core_ms": 38.333934199999916,
+      "actual_ttft_p90_ms": 29.014859,
+      "actual_ttft_p95_ms": 29.160947450000002,
+      "actual_ttft_p99_ms": 38.39925939999991,
+      "core_wall_median_ms": 17.5633845,
+      "core_wall_p99_ms": 28.848473950000002,
+      "formal_core_calls": 4096,
+      "frozen_ttft_p99_ms": 26.653614877315704,
+      "label": "41-short-c2-r2",
+      "original_cell_status": "FAIL",
+      "requests": 512,
+      "ttft_relative_error": 0.30588205882648445
+    }
+  ],
+  "facts": [
+    "All three cells recomputed exactly from original Scheduler/API evidence and original frozen predictions",
+    "The failed actual TTFT P99 is concentrated inside the observed Core.step boundary",
+    "The three longest target Prefill calls share actual ordered q=[128,64], context=[0,0], batch2",
+    "Whole-call thread CPU is close to wall; tiny signed counter differences are retained"
+  ],
+  "fixed_controls": [
+    "18-short-c2-r0",
+    "28-short-c2-r1"
+  ],
+  "fixed_target": "41-short-c2-r2",
+  "kind": "frozen54_bounded_tail_forensic_summary_v1",
+  "limits": [
+    "Thread CPU includes possible driver polling; it is not proof of CPU sampling work",
+    "Wall minus thread CPU is not GPU time; thread clock brackets are slightly wider than wall brackets",
+    "P99 component weights use the actual ranks only; they do not decompose the frozen-vs-actual error",
+    "Controls have different frozen request streams; exact-shape references are descriptive, never fitted replacements",
+    "No adjusted metric, tolerance, denominator or acceptance override is emitted"
+  ],
+  "no_fitting": true,
+  "no_new_sampling": true,
+  "original_passing_cells": 53,
+  "original_total_cells": 54,
+  "original_verdict": "FAIL",
+  "primary_acceptance_unchanged": true,
+  "target_p99_core_share": 0.998298790106353
+}
