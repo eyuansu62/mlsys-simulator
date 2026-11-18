@@ -217,7 +217,7 @@ class _VllmBackend:
         return self.engine.has_unfinished_requests()
 
     def abort_requests(self, native_ids: list[str]) -> None:
-        self.engine.abort_request(native_ids)
+        self.engine.abort_request(native_ids, internal=True)
 
 
 def _freeze_check(args, experiment_raw: bytes, spec_raw: bytes) -> dict | None:
