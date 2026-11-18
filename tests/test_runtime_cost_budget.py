@@ -86,7 +86,7 @@ class RuntimeCostBudgetTests(unittest.TestCase):
 
     def test_runtime_read_and_offline_snapshot_use_same_reader_limit(self):
         file_limit, snapshot_limit = _runtime_cost_budgets()
-        self.assertEqual(file_limit, 64 * MIB)
+        self.assertEqual(file_limit, 128 * MIB)
         self.assertGreater(snapshot_limit, 2 * file_limit)
         from mlsys_sim import runtime_cost
         with patch.object(runtime_cost, "_MAX_BYTES", len(self.small) - 1):

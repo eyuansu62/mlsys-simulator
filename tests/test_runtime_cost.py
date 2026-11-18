@@ -4,11 +4,14 @@ from copy import deepcopy
 from dataclasses import replace
 import hashlib
 import json
+import math
 from pathlib import Path
+import random
 import tempfile
 import unittest
 from unittest.mock import patch
 
+import mlsys_sim.runtime_cost as runtime_cost
 from mlsys_sim.performance import AnalyticalModel
 from mlsys_sim.runtime_cost import (RUNTIME_COST_BOUNDARY, RUNTIME_COST_KIND, RUNTIME_COST_REJECTION_KIND,
     RuntimeCostModel, _nnls, fit_runtime_costs, freeze_runtime_cost_policy, load_runtime_cost,
@@ -76,7 +79,128 @@ def fit(data, policy):
     return fit_runtime_costs(data, policy, calibration_id="runtime-fixture-v1", allow_test_fixture=True)
 
 
+def naive_sum(values, start=0):
+    result = start
+    for value in values:
+        result += value
+    return result
+
+
+def precise_sum(values, start=0):
+    values = list(values)
+    if type(start) is int and all(type(value) is int for value in values):
+        return naive_sum(values, start)
+    return math.fsum([start, *values])
+
+
+def rich_fixture():
+    experiment, data, policy = fixture(selected=(("prefill", 1),))
+    nominal = AnalyticalModel(replace(experiment, calibration=replace(experiment.calibration,
+        backend="analytical", profile_path=None, allow_test_fixture=False,
+        timing_boundary="step_includes_output_and_sampling_v1")))
+    rng, anchors = random.Random(0), []
+    for point in range(47):
+        queries, contexts = [1 + point % 32], [(point * 11) % 127]
+        coordinate = nominal.estimate_step("prefill", queries, contexts).duration_ms
+        anchors.append((queries, contexts, 2.3456789 * coordinate + .456789 + rng.uniform(-.003, .003)))
+    data["records"] = []
+    for session in ("session-a", "session-b"):
+        order = 0
+        for point, (queries, contexts, duration) in enumerate(anchors):
+            for _ in range(8):
+                data["records"].append({"record_id": f"{session}:{order}", "session_id": session,
+                    "group_id": f"anchor-{point}", "source_order": order, "phase": "prefill", "stage_index": 0,
+                    "query_tokens": queries, "context_lengths": contexts, "duration_ms": duration,
+                    "workspace_peak_bytes": None})
+                order += 1
+    return experiment, data, policy
+
+
 class RuntimeCostTests(unittest.TestCase):
+    def test_naive_solver_sum_replays_frozen_coefficients_without_replacing_them(self):
+        _, data, policy = rich_fixture()
+        with patch("mlsys_sim.runtime_cost.sum", precise_sum, create=True):
+            artifact = fit(data, policy)
+        before = deepcopy(artifact)
+        with patch("mlsys_sim.runtime_cost.sum", naive_sum, create=True):
+            replayed_fit = fit(data, policy)
+            validated = validate_runtime_cost_model(artifact, allow_test_fixture=True)
+        self.assertNotEqual(artifact["parameters"], replayed_fit["parameters"])
+        self.assertEqual(validated, before)
+        self.assertEqual(artifact, before)
+        self.assertEqual(validated["model_sha256"], before["model_sha256"])
+
+    def test_naive_nominal_and_solver_sums_allow_near_zero_sse_replay(self):
+        _, data, policy = fixture()
+        with (patch("mlsys_sim.runtime_cost.sum", precise_sum, create=True),
+              patch("mlsys_sim.performance.sum", precise_sum, create=True)):
+            artifact = fit(data, policy)
+        self.assertTrue(all(row["fit_diagnostics"]["normalized_sum_squared_error"] < 1e-24
+                            for row in artifact["parameters"]))
+        with (patch("mlsys_sim.runtime_cost.sum", naive_sum, create=True),
+              patch("mlsys_sim.performance.sum", naive_sum, create=True)):
+            replayed_fit = fit(data, policy)
+            validated = validate_runtime_cost_model(artifact, allow_test_fixture=True)
+        self.assertNotEqual(artifact["diagnostics"]["fitting_cells"], replayed_fit["diagnostics"]["fitting_cells"])
+        self.assertEqual(validated, artifact)
+
+    def test_near_zero_recomputed_constraint_label_can_change(self):
+        _, data, policy = fixture(selected=(("prefill", 1),))
+        for row in data["records"]:
+            row["duration_ms"] -= 3
+        artifact = fit(data, policy)
+        original_solver = runtime_cost._nnls
+        self.assertTrue(math.isclose(artifact["parameters"][0]["intercept_ms"], 0, abs_tol=1e-12))
+        def boundary_roundoff(xs, ys):
+            scale, intercept, diagnostics = original_solver(xs, ys)
+            diagnostics["constraint_active"] = not diagnostics["constraint_active"]
+            diagnostics["unconstrained_intercept_ms"] = (
+                -math.ulp(1.0) if diagnostics["constraint_active"] else math.ulp(1.0))
+            return scale, intercept, diagnostics
+        with patch("mlsys_sim.runtime_cost._nnls", boundary_roundoff):
+            self.assertEqual(validate_runtime_cost_model(artifact, allow_test_fixture=True), artifact)
+
+    def test_nonboundary_and_material_constraint_label_tampering_still_fails(self):
+        for constrained in (False, True):
+            _, data, policy = fixture(selected=(("prefill", 1),))
+            if constrained:
+                for row in data["records"]:
+                    row["duration_ms"] = 10 - row["duration_ms"]
+            artifact = fit(data, policy)
+            diagnostics = artifact["parameters"][0]["fit_diagnostics"]
+            self.assertEqual(diagnostics["constraint_active"], constrained)
+            diagnostics["constraint_active"] = not diagnostics["constraint_active"]
+            rehash(artifact)
+            with self.assertRaises(SimulationError):
+                validate_runtime_cost_model(artifact, allow_test_fixture=True)
+
+    def test_replay_tolerance_never_weakens_checksum_or_structural_guards(self):
+        _, data, policy = fixture()
+        original = fit(data, policy)
+        changed = deepcopy(original)
+        changed["raw_dataset"]["records"][0]["duration_ms"] = math.nextafter(
+            changed["raw_dataset"]["records"][0]["duration_ms"], math.inf)
+        with self.assertRaisesRegex(SimulationError, "checksum"):
+            validate_runtime_cost_model(changed, allow_test_fixture=True)
+        for change in ("coefficient", "nominal", "residual", "geometry", "domain"):
+            artifact = deepcopy(original)
+            if change == "coefficient":
+                row = artifact["parameters"][0]
+                row["scale"] += 1e-6
+                row["fit_diagnostics"]["scale"] += 1e-6
+                row["fit_diagnostics"]["unconstrained_scale"] += 1e-6
+            elif change == "nominal":
+                artifact["diagnostics"]["fitting_cells"][0]["nominal_ms"] += 1e-6
+            elif change == "residual":
+                artifact["diagnostics"]["training_residuals"][0]["signed_error_ms"] += 1e-6
+            elif change == "geometry":
+                artifact["diagnostics"]["fitting_cells"][0]["sample_count"] = 8.0
+            else:
+                artifact["domain"]["strategy"]["max_batch_tokens"] = float(artifact["domain"]["strategy"]["max_batch_tokens"])
+            rehash(artifact)
+            with self.subTest(change=change), self.assertRaises(SimulationError):
+                validate_runtime_cost_model(artifact, allow_test_fixture=True)
+
     def test_recovers_known_affine_coefficients_and_retains_all_raw_points(self):
         experiment, data, policy = fixture()
         before = deepcopy(data)

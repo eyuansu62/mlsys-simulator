@@ -29,7 +29,9 @@ _POLICY_KIND = "runtime_cost_policy_v1"
 _DOMAIN_KIND = "runtime_cost_domain_v1"
 _OLD_BOUNDARY = "step_includes_output_and_sampling_v1"
 _MAX_RECORDS = 100_000
-_MAX_BYTES = 64 * 1024 * 1024
+_MAX_BYTES = 128 * 1024 * 1024
+_REPLAY_REL_TOL = 1e-10
+_REPLAY_ABS_TOL = 1e-12
 _PHASES = {"prefill", "decode", "mixed"}
 _RUNTIME_FIELDS = ("runtime_name", "runtime_version", "driver_version", "rocm_version",
                    "rccl_version", "runtime_config_sha256", "prefill_execution_mode", "decode_execution_mode",
@@ -458,6 +460,57 @@ def fit_runtime_costs(dataset: dict, policy: dict, *, calibration_id: str,
     return result
 
 
+def _derived_close(actual: Any, expected: Any) -> bool:
+    """Only recomputed floating coordinates use numerical replay tolerance."""
+    if expected is None:
+        return actual is None
+    if (isinstance(actual, bool) or not isinstance(actual, (int, float))
+            or isinstance(expected, bool) or not isinstance(expected, (int, float))):
+        return False
+    try:
+        return (math.isfinite(actual) and math.isfinite(expected)
+                and math.isclose(actual, expected, rel_tol=_REPLAY_REL_TOL, abs_tol=_REPLAY_ABS_TOL))
+    except OverflowError:
+        return False
+
+
+def _derived_records_equal(actual: Any, expected: list[dict], floating_fields: set[str]) -> bool:
+    """Keep record order, IDs, geometry and other metadata canonically exact."""
+    if not isinstance(actual, list) or len(actual) != len(expected):
+        return False
+    for stored, replayed in zip(actual, expected):
+        if not isinstance(stored, dict) or set(stored) != set(replayed):
+            return False
+        if (_canonical({key: value for key, value in stored.items() if key not in floating_fields})
+                != _canonical({key: value for key, value in replayed.items() if key not in floating_fields})):
+            return False
+        if any(not _derived_close(stored[key], replayed[key]) for key in floating_fields):
+            return False
+    return True
+
+
+def _fit_diagnostics_equal(stored: Any, replayed: dict, scale: float, intercept: float) -> bool:
+    """Check frozen solver evidence without requiring a version-specific bool."""
+    if not isinstance(stored, dict) or set(stored) != set(replayed):
+        return False
+    if (stored["solver"] != replayed["solver"] or type(stored["constraint_active"]) is not bool
+            or stored["scale"] != scale or stored["intercept_ms"] != intercept):
+        return False
+    numeric = set(replayed) - {"solver", "constraint_active"}
+    if any(not _derived_close(stored[key], replayed[key]) for key in numeric):
+        return False
+    if stored["normalized_sum_squared_error"] < 0 or stored["objective_y_scale_ms"] <= 0:
+        return False
+    unconstrained = stored["unconstrained_scale"], stored["unconstrained_intercept_ms"]
+    differs = (scale, intercept) != unconstrained
+    if stored["constraint_active"] == differs:
+        return True
+    # A near-zero constraint can change branches after a floating reduction.
+    # Nonboundary labels must still agree with the artifact's own coefficients.
+    return ((_derived_close(scale, 0.0) or _derived_close(intercept, 0.0))
+            and _derived_close(scale, unconstrained[0]) and _derived_close(intercept, unconstrained[1]))
+
+
 def validate_runtime_cost_model(artifact: dict, *, experiment: Experiment | None = None,
                                 allow_test_fixture: bool = False) -> dict:
     """Validate immutable raw lineage and executable-domain semantics once."""
@@ -475,13 +528,14 @@ def validate_runtime_cost_model(artifact: dict, *, experiment: Experiment | None
         _error("Runtime model checksum changed")
     policy = _policy(item["policy"])
     data, nominal = _dataset(item["raw_dataset"], policy, allow_test_fixture)
-    if (_canonical(data) != _canonical(item["raw_dataset"]) or item["source"] != data["source"]
-            or item["domain"] != data["domain"] or item["training_dataset_sha256"] != _sha(data)
+    if (_canonical(data) != _canonical(item["raw_dataset"]) or _canonical(item["source"]) != _canonical(data["source"])
+            or _canonical(item["domain"]) != _canonical(data["domain"]) or item["training_dataset_sha256"] != _sha(data)
             or item["training_record_ids"] != [row["record_id"] for row in data["records"]]):
         _error("Runtime model raw data, domain, source or training membership changed")
     cells, stationarity, reasons, shapes = _training(data, policy, nominal)
     diagnostics = _object(item["diagnostics"], {"stationarity", "fitting_cells", "training_residuals"}, set(), "runtime diagnostics")
-    if reasons or diagnostics["stationarity"] != stationarity or diagnostics["fitting_cells"] != cells:
+    if (reasons or _canonical(diagnostics["stationarity"]) != _canonical(stationarity)
+            or not _derived_records_equal(diagnostics["fitting_cells"], cells, {"nominal_ms", "observed_ms"})):
         _error("Runtime stationarity or fitting observations differ from their untrimmed raw data")
     parameters = item["parameters"]
     if not isinstance(parameters, list) or len(parameters) != len(policy["cells"]):
@@ -499,21 +553,22 @@ def validate_runtime_cost_model(artifact: dict, *, experiment: Experiment | None
         scale, intercept = _number(row["scale"], "scale"), _number(row["intercept_ms"], "intercept_ms")
         selected = [cell for cell in cells if _cell_key(cell["phase"], cell["batch_size"]) == key]
         if (not selected or _int(row["equal_weight_cell_count"], "equal_weight_cell_count", 1) != len(selected)
-                or _number(row["training_nominal_min_ms"], "training_nominal_min_ms", positive=True) != min(cell["nominal_ms"] for cell in selected)
-                or _number(row["training_nominal_max_ms"], "training_nominal_max_ms", positive=True) != max(cell["nominal_ms"] for cell in selected)):
+                or not _derived_close(_number(row["training_nominal_min_ms"], "training_nominal_min_ms", positive=True), min(cell["nominal_ms"] for cell in selected))
+                or not _derived_close(_number(row["training_nominal_max_ms"], "training_nominal_max_ms", positive=True), max(cell["nominal_ms"] for cell in selected))):
             _error("Runtime parameter shape coverage differs from training")
         # Recompute the deterministic training-only objective as a consistency
         # check. Never replace the frozen coefficients or inspect validation data.
         expected_scale, expected_intercept, expected_diagnostics = _nnls(
             [cell["nominal_ms"] for cell in selected], [cell["observed_ms"] for cell in selected])
-        if (scale != expected_scale or intercept != expected_intercept
-                or _canonical(row["fit_diagnostics"]) != _canonical(expected_diagnostics)):
+        if (not _derived_close(scale, expected_scale) or not _derived_close(intercept, expected_intercept)
+                or not _fit_diagnostics_equal(row["fit_diagnostics"], expected_diagnostics, scale, intercept)):
             _error("Runtime parameter coefficients or solver diagnostics differ from their training-only fit")
     if set(indexed) != {_cell_key(row["phase"], row["batch_size"]) for row in policy["cells"]}:
         _error("Runtime parameters cannot substitute an untrained phase or batch")
-    if diagnostics["training_residuals"] != _residuals(data, parameters, shapes):
+    if not _derived_records_equal(diagnostics["training_residuals"], _residuals(data, parameters, shapes),
+                                  {"predicted_ms", "signed_error_ms", "relative_error"}):
         _error("Runtime residuals differ from raw observations and frozen coefficients")
-    if experiment is not None and runtime_cost_domain(experiment) != item["domain"]:
+    if experiment is not None and _canonical(runtime_cost_domain(experiment)) != _canonical(item["domain"]):
         _error("Runtime model and requested GPU/model/Runtime/core/memory domain differ", "CALIBRATION_MISMATCH")
     return _clone(item)
 

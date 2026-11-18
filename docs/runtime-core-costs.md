@@ -106,10 +106,20 @@ records。每行保留 `record_id/session_id/group_id/source_order`、phase、st
 artifact保留冻结policy、完整归一化训练dataset、原顺序、各样本残差、非负约束诊断和SHA。
 加载器会重新检查这些一致性证据；它们不等价于外部硬件认证，也不替代独立forward验证。
 
+数值重放保留artifact原始参数与 `model_sha256`。原始观测、来源、运行域、冻结政策、ID和
+整数形状仍严格校验；只有重新推导的解析坐标、系数诊断及残差使用固定
+`rel_tol=1e-10, abs_tol=1e-12`，容纳不同Python版本浮点求和产生的舍入差异。
+近零约束的重算标签可能翻转，因此约束标签按artifact自身的冻结参数及无约束诊断检查；
+非边界的不一致仍被拒绝。加载不会用当前解释器重新计算的系数替换artifact，也不会
+重写hash、放宽形状包络或改变拟合算法。
+
 ## 加载与模拟
 
 `profile_path` 必须指向实际的 `runtime_cost_model_v1` artifact，不能指向旧lookup Profile或
 训练拒绝文件。应从artifact的domain恢复完整配置，而不是凭模型名称补造绑定值：
+
+Runtime模型及其完整原始证明的JSON上限为128 MiB，默认快照预算为384 MiB加64 KiB，
+包含原始JSON字符串转义开销。旧阶段Profile默认16 MiB和用户显式指定的更小预算保持不变。
 
 ```python
 import json
