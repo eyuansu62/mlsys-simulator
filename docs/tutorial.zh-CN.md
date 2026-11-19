@@ -73,4 +73,31 @@ python -m mlsys_sim.web
 
 需要与 AMD 真机对齐时，先在匹配的硬件、运行时和计时边界下采集、校准，再用独立数据验证。分析结果时记录使用的是合成耗时、解析估算还是实测校准配置。[真机采集](rocm-collection.md) · [校准](calibration.md) · [验证规范](validation-protocol.md)
 
+## 6. 从 Agent 或后端调用模拟器
+
+课程 Agent 或同机应用可以通过本地 HTTP 服务提交模拟请求。在仓库根目录启动服务：
+
+```bash
+python -m mlsys_sim.agent_service --port 8877
+```
+
+另开一个终端，在同一个仓库根目录查看支持的模型、硬件和协议版本：
+
+```bash
+curl --fail-with-body http://127.0.0.1:8877/v1/catalog
+```
+
+提交仓库自带的固定到达请求，并把同步返回的结果保存到文件：
+
+```bash
+curl --fail-with-body --silent --show-error \
+  -H 'Content-Type: application/json' \
+  --data-binary @examples/agent/task-9.2.protocol.request.json \
+  http://127.0.0.1:8877/v1/simulate > agent-response.json
+```
+
+打开 `agent-response.json`，查看 `requests` 中每条请求的状态和延迟。这个样例应返回 12 条完成记录。HTTP 200 表示服务已处理请求，仍需检查各条记录的状态来判断模拟结果。
+
+API 还支持逐条释放（`sequential`）和按依赖释放（`dag`）。服务只监听本机 `127.0.0.1`，按 Ctrl+C 停止。可在下方文档查看目录限制、请求字段和其他样例。[Agent API 说明](agent-integration.md)
+
 [完整中文使用说明](../README.zh-CN.md) · [课程实验命令与示例](course-workflows.md)
