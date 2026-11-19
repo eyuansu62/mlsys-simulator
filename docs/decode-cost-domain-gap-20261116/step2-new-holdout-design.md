@@ -1,45 +1,54 @@
-# Step 2 预注册：9070XT 低并发＋长输入盲留出（course9070sla20261116）
+# Step 2 历史设计：9070XT 低并发＋长输入（course9070sla20261116）
 
-测前冻结设计。**本设计先于任何 GPU 测量**；预测与 SHA 承诺在本文件与配套 bundle 生成后即固定，
-正式测量不得改网格、改种子、改阈值、回拟合或挑选有利重复。`hardware_validated=false`。
+本页整理 PR #10 原 HEAD `a075347` 的2026-11-16设计和本地冻结记录，状态说明更新于2026-11-19。
+原九文件 snapshot 已冻结，但该 **27 × 1000 请求 GPU 合同没有执行**，host 字段仍为 `REMOTE_PENDING`，
+`hardware_validated=false`。本次文字整理不是新的测前登记，原日期与承诺应由历史提交和原冻结字节核对。
+
+后续 main PR #13 已另行完成 **54 × 512 请求**的 BF16/eager/MRv1、CPU10、显式 Core 后端验证：
+53/54格达标，唯一 short-C2 TTFT P99误差30.59%，整体仍为FAIL。
+见[独立报告](../qwen4b-online-20261117/README.md)。它不补签或完成原27格合同，也不修改旧默认 β。
 
 ## 0. 为什么要做
 
 11-11 研究（`course9070sla20261111`）的负结果结构（见 [../course-sla-9070xt-20261111/README.md](../course-sla-9070xt-20261111/README.md)）：
-TPOT 0/39 达精度目标、预测安全并发 16 而实测最大全通过点 C4、C1→C8 批处理斜率实测 +39% 而模型仅 +3.6%。
-Step 1（[README.md](README.md)）证明：11-16 runtime-cost 校准**域外**于本场景（执行模式 graph vs eager、上下文
-1024 vs ≈256），不能合法应用；且短上下文下名义宏被批处理不变的权重搬运主导、斜率结构性偏平。
+TPOT 0/39 达精度目标、预测安全并发 16 而实测最大全通过点 C4、闭环TPOT的C1→C8相对增长实测 +39% 而模型仅 +3.6%。
+Step 1（[README.md](README.md)）检查：11-16 runtime-cost 校准**域外**于本场景（Graph配置 vs eager、上下文
+1024 vs ≈256），不能合法应用；在原参数化下短上下文的名义 `linear` 项占比高，批大小响应较平。
+分量占比和由闭环 TPOT 推算的带宽是模型内解释／代理，不是独立 kernel 带宽测量或唯一根因证明。
 
-因此需要一个**新**的、eager 域、低并发、短上下文的留出，用来：
-1. 在低并发（C1/2/4）长输入上做**盲**精度检验（TPOT 是否收敛）；
-2. 重测低并发批处理斜率（C1→C4）是否收敛；
-3. 提供 eager 域、短上下文下可识别每步固定截距与 KV/发射/混批随批处理增长斜率的独立观测。
+当时据此提出新的 eager 域低并发计划，用来：
 
-原 39-cohort 留出（网格 8/16/32）已消耗，见
+1. 在低并发（C1/2/4）长输入上做当时尚未观测配置的精度检验；
+2. 重测闭环TPOT随低并发（C1→C4）变化的形态；
+3. 为后续 eager 域独立校准提供观测；本留出本身不用于拟合，闭环指标也不能单独识别每步固定截距或纯 kernel 斜率。
+
+原39-cohort数据已经观察：baseline含C1/2/4/8/16/32/64，short/long分布留出才是C8/16/32。见
 [../course-sla-9070xt-20261111/HOLDOUT-CONSUMED.json](../course-sla-9070xt-20261111/HOLDOUT-CONSUMED.json)，**不得复用**。
+该JSON及其中历史引用保持原字节；本说明不重写它。PR #13现已覆盖本计划的输入与并发配置，不能再称当前未见盲点。
 
-## 1. 硬件 / 运行时 / 模型（与 11-11 完全一致，保证可比）
+## 1. 原计划的硬件 / 运行时 / 模型（host 绑定未完成）
 
 - 单 RX9070XT / gfx1201 / 16 GiB（`memory_bytes=17095983104`，`memory_bandwidth_gbps=640`，`compute_tflops=195`）。
 - Qwen3-4B BF16，TP1×PP1，`enforce_eager=true`，`async_scheduling=false`。
-- 实际 vLLM 构建与 11-11 相同（镜像 tag 0.29.0 不当作实际版本，以运行时自报为准）。
+- 原计划要求 vLLM 构建与 11-11 相同，但尚未完成host实际绑定（镜像tag 0.29.0不当作实际版本）。
 - `max_num_seqs=16`、`max_num_batched_tokens=2048`、`max_model_len=2048`、`kv_cache_memory_bytes=3221225472`、
-  `block_size=16`、Prefix Cache 关、Chunked Prefill 开（每请求 chunk 上限 512）、混批开。
+  `block_size=16`、Prefix Cache 关、Chunked Prefill 与混批开。原模拟器每请求 chunk 上限512，
+  不是已经核验的原生vLLM每请求限制；后续PR #13另行按实际剩余token预算对齐。旧snapshot选择不因此改写。
 - 实验对象直接复用 11-11 冻结的
   [experiment.json](../../examples/course/9070-sla/frozen-commitment/experiment.json)（`profile_path=null`，纯 CPU 预测）。
 
-## 2. 新预注册并发网格（不复用 8/16/32）
+## 2. 原预注册并发网格与新旧配置关系
 
-**并发网格 C ∈ {1, 2, 4}**（低并发）。刻意不包含 8/16/32，避免复用已消耗留出点。
-C1→C8 全斜率无法在本研究盲测（C8 已消耗），本研究提供盲 C1→C4 斜率并以 11-11 C1→C8 为参照。
+**并发网格 C ∈ {1, 2, 4}**（低并发）。它与旧 short/long 的 C8/16/32 不相交，
+但 baseline C1/2/4 已实测。C1→C4的闭环增长对照不能冒称固定 batch Decode kernel 斜率。
 
 | cohort | 输入长度（等权类别） | 并发 | 单元数 | 盲/重测 |
 | --- | --- | --- | ---: | --- |
 | baseline | 256 | 1,2,4 | 3 | 重测（11-11 基线 C1/2/4，独立流；斜率臂 C1→C4） |
-| short | 64,128 | 1,2,4 | 3 | **盲**（11-11 短留出仅测 C8/16/32） |
-| long | 512,1024 | 1,2,4 | 3 | **盲**（11-11 长留出仅测 C8/16/32） |
+| short | 64,128 | 1,2,4 | 3 | 相对11-11分布留出新增；当前PR #13已观测 |
+| long | 512,1024 | 1,2,4 | 3 | 相对11-11分布留出新增；当前PR #13已观测 |
 
-合计 **9 单元 × 3 fresh Runtime = 27 Runtime，27,000 请求**。
+原合同合计 **9 单元 × 3 fresh Runtime = 27 Runtime，27,000 请求**；这是计划量，不是完成量。
 
 ## 3. 负载与采样（与 11-11 同协议）
 
@@ -55,19 +64,19 @@ C1→C8 全斜率无法在本研究盲测（C8 已消耗），本研究提供盲
 - **精度**：P99 TTFT / P99 TPOT / P99 E2E 相对误差 ≤ 25%，elapsed 输出吞吐相对误差 ≤ 15%。
 - 相对误差统一 `abs(predicted−measured)/measured`。
 
-## 5. 失败与诚信策略
+## 5. 失败保留与独立验证规则
 
 - 保留全部请求的单元/重复/失败/超时/部分/未知结果；**不重调、不挑有利种子、不扩网格、不重采到通过为止**。
 - 预测本地留档；远端在正式采集前收到 raw/canonical SHA 承诺；正式采集只按冻结 policy 与请求流执行。
 - 全部 GPU 单元结束后，仅用冻结代码与输入在 CPU 重算预测，两种 SHA 均须与测前承诺一致，再比较实测。
 - **不得以实测 arrival 重跑预测**；不得对本研究或 11-11 已观察点回拟合。
 
-## 6. 决策规则（测前声明）
+## 6. 原决策规则与归因限制
 
-- 若盲 short/long 在 C1/2/4 出现“三次全部通过”的点，记录为该网格下最大已观察全通过点，不向未测并发外推。
-- 若 TPOT 精度在低并发仍系统性偏低（方向稳定、超出重复范围），则确认失准为模型侧（β 高估 decode 带宽效率 / 斜率偏平），
-  应立项 eager 域独立成本 Profile，而非继续用 graph 域校准外推。
-- 若 TPOT 精度与斜率在修正后收敛，则记录收敛的并发/输入区间与残差，作为后续 eager 域校准的独立留出。
+- 原计划若 short/long 在 C1/2/4 出现“三次全部通过”的点，记录为该网格下最大已观察全通过点，不向未测并发外推。
+- 低并发 TPOT 若持续偏低，只能说明该预测与闭环观测不符；不能单凭它确认 β、HBM带宽或某个GPU因素为唯一根因。
+  eager 域独立采样与校准应另立协议，不能继续借用Graph配置域参数。
+- 若以后建立新实验，应记录其并发/输入区间及残差，并使用独立新验证；不能在当前已观察点上拟合后仍称盲留出。
 - 任何 SLA FAIL 由有意过载或真实失败引起时，按 11-11 口径区分“SLA 可服务性”与“模型精度”，不混同。
 
 ## 7. 边界与免责
@@ -81,13 +90,16 @@ C1→C8 全斜率无法在本研究盲测（C8 已消耗），本研究提供盲
 
 ### 8.1 CPU 冻结（已完成，2026-11-16）
 
-由 [scripts/freeze_course_sla_20261116_local.py](../../scripts/freeze_course_sla_20261116_local.py) 生成，
-复现命令即该脚本。产物在 `examples/course/9070-sla-20261116/frozen-commitment/`：
+由原 HEAD `a075347` 的 [scripts/freeze_course_sla_20261116_local.py](../../scripts/freeze_course_sla_20261116_local.py)
+生成。以下目录及其九个文件是受保护的历史产物，不是当前脚本的默认输出：
+`examples/course/9070-sla-20261116/frozen-commitment/`：
 `experiment.json`（复用 11-11，`89ec0d93…`）、3 个 cohort spec（网格 `[1,2,4]`、seed `20261116`）、
 `jobs.json`（27 Runtime 的确定性执行序）、`predictions-summary.json`（逐 run 摘要）、
 `selection.json`（预注册盲网格声明，**不做容量搜索、不据预测挑选**）、
 `validation-contract.template.json`（与 11-11 同，`8f0bb4ee…`）、`manifest.json`。
-完整预测 payload 已本地留档（scratch `step2-20261116-payloads/`），其字节与 raw 承诺一致。
+旧脚本将完整预测payload写至作者私有scratch，未随PR发布；仓库九文件只含输入、摘要与双SHA承诺。
+这里保留当时已记录的字节承诺与数值，不保证当前main能重现原完整payload或raw SHA，
+也不能用当前代码生成的文件替代或补写其历史承诺。
 
 **承诺 SHA（预测 payload，raw / canonical）：**
 
@@ -97,12 +109,11 @@ C1→C8 全斜率无法在本研究盲测（C8 已消耗），本研究提供盲
 | short | `e0e1c9639dafcfbaffa78bd641141ad15bc67020c7e0023c2455900a1c358a7a` | `b4ce2005b09b127ae84a42ba34c28747d18629946c8c89cad673a444979ebb2c` |
 | long | `678de9e5682815b0bde2fbb64b508149f6166609fd8ede847d6d9a7ba91be28f` | `a4392775774cc0368d6cbec975ec350b8b36e387ede8113db2f55602be775784` |
 
-identity `cc6665e8…`（与 11-11 同源，因 experiment 未改）。**复现性已验证**：用冻结
-`experiment.json` + 各 `spec.json` 重跑 `predict_closed_loop`，raw 与 canonical 两种 SHA 均与上表一致
-（揭示公式见 [scripts/analyze_course_sla_study.py](../../scripts/analyze_course_sla_study.py) 第 70–75 行）。
-`files_sha256` / `code_files_sha256` 均已对本地 bundle 与 `mlsys_sim/*.py` 核对一致。
+identity `cc6665e8…`（与11-11同源，因experiment未改）。原HEAD的复现记录称当时重跑的raw/canonical SHA均与上表一致，
+且核对了 `files_sha256` / `code_files_sha256`。这些是原提交的历史记录，不保证当前代码产生同样完整payload字节；
+当前代码、报告字段和hash演进不得反写原manifest或更新上表承诺。
 
-**冻结的盲预测（P99 ms，3 次 fresh 重复的中位）**——即测后要核对的数值：
+**原冻结预测（P99 ms，3次计划重复的中位）**——保留历史数值，尚无原27格的GPU核验：
 
 | cohort | C | TTFT | TPOT | E2E | tok/s |
 | --- | ---: | ---: | ---: | ---: | ---: |
@@ -110,27 +121,31 @@ identity `cc6665e8…`（与 11-11 同源，因 experiment 未改）。**复现�
 | short(64,128) | 1 / 2 / 4 | 15.1 / 18.3 / 34.9 | 14.3 / 14.3 / 14.4 | 229 / 233 / 251 | 69.8 / 138.6 / 264.2 |
 | long(512,1024) | 1 / 2 / 4 | 71.0 / 138.7 / 173.3 | 14.5 / 17.6 / 25.2 | 289 / 361 / 465 | 59.4 / 104.8 / 166.0 |
 
-预期：TPOT 预测偏低（11-11 实测约 21–29 ms），本盲留出的作用正是检验其是否收敛、以及 C1→C4 斜率。
+原文预期TPOT偏低（11-11闭环观测约21–29ms）；这一参照不是新的测量，也不能据它改原预测或拟合参数。
 
-### 8.2 远端冻结 + 测量（GPU 主机，待 16 GiB 卡空闲）
+### 8.2 原远端合同未执行，不补写历史 snapshot
 
-本地 manifest 的 host 侧字段（`checkpoint_manifest`、`runtime_execution_config`、
-`runtime_config_sha256`、`scheduler_config_sha256`、`design_contract_sha256`）现为 `REMOTE_PENDING`，
-**不在本地伪造**。在 9070XT 上按序执行：
+原manifest的host侧字段（`checkpoint_manifest`、`runtime_execution_config`、
+`runtime_config_sha256`、`scheduler_config_sha256`、`design_contract_sha256`）仍为 `REMOTE_PENDING`。
+原计划须先完成实际checkpoint/Runtime绑定、远端SHA接收回执，再运行27次独立采集并揭示；这条链没有完成。
+原稿记载当时16 GiB卡被其它工作占用，故未并行启动；这不是当前GPU占用状态。
 
-1. 同步本仓库（含 `examples/course/9070-sla-20261116/` 与 `mlsys_sim/`）到测量主机，使
-   `files_sha256` / `code_files_sha256` 与本地一致。
-2. 由主机侧 producer 用**真实**测量主机数据补全 manifest：模型 checkpoint 清单与其 SHA、
-   运行时自报的 vLLM 执行配置及其 SHA、scheduler 配置 SHA、主机侧 design-contract SHA；重算
-   `local_manifest_sha256`，写出最终 `manifest.json` 并记下其 SHA256。
-3. 在补全后的 bundle 上运行
-   `python scripts/freeze_course_sla_commitment.py --bundle <bundle> --code-root <mlsys_sim> --expected-manifest-sha256 <步骤2的SHA>`，
-   签发 `freeze-receipt.json` + 逐 cohort `validation-contract.json`（`measurement_started=false`）。
-4. 确认 16 GiB 卡（`memory_bytes=17095983104`，11-11 为 GPU 1）无其他在跑任务，且固定到正确的物理卡
-   （rocm-smi 的 product-name/显存标签有歧义，须以 `memory_bytes` 为准核对），避免污染本盲留出与在跑的 11-16 校准采样。
-5. 在 `ch4-mlsys`（rocm/vllm）容器内按 `jobs.json` 的 27 个 fresh Runtime 采集（每点声明形状 warmup、
-   排空、核对 KV 空闲块恢复；正式计时前关 Runner，仅保留 Scheduler 逐 token 事件）。
-6. 全部单元结束后运行 `scripts/analyze_course_sla_study.py`（CPU-only 揭示）：重算预测并核对 raw/canonical
-   两 SHA，再与实测比较，产出逐 cohort 验证与 SLA/精度判定。
+如果以后需要新的实验，应使用新study ID、新目录、新政策与独立数据，保留原九文件和
+[HOLDOUT-CONSUMED.json](../course-sla-9070xt-20261111/HOLDOUT-CONSUMED.json) 原字节。
+不得就地补全旧manifest、覆盖承诺、借当前代码声称重放了旧完整payload，或将PR #13的54 × 512结果填回本合同。
 
-`hardware_validated=false` 直至第 6 步完成且回执链完整。
+### 8.3 当前代码的 CPU 本地 draft（不采样、不替代历史冻结）
+
+当前可移植脚本要求显式 `--out` 和 `--study-id`，拒绝已有输出及受保护历史目录。可先运行小规模CPU烟测：
+
+```bash
+python scripts/analyze_decode_domain_gap.py
+python scripts/freeze_course_sla_20261116_local.py \
+  --study-id course9070sla-local-draft-20261119 \
+  --out runs/course9070sla-local-draft \
+  --requests-per-run 2 --replications 1
+```
+
+输出标注 `current-code local draft`、`hardware_validated=false` 和远端冻结待办；完整payload保存为
+`OUT/predictions/<cohort>.prediction-payload.json`。小烟测不具备GPU验证意义，也不按旧实验的1000请求合同解释。
+脚本保持显式课程参数，不拟合、不默认修改β；需要真实GPU验证时必须另行设计、绑定和冻结。

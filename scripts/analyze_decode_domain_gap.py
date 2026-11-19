@@ -1,112 +1,135 @@
-"""Step 1 (CPU-only): quantify what the 2026-11-16 runtime-cost calibration
-explains for the 2026-11-11 eager 9070XT SLA study.
+"""CPU historical Decode diagnostic, without fitting or hardware attribution.
 
-Every out-of-domain number printed below is an ANALYSIS EXTRAPOLATION, not a
-prediction: the retained decode specs cover context 1024-1043 only, and the
-11-11 study ran eager MRv1 while the fit is bound to
-graph_full_and_piecewise_configured / RocmAttentionImpl. The tooling itself
-refuses to apply the fit at the 11-11 shape (see the SCOPE line).
+The retained cost API rejects short-context/eager transfer. Out-of-domain
+coefficient arithmetic below is a diagnostic proxy, never a hardware prediction.
 """
-import gzip
+
+import argparse
+from dataclasses import asdict, replace
 import json
+from pathlib import Path
 import statistics
 import sys
-from dataclasses import replace
+from typing import Any
 
-sys.path.insert(0, '/mnt/luyuzhou/hello-mlsys/mlsys-simulator')
-from mlsys_sim import load_experiment
-from mlsys_sim.analytical_cost import (
-    nominal_cost_features,
-    corrected_analytical_step,
+REPO = Path(__file__).resolve().parents[1]
+if str(REPO) not in sys.path:
+    sys.path.insert(0, str(REPO))
+
+from mlsys_sim import load_experiment  # noqa: E402
+from mlsys_sim.analytical_cost import (  # noqa: E402
+    analytical_cost_identity, corrected_analytical_step, nominal_cost_features,
 )
-from mlsys_sim.performance import AnalyticalModel
-from mlsys_sim.schema import SimulationError
+from mlsys_sim.performance import AnalyticalModel  # noqa: E402
+from mlsys_sim.schema import Experiment, SimulationError  # noqa: E402
 
-BASE = '/mnt/luyuzhou/hello-mlsys/mlsys-simulator/examples/runtime_cost_20261116'
-exp_cal = load_experiment(f'{BASE}/experiments/model-2.json')  # Qwen3-4B + fitted costs
-
-# 1) 11-11 default spec: course eta/beta transfer, no analytical costs.
-cal = replace(exp_cal.calibration,
-              compute_efficiency=0.6243, bandwidth_efficiency=0.9054,
-              launch_overhead_us=2.0, framework_overhead_us=5.0,
-              analytical_costs=())
-exp1111 = replace(exp_cal, calibration=cal)
-am = AnalyticalModel(exp1111)
+BASE = REPO / "examples/runtime_cost_20261116"
+HISTORICAL_TPOT_MS = {1: 21.204, 2: 22.584, 4: 22.684, 8: 29.461}
 
 
-def default_decode(b: int, ctxs) -> float:
-    return am.estimate_step('decode', [1] * b, [c for c in ctxs]).duration_ms
+def _scope_rejection(experiment: Experiment, context: int) -> dict[str, str]:
+    try:
+        corrected_analytical_step(experiment, "decode", [1], [context])
+    except SimulationError as exc:
+        if exc.code != "CALIBRATION_MISMATCH":
+            raise
+        return {"error_code": exc.code, "message": str(exc)}
+    raise RuntimeError("Retained cost unexpectedly accepted an out-of-domain diagnostic query")
 
 
-# 11-11 baseline: input 256, output 16. TPOT spans decode steps 2..16 (15
-# intervals); context before step k+1 is 256 + k, i.e. 257..271.
-ctxs = list(range(257, 272))
-print('DEFAULT (11-11 course eta/beta, no analytical costs) decode median ms:')
-for B in (1, 2, 4, 8):
-    per = [default_decode(B, [c] * B) for c in ctxs]
-    print(f'  B={B:2d}: median {statistics.median(per):8.3f}  '
-          f'(ctx257 {per[0]:.3f} -> ctx271 {per[-1]:.3f})')
+def analyze(base: Path = BASE) -> dict[str, Any]:
+    """Return structured CPU arithmetic; import performs no analysis or file reads."""
+    calibrated = load_experiment(base / "experiments/model-2.json")
+    calibration = calibrated.calibration
+    identity = analytical_cost_identity(calibrated)
+    candidates = [entry for entry in calibration.analytical_costs
+        if (entry.identity_sha256, entry.phase, entry.execution_mode, entry.attention_backend)
+        == (identity, "decode", calibration.decode_execution_mode, calibration.decode_attention_backend)]
+    if len(candidates) != 1:
+        raise ValueError("Expected one retained 4B Decode cost in its exact declared domain")
+    cost = candidates[0]
+    # Preserve the contributor's historical eta/beta transfer unchanged.
+    historical = replace(calibrated, calibration=replace(calibration,
+        compute_efficiency=0.6243, bandwidth_efficiency=0.9054,
+        launch_overhead_us=2.0, framework_overhead_us=5.0, analytical_costs=()))
+    model = AnalyticalModel(historical)
+    contexts = list(range(257, 272))
+    rows, components = [], []
+    for batch, reference in HISTORICAL_TPOT_MS.items():
+        defaults, proxies = [], []
+        for context in contexts:
+            defaults.append(model.estimate_step("decode", [1] * batch, [context] * batch).duration_ms)
+            features = nominal_cost_features(historical, "decode", [1] * batch, [context] * batch)
+            # Diagnostic only: never widen bounds or install extrapolated costs.
+            proxies.append(cost.nonattention_scale * features["nonattention_ms"]
+                + cost.attention_scale * features["attention_ms"]
+                + (cost.attention_fixed_us_per_layer * features["layers"] + cost.runtime_fixed_us) / 1000)
+        default, proxy = statistics.median(defaults), statistics.median(proxies)
+        estimate = model.estimate_step("decode", [1] * batch, [265] * batch)
+        linear = estimate.breakdown["linear"]
+        rows.append({"batch_size_proxy": batch, "closed_loop_concurrency_reference": batch,
+            "historical_closed_loop_tpot_reference_ms": reference, "default_decode_median_ms": default,
+            "default_context_endpoints_ms": [defaults[0], defaults[-1]], "out_of_domain_cost_proxy_ms": proxy,
+            "default_vs_reference_signed_pct": (default / reference - 1) * 100,
+            "proxy_vs_reference_signed_pct": (proxy / reference - 1) * 100})
+        components.append({"batch_size": batch, "context_tokens": 265, "model_total_ms": estimate.duration_ms,
+            "model_component_ms": {name: estimate.breakdown[name]["duration_ms"] for name in
+                ("linear", "embedding_and_output", "misc", "framework", "attention", "communication")},
+            "linear_fraction_model_internal": linear["duration_ms"] / estimate.duration_ms,
+            "linear_hbm_bytes_model_internal": linear["hbm_bytes_per_rank"],
+            "bandwidth_proxy_gbps": linear["hbm_bytes_per_rank"] / (reference * 1e6)})
+    eager_probe = replace(calibrated, calibration=replace(calibration, decode_execution_mode="eager"))
+    return {"kind": "historical_decode_cpu_diagnostic_v1", "hardware_validated": False, "fitted": False,
+        "scope": {"short_context_probe": _scope_rejection(calibrated, 257),
+                  "eager_selector_probe": _scope_rejection(eager_probe, cost.min_context_tokens)},
+        "retained_decode_cost": asdict(cost), "context_proxy_tokens": contexts, "rows": rows,
+        "model_internal_components": components,
+        "c1_to_c8_reference_change_pct": (rows[-1]["historical_closed_loop_tpot_reference_ms"]
+            / rows[0]["historical_closed_loop_tpot_reference_ms"] - 1) * 100,
+        "b1_to_b8_default_model_change_pct": (rows[-1]["default_decode_median_ms"]
+            / rows[0]["default_decode_median_ms"] - 1) * 100,
+        "b1_to_b8_out_of_domain_proxy_change_pct": (rows[-1]["out_of_domain_cost_proxy_ms"]
+            / rows[0]["out_of_domain_cost_proxy_ms"] - 1) * 100,
+        "interpretation": [
+            "The 21.2ms-class references are historical closed-loop TPOT, not isolated batch/kernel timings.",
+            "Homogeneous B1/B2/B4/B8 CPU queries are concurrency-reference proxies, not captured runtime batches.",
+            "Configured Graph/RocmAttentionImpl costs grant no eager or short-context transfer.",
+            "Linear shares (including approximately 88%) are analytical-model attribution, not profiler evidence.",
+            "Bandwidth proxies divide modeled Linear bytes by closed-loop TPOT; traffic and bandwidth were not measured.",
+            "These numbers establish no kernel/CPU root cause, new calibration or holdout accuracy result.",
+        ]}
 
-# 2) Scope enforcement: the fitted model must refuse the 11-11 shape.
-try:
-    corrected_analytical_step(exp_cal, 'decode', [1], [257])
-    print('SCOPE: unexpectedly accepted ctx=257')
-except SimulationError as e:
-    print(f'SCOPE ENFORCED: {e}')
 
-# 3) Out-of-domain extrapolation with the fitted 4B decode spec (analysis only).
-fit = json.load(gzip.open(f'{BASE}/fit.json.gz', 'rt'))
-spec = [c for c in fit['cost_specs'] if c['phase'] == 'decode'
-        and c['identity_sha256'].startswith('11efc636')][0]
-layers = exp_cal.strategy.model.num_layers
-print(f'\nFitted 4B decode spec: nonattention x{spec["nonattention_scale"]:.4f}, '
-      f'attention x{spec["attention_scale"]:.4f}, '
-      f'attn_fixed {spec["attention_fixed_us_per_layer"]:.3f}us/layer x{layers}, '
-      f'runtime_fixed {spec["runtime_fixed_us"]:.1f}us. Retained ctx '
-      f'{spec["min_context_tokens"]}-{spec["max_context_tokens"]}, '
-      f'B {spec["min_batch_size"]}-{spec["max_batch_size"]}.')
-
-
-def extrap(b: int, ctxs) -> float:
-    per = []
-    for c in ctxs:
-        f = nominal_cost_features(exp1111, 'decode', [1] * b, [c] * b, 0)
-        ms = (spec['nonattention_scale'] * f['nonattention_ms']
-              + spec['attention_scale'] * f['attention_ms']
-              + (spec['attention_fixed_us_per_layer'] * layers
-                 + spec['runtime_fixed_us']) / 1000.0)
-        per.append(ms)
-    return statistics.median(per)
+def print_analysis(report: dict[str, Any]) -> None:
+    print("CPU HISTORICAL DIAGNOSTIC: hardware_validated=false; fitted=false")
+    print("References are closed-loop TPOT; B denotes a homogeneous batch proxy.")
+    print("B/C  TPOT reference  default model  out-of-domain proxy (ms)")
+    for row in report["rows"]:
+        print(f"{row['batch_size_proxy']:3d}  {row['historical_closed_loop_tpot_reference_ms']:14.3f}"
+              f"  {row['default_decode_median_ms']:13.3f}  {row['out_of_domain_cost_proxy_ms']:19.3f}")
+    for name, rejection in report["scope"].items():
+        print(f"SCOPE ENFORCED ({name}): {rejection['error_code']}: {rejection['message']}")
+    print("Model-internal context-265 components; bandwidth is a TPOT-denominator proxy:")
+    for row in report["model_internal_components"]:
+        print(f"  B={row['batch_size']:2d} total={row['model_total_ms']:.3f}ms"
+              f" Linear share={row['linear_fraction_model_internal']:.1%}"
+              f" bandwidth_proxy={row['bandwidth_proxy_gbps']:.3f}GB/s")
+    for message in report["interpretation"]:
+        print("- " + message)
 
 
-print('\nEXTRAPOLATED calibrated decode (fitted 4B spec, OUT OF DOMAIN):')
-for B in (1, 2, 4, 8):
-    print(f'  B={B:2d}: median {extrap(B, ctxs):8.3f} ms')
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--base", type=Path, default=BASE, help="Retained cost example directory")
+    parser.add_argument("--json", action="store_true", help="Print structured CPU diagnostic")
+    args = parser.parse_args(argv)
+    report = analyze(args.base)
+    if args.json:
+        print(json.dumps(report, indent=2, allow_nan=False))
+    else:
+        print_analysis(report)
+    return 0
 
-# 4) Compare with 11-11 measured decode (median of 3 fresh runtimes).
-measured = {1: 21.204, 2: 22.584, 4: 22.684, 8: 29.461}
-print('\nB   measured  default  def_err   extrap_cal  extrap_err')
-for B in sorted(measured):
-    m = measured[B]
-    d = statistics.median([default_decode(B, [c] * B) for c in ctxs])
-    e = extrap(B, ctxs)
-    print(f'{B:2d}  {m:8.3f}  {d:7.3f}  {(d / m - 1) * 100:+7.1f}%  '
-          f'{e:11.3f}  {(e / m - 1) * 100:+7.1f}%')
 
-print('\nC1->C8 slope: measured %+.1f%%  default %+.1f%%  extrap %+.1f%%' % (
-    (measured[8] / measured[1] - 1) * 100,
-    (statistics.median([default_decode(8, [c] * 8) for c in ctxs])
-     / statistics.median([default_decode(1, [c] * 1) for c in ctxs]) - 1) * 100,
-    (extrap(8, ctxs) / extrap(1, ctxs) - 1) * 100))
-
-# 5) Component breakdown at a single representative context (C=265).
-print('\nComponent breakdown (median ctx=265), nominal 11-11 spec, ms:')
-for B in (1, 4, 8):
-    est = am.estimate_step('decode', [1] * B, [265] * B)
-    parts = est.breakdown
-    row = {k: parts[k]['duration_ms'] for k in
-           ('linear', 'embedding_and_output', 'misc', 'framework',
-            'attention', 'communication')}
-    tot = est.duration_ms
-    print(f'  B={B:2d} total {tot:7.3f} | ' +
-          '  '.join(f'{k} {v:.3f}' for k, v in row.items()))
+if __name__ == "__main__":
+    raise SystemExit(main())

@@ -68,6 +68,14 @@ missed its preregistered accuracy targets: its predicted safe client cap was 16,
 while the largest observed baseline grid point passing all three repeats was 4.
 All failed SLA and held-out outcomes remain in the report; no refitting was done.
 
+The [archived November 16 domain-gap diagnosis](docs/decode-cost-domain-gap-20261116/README.md)
+preserves the original `a075347` CPU analysis and locally frozen 27×1000-request
+plan. That GPU contract remains unexecuted (`REMOTE_PENDING`); the later 54-trial
+study is separate. Baseline C1/2/4 were retests, while the short/long low-concurrency
+points were new only relative to the earlier holdouts. Portable CPU tools create
+fresh local drafts with explicit output and study IDs, retain complete payloads,
+and neither overwrite historical commitments nor change the default beta.
+
 The 1.12 limited live validation added complete requested-storage Workspace
 attribution at two single-card prefill shapes, fresh-process physical KV-pool
 success/OOM endpoints on both AMD cards, TP2 unseen-shape stage validation and
