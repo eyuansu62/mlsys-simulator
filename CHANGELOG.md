@@ -1,5 +1,17 @@
 # Changelog
 
+## Unreleased
+
+- Portable CPU domain-gap analysis and an exclusive local-draft freezer with
+  required output/study IDs, bounded smoke options and complete prediction
+  payloads. New drafts do not regenerate historical byte commitments.
+- Preserve the original `a075347` November 16 diagnostic tables, nine-file
+  local snapshot and consumed-holdout marker. Its 27×1000 GPU contract remains
+  unexecuted; the later separate 54×512 study does not complete it.
+- Clarify baseline retests, historical versus currently observed configurations,
+  and model-internal/closed-loop bandwidth proxies without claiming an isolated
+  GEMM measurement or unique GPU cause. Default beta and cost backends remain unchanged.
+
 ## 1.24.0 — 2026-11-18
 
 - Opt-in `backend="runtime"` with an actual `runtime_cost_model_v1` artifact at

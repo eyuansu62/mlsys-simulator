@@ -11,6 +11,8 @@
 
 较早的[9070XT/Qwen3-4B课程实测](docs/course-sla-9070xt-20261111/README.md)完成39个fresh Runtime、39,000请求和短／长输入留出。采集完整性通过，预注册精度目标未通过：预测安全cap16，基线三次均满足SLA的最大已观测点为4。报告保留全部阴性结果，未回拟合或挑重复。
 
+[11-16域差异诊断与历史冻结材料](docs/decode-cost-domain-gap-20261116/README.md)保留原HEAD `a075347` 的CPU分析和27×1000请求本地计划；该GPU合同未执行，仍为`REMOTE_PENDING`，后续54格不能算作其完成。原baseline C1/2/4是重测，short/long低并发只相对旧分布留出新增，当前也已有后续观测。可移植CPU工具要求新输出目录和study ID，保存完整payload；不覆盖历史承诺，也不修改默认β。
+
 单卡和TP2已完成完整训练及冻结后独立验证；1.14的PP2也完成闭环，每个cohort各48条记录/48条rank观测、16种stage精确形状，覆盖率100%、字节误差0、低估0。结论仅限实际采样配置和保留形状，详见[Worker Workspace 验证记录](docs/workspace-stage-validation.md)。
 
 新完成的[Prefill稳态真机报告](docs/prefill-state-20261117/README.md)包含CPU/HIP/GPU时间线、固定逐形状暖机与主线程亲和性对照。重新冻结后，3个新进程的33/33格均在10%误差内；Prefill平均1.05%、最大3.56%，结论限于报告声明的准备条件。
