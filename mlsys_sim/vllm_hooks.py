@@ -106,8 +106,11 @@ def _plain(value: Any) -> Any:
     return str(value)
 
 
-def _execution_config(config: Any, experiment: Experiment, async_scheduling: bool) -> dict:
+def _execution_config(config: Any, experiment: Experiment, async_scheduling: bool, *,
+                      runtime_cost_identity: bool = False) -> dict:
     """Retain configured execution policy, excluding rank/path-only metadata."""
+    if type(runtime_cost_identity) is not bool:
+        _fail("INVALID_COLLECTION_PLAN", "runtime_cost_identity must be boolean")
     result: dict[str, Any] = {"api_revision": API_REVISION, "async_scheduling": bool(async_scheduling),
         "tensor_parallel_size": experiment.strategy.tensor_parallel_size,
         "pipeline_parallel_size": experiment.strategy.pipeline_parallel_size}
@@ -126,6 +129,20 @@ def _execution_config(config: Any, experiment: Experiment, async_scheduling: boo
     for section, names in sections.items():
         owner = getattr(config, section, None)
         result[section] = {name: _plain(getattr(owner, name, None)) for name in names}
+    if runtime_cost_identity:
+        scheduling = getattr(config, "scheduler_config", None)
+        for name in ("max_num_partial_prefills", "max_long_partial_prefills", "long_prefill_token_threshold"):
+            result["scheduler_config"][name] = _plain(getattr(scheduling, name, None))
+        policy = os.environ.get("MLSYS_RUNTIME_COST_POLICY_JSON")
+        if policy is not None:
+            try:
+                value = json.loads(policy)
+                if not isinstance(value, dict) or len(policy.encode()) > 65536:
+                    raise ValueError("Expected bounded policy object")
+                json.dumps(value, allow_nan=False)
+            except (ValueError, TypeError) as exc:
+                raise SimulationError("INVALID_COLLECTION_PLAN", "Invalid runtime-cost preparation policy") from exc
+            result["runtime_cost_preparation"] = value
     passes = getattr(getattr(config, "compilation_config", None), "pass_config", None)
     result["compilation_pass_config"] = ({key: _plain(value) for key, value in sorted(vars(passes).items())
         if not key.startswith("_")} if passes is not None and hasattr(passes, "__dict__") else None)
@@ -141,6 +158,9 @@ def _execution_config(config: Any, experiment: Experiment, async_scheduling: boo
                  "NCCL_SHM_USE_CUDA_MEMCPY", "NCCL_SHM_MEMCPY_MODE"):
         if name in os.environ:
             result["environment"][name] = os.environ[name]
+    for name in ("GPU_MAX_HW_QUEUES", "HSA_NO_SCRATCH_RECLAIM", "HIP_FORCE_DEV_KERNARG"):
+        if runtime_cost_identity:
+            result["environment"][name] = os.environ.get(name)
     return result
 
 
@@ -410,7 +430,7 @@ class RunnerCapture:
                  allocator_snapshot: Callable[[], Any] | None = None,
                  source_reference: str = "opt-in pinned vLLM internal runner capture",
                  output_dir: str | Path | None = None, rccl_metadata: dict | None = None,
-                 max_records: int = 100000):
+                 max_records: int = 100000, runtime_cost_identity: bool = False):
         validate_experiment(experiment)
         if not re.fullmatch(r"[A-Za-z0-9_.-]{1,80}", text(session_id, "session_id")):
             _fail("INVALID_COLLECTION_PLAN", "session_id must be a bounded filename-safe identifier")
@@ -551,11 +571,13 @@ class RunnerCapture:
         self._runtime_bound = False
         self._loaded_tying_bound: dict | None = None
         self._expected_runtime_hash = local.calibration.runtime_config_sha256
+        self._runtime_cost_identity = runtime_cost_identity
         self._install()
 
     def _bind_runtime_config(self, sampling_policy: dict | None) -> None:
         config = getattr(self.runner, "vllm_config", self.runner)
-        snapshot = _execution_config(config, self.exp, bool(self.runner.use_async_scheduling))
+        snapshot = _execution_config(config, self.exp, bool(self.runner.use_async_scheduling),
+                                     runtime_cost_identity=self._runtime_cost_identity)
         snapshot["actual_attention_backends"] = _attention_backends(self.runner)
         snapshot["torch_build"] = {key: self.header["metadata"].get(key) for key in ("torch_version", "hip_build_version")}
         snapshot["sampling_policy"] = sampling_policy
@@ -1212,7 +1234,8 @@ class SchedulerCapture:
                  clock_domain: str | None = None, clock_ns: Callable[[], int] | None = None,
                  source_reference: str = "opt-in pinned vLLM Scheduler capture",
                  output_dir: str | Path | None = None, record_prompt_token_ids: bool = False,
-                 max_events: int = 1000000, _constructor_origin: bool = False):
+                 max_events: int = 1000000, _constructor_origin: bool = False,
+                 runtime_cost_identity: bool = False):
         validate_experiment(experiment)
         local = replica_experiment(experiment, replica_index)
         if not re.fullmatch(r"[A-Za-z0-9_.-]{1,80}", text(session_id, "session_id")):
@@ -1270,7 +1293,8 @@ class SchedulerCapture:
                 "canonical_eligible": True}, "hardware_validated": False}
         config = getattr(scheduler, "vllm_config", None)
         self.header["metadata"]["actual_scheduler_config"] = _execution_config(config, local,
-            bool(getattr(getattr(config, "scheduler_config", None), "async_scheduling", False)))
+            bool(getattr(getattr(config, "scheduler_config", None), "async_scheduling", False)),
+            runtime_cost_identity=runtime_cost_identity)
         existing = getattr(scheduler, "requests", {})
         fresh = not existing and (_constructor_origin or fixture)
         self.header["metadata"].update(install_origin="post_constructor" if _constructor_origin else "programmatic",
@@ -1597,12 +1621,19 @@ def register_vllm_hooks() -> None:
         _fail("UNSUPPORTED_VLLM_ABI", "Internal capture requires MRv1; set VLLM_USE_V2_MODEL_RUNNER=0")
     config = object_fields(read_json(filename), {"schema_version", "experiment", "session_id", "output_dir"},
         {"source_reference", "replica_index", "rccl_metadata", "max_records", "capture_scheduler",
-         "record_prompt_token_ids", "max_events"}, "vLLM plugin config")
+         "record_prompt_token_ids", "max_events", "runner_binding_experiment", "runtime_cost_identity"}, "vLLM plugin config")
     if type(config["schema_version"]) is not int or config["schema_version"] != 1:
         _fail("INVALID_COLLECTION_PLAN", "Plugin config schema_version must be 1")
     root = Path(filename).resolve().parent
     experiment = (load_experiment(root / config["experiment"]) if isinstance(config["experiment"], str)
                   else experiment_from_dict(config["experiment"]))
+    runtime_cost_identity = config.get("runtime_cost_identity", False)
+    if type(runtime_cost_identity) is not bool:
+        _fail("INVALID_COLLECTION_PLAN", "runtime_cost_identity must be boolean")
+    runner_experiment = (experiment_from_dict(config["runner_binding_experiment"])
+                         if "runner_binding_experiment" in config else experiment)
+    if "runner_binding_experiment" in config and not runtime_cost_identity:
+        _fail("INVALID_COLLECTION_PLAN", "Separate Runner identity requires explicit runtime-cost mode")
     version = _runtime_version()
     module = importlib.import_module("vllm.v1.worker.gpu_model_runner")
     runner_type = module.GPUModelRunner
@@ -1628,11 +1659,12 @@ def register_vllm_hooks() -> None:
             _fail("UNSUPPORTED_VLLM_ABI", "The configured runtime selects unsupported MRv2")
         original(runner, vllm_config, device)
         distributed = importlib.import_module("vllm.distributed")
-        hook = install_runner_hook(runner, experiment, session_id=config["session_id"],
+        hook = install_runner_hook(runner, runner_experiment, session_id=config["session_id"],
             replica_index=config.get("replica_index", 0), stage_index=distributed.get_pp_group().rank_in_group,
             tp_rank=distributed.get_tp_group().rank_in_group, runtime_version=version,
             output_dir=output, source_reference=config.get("source_reference", "explicit general-plugin capture"),
-            rccl_metadata=config.get("rccl_metadata"), max_records=config.get("max_records", 100000))
+            rccl_metadata=config.get("rccl_metadata"), max_records=config.get("max_records", 100000),
+            runtime_cost_identity=runtime_cost_identity)
         _ACTIVE_CAPTURES.append(hook)
     runner_type.__init__ = initialize
     _PLUGIN_PATCHES.append((runner_type, original))
@@ -1648,7 +1680,8 @@ def register_vllm_hooks() -> None:
                 replica_index=config.get("replica_index", 0), runtime_version=version,
                 source_reference=config.get("source_reference", "explicit general-plugin Scheduler capture"),
                 output_dir=output, record_prompt_token_ids=config.get("record_prompt_token_ids", False),
-                max_events=config.get("max_events", 1000000), _constructor_origin=True)
+                max_events=config.get("max_events", 1000000), _constructor_origin=True,
+                runtime_cost_identity=runtime_cost_identity)
             _ACTIVE_CAPTURES.append(hook)
         scheduler_type.__init__ = initialize_scheduler
         _PLUGIN_PATCHES.append((scheduler_type, scheduler_original))

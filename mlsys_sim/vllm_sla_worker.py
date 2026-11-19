@@ -38,6 +38,18 @@ def _sha(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
+def _progress_observer(spec: dict, concurrency: int, replication: int, *, quiet: bool, retain: bool):
+    rows = []
+    def progress(state):
+        row = {'kind': 'sla_progress', 'cohort': spec['cohort'], 'concurrency': concurrency,
+               'replication': replication, **state}
+        if retain or quiet:
+            rows.append(row)
+        if not quiet:
+            print(json.dumps(row), flush=True)
+    return progress, rows
+
+
 def _captured_json(raw: bytes) -> dict:
     def unique(items):
         result = {}
@@ -174,8 +186,9 @@ def formal_server_evidence(experiment, capture: dict, feedback: dict, *, allow_t
 class _VllmBackend:
     source = {'kind': 'measured', 'reference': 'actual pinned synchronous vLLM engine API feedback'}
 
-    def __init__(self, engine: Any, parameters: Any):
+    def __init__(self, engine: Any, parameters: Any, *, runtime_cost_recorder=None):
         self.engine, self.parameters = engine, parameters
+        self.runtime_cost_recorder = runtime_cost_recorder
         self.native_by_router: dict[str, str] = {}
 
     def add_request(self, request: dict) -> str:
@@ -185,6 +198,12 @@ class _VllmBackend:
         return native
 
     def step(self) -> list[dict]:
+        if self.runtime_cost_recorder is not None:
+            with self.runtime_cost_recorder.api_step_boundary():
+                return self._step()
+        return self._step()
+
+    def _step(self) -> list[dict]:
         rows = []
         for output in self.engine.step():
             if len(output.outputs) != 1:
@@ -198,7 +217,7 @@ class _VllmBackend:
         return self.engine.has_unfinished_requests()
 
     def abort_requests(self, native_ids: list[str]) -> None:
-        self.engine.abort_request(native_ids)
+        self.engine.abort_request(native_ids, internal=True)
 
 
 def _freeze_check(args, experiment_raw: bytes, spec_raw: bytes) -> dict | None:
@@ -236,7 +255,12 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument('--out', type=Path, required=True)
     parser.add_argument('--phase', choices=('pilot', 'formal'), required=True)
     parser.add_argument('--freeze-receipt', type=Path)
+    parser.add_argument('--runtime-cost-capture', action='store_true')
+    parser.add_argument('--quiet', action='store_true')
+    parser.add_argument('--main-thread-cpu', type=int)
     args = parser.parse_args(argv)
+    if args.main_thread_cpu is not None and (args.main_thread_cpu < 0 or not args.runtime_cost_capture):
+        parser.error('--main-thread-cpu requires runtime-cost capture and a nonnegative CPU index')
     args.out.mkdir(parents=True, exist_ok=False)
     experiment, spec, experiment_raw, spec_raw = _study_inputs(args.experiment, args.spec)
     if args.phase == 'formal' and not experiment.calibration.runtime_config_sha256:
@@ -250,11 +274,23 @@ def main(argv: list[str] | None = None) -> int:
     os.environ['VLLM_ENABLE_V1_MULTIPROCESSING'] = '0'
     os.environ['VLLM_USE_V2_MODEL_RUNNER'] = '0'
     os.environ['VLLM_WORKER_MULTIPROC_METHOD'] = 'spawn'
+    runtime_policy = None
+    if args.runtime_cost_capture:
+        from .runtime_cost_capture import preparation_policy
+        runtime_policy = preparation_policy(main_thread_cpu=args.main_thread_cpu, quiet=args.quiet)
+        declared = os.environ.get('MLSYS_RUNTIME_COST_POLICY_JSON')
+        if declared is not None and _captured_json(declared.encode()) != runtime_policy:
+            raise SimulationError('RUNTIME_PREPARATION_MISMATCH', 'Declared CPU/preparation policy differs from this host')
+        os.environ['MLSYS_RUNTIME_COST_POLICY_JSON'] = json.dumps(runtime_policy, sort_keys=True, separators=(',', ':'))
     session = 'sla-' + uuid.uuid4().hex
     capture_config = {'schema_version': 1, 'experiment': experiment_dict(experiment), 'session_id': session,
                       'output_dir': str(args.out / 'captures'), 'capture_scheduler': True,
                       'record_prompt_token_ids': True, 'max_records': 100000, 'max_events': 1000000,
                       'source_reference': 'actual single-card course closed-loop validation; ' + args.phase}
+    if args.runtime_cost_capture:
+        runner_exp = replace(experiment, calibration=replace(experiment.calibration, backend='analytical',
+            profile_path=None, analytical_costs=(), timing_boundary='step_includes_output_and_sampling_v1'))
+        capture_config.update(runtime_cost_identity=True, runner_binding_experiment=experiment_dict(runner_exp))
     _write(args.out / 'capture-config.json', capture_config)
     os.environ['MLSYS_VLLM_CAPTURE_CONFIG'] = str(args.out / 'capture-config.json')
     summary: dict = {'status': 'FAILED', 'phase': args.phase, 'session_id': session, 'pid': os.getpid(),
@@ -265,6 +301,8 @@ def main(argv: list[str] | None = None) -> int:
                     'hardware_validated': False, 'source': {'kind': 'measured', 'reference': 'actual owned fresh Runtime'},
                     'source_sha256': _sha(Path(__file__)), 'freeze_receipt': receipt}
     llm = None
+    runtime_recorder = None
+    progress_rows = []
     try:
         from .closed_loop_capture import collect_closed_loop
         from .vllm_hooks import register_vllm_hooks
@@ -292,7 +330,13 @@ def main(argv: list[str] | None = None) -> int:
         scheduler_capture = scheduler._mlsys_scheduler_capture
         initial_free = scheduler.kv_cache_manager.block_pool.get_num_free_blocks()
         warmup = []
-        for length in (64, 128, 256, 512, 1024):
+        if args.runtime_cost_capture:
+            from .runtime_cost_capture import RuntimeStepRecorder, apply_main_thread_affinity, run_fixed_warmup
+            summary['post_constructor_affinity'] = apply_main_thread_affinity(args.main_thread_cpu)
+            runtime_recorder = RuntimeStepRecorder(core, experiment, session, policy=runtime_policy)
+            warm_parameters = SamplingParams(temperature=0, max_tokens=16, ignore_eos=True, detokenize=False)
+            warmup = run_fixed_warmup(llm, warm_parameters, prompt_token_id=spec['prompt_token_id'], recorder=runtime_recorder)
+        for length in (() if args.runtime_cost_capture else (64, 128, 256, 512, 1024)):
             answers = llm.generate([{'prompt_token_ids': [spec['prompt_token_id']] * length}
                                     for _ in range(min(args.concurrency, 16))], parameters, use_tqdm=False)
             if len(answers) != min(args.concurrency, 16) or any(len(row.outputs[0].token_ids) != spec['output_tokens']
@@ -310,6 +354,9 @@ def main(argv: list[str] | None = None) -> int:
                        for row in binding[0]['capture']['records'])):
             raise SimulationError('INVALID_RUNTIME_BINDING', 'Complete single-rank initial binding required')
         _write(args.out / 'runner-binding.json', binding[0]['capture'])
+        if runtime_recorder is not None:
+            runtime_recorder.bind_runtime(binding[0]['capture'])
+            summary['runner_binding_role'] = 'actual model/runtime binding; original stage boundary; excluded from core cost samples'
         summary['runtime_config_sha256'] = binding[0]['capture']['metadata']['runtime_config_sha256']
         summary['runtime_execution_config'] = binding[0]['capture']['metadata']['runtime_execution_config']
         if (experiment.calibration.runtime_config_sha256
@@ -319,11 +366,14 @@ def main(argv: list[str] | None = None) -> int:
                              'post_warmup_free_blocks': free_after, 'prefix_cache_disabled': True,
                              'runner_capture_closed_before_formal': True}
         torch.cuda.reset_peak_memory_stats()
+        if runtime_recorder is not None:
+            runtime_recorder.begin_formal()
         summary['collection_started_at'] = _now()
-        def progress(state):
-            print(json.dumps({'kind': 'sla_progress', 'cohort': spec['cohort'], 'concurrency': args.concurrency,
-                              'replication': args.replication, **state}), flush=True)
-        feedback = collect_closed_loop(_VllmBackend(engine, parameters), spec, args.concurrency,
+        progress, progress_rows = _progress_observer(spec, args.concurrency, args.replication,
+                                                     quiet=args.quiet, retain=args.runtime_cost_capture)
+        backend = (_VllmBackend(engine, parameters, runtime_cost_recorder=runtime_recorder)
+                   if runtime_recorder is not None else _VllmBackend(engine, parameters))
+        feedback = collect_closed_loop(backend, spec, args.concurrency,
                                        replication=args.replication, progress=progress)
         summary['collection_ended_at'] = _now()
         _write(args.out / 'api-feedback.json', feedback)
@@ -344,6 +394,15 @@ def main(argv: list[str] | None = None) -> int:
         summary.update(error_code=getattr(error, 'code', type(error).__name__), error=str(error),
                        traceback=traceback.format_exc())
     finally:
+        if runtime_recorder is not None:
+            try:
+                runtime_recorder.close()
+                _write(args.out / 'runtime-cost-capture.json', runtime_recorder.export_capture())
+                _write(args.out / 'runtime-cost-dataset.json', runtime_recorder.export_dataset())
+            except Exception as error:
+                summary.update(status='FAILED', runtime_cost_capture_error=str(error))
+        if args.quiet or args.runtime_cost_capture:
+            _write(args.out / 'formal-progress.json', {'quiet': args.quiet, 'records': progress_rows})
         if llm is not None:
             try:
                 llm.llm_engine.engine_core.shutdown()

@@ -19,7 +19,8 @@ collection adapters instrument an installed Runtime separately from simulation.
 [Independent closed-loop validation](docs/closed-loop-validation.md) ·
 [Workspace and capacity validation](docs/workspace-and-capacity.md) · [Contributing](CONTRIBUTING.md)
 
-**Version 1.21 software scope:** Explicit Runtime-scoped fixed/Attention cost
+**Version 1.24 software scope:** An opt-in EngineCore-step Runtime cost backend
+with phase/exact-batch affine fitting and source-bound capture, plus explicit Runtime-scoped fixed/Attention cost
 calibration and retrospective held-out reports, plus a versioned exact-workload Agent service with
 sequential/DAG release semantics, plus local model/hardware/load forms and analytical
 latency, throughput and memory charts, plus frozen finite-cohort closed-loop predictions,
@@ -53,7 +54,14 @@ Reports contain HTML/CSV/SVG and explicit prediction provenance. The 52-node
 32B/7B candidate example is a frozen synthetic teaching trace; empirical load
 boundaries and declared hardware rates do not establish real deployment accuracy.
 
-The [RX9070XT/Qwen3-4B course study](docs/course-sla-9070xt-20261111/README.md)
+The newer [Qwen3-4B online Core-cost study](docs/qwen4b-online-20261117/README.md)
+retains 54 frozen-prediction trials, 27,648 requests and all earlier rejected or
+interrupted attempts. Its strict accuracy verdict is **FAIL**: 53/54 cells meet
+every error budget; one short-prompt C2 repeat has 30.59% TTFT P99 error against
+the 25% limit. Throughput error is at most 5.04%, and all 54 SLA classifications
+agree. Calibration coefficients and thresholds were not changed using the holdout.
+
+The earlier [RX9070XT/Qwen3-4B course study](docs/course-sla-9070xt-20261111/README.md)
 retains 39 fresh-Runtime cohorts and 39,000 completed requests after a remote
 prediction-hash commitment. Collection passed, but the imported primitive model
 missed its preregistered accuracy targets: its predicted safe client cap was 16,
@@ -163,6 +171,17 @@ lookup Profile, see [Prefill state calibration](docs/prefill-state-calibration.m
 The [prepared Prefill study](docs/prefill-state-20261117/README.md) includes
 CPU/HIP/GPU diagnosis, retained warmups, frozen forecasts and 33/33 new AMD
 validation cells within 10% error. Acceptance is limited to its declared domain.
+
+For explicit EngineCore-step wall costs, select `calibration.backend="runtime"`
+with the actual Runtime-cost artifact in `profile_path` and the distinct
+`engine_core_step_wall_v1` boundary. Python fitting freezes stationarity and
+phase/exact-batch bounds, retaining raw proof and any rejection; ordinary
+simulation and per-phase prediction CLIs preserve its original artifact bytes.
+The optional native collector supports fixed nonadaptive preparation and quiet
+formal progress. See [EngineCore costs](docs/runtime-core-costs.md).
+The older 0.6B Profile and the failed 4B 39-cohort study keep their original
+boundaries and conclusions; neither the default Web nor Agent catalog silently
+switches to this backend. Selecting it alone grants no general hardware-accuracy claim.
 
 ## Run pipeline and CPU swap examples
 

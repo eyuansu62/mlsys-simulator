@@ -1,0 +1,42 @@
+{
+  "kind": "qwen4b_software_evidence_v1",
+  "source_commit": "4169cbafc7b614bf5c3540647f81ab7ae45944db",
+  "cpu_regression": {
+    "total": 1732,
+    "skipped": 6,
+    "status": "PASS"
+  },
+  "runtime_cpu_tests": {
+    "total": 51,
+    "status": "PASS"
+  },
+  "ruff": "PASS",
+  "mypy": {
+    "source_files": 86,
+    "status": "PASS"
+  },
+  "javascript_syntax": "PASS",
+  "wheel_sdist_twine_installed_smoke": "PASS",
+  "ci": {
+    "head_commit": "4169cbafc7b614bf5c3540647f81ab7ae45944db",
+    "checks": 10,
+    "all_success": true,
+    "urls": [
+      "https://github.com/eyuansu62/mlsys-simulator/actions/runs/44236846823",
+      "https://github.com/eyuansu62/mlsys-simulator/actions/runs/44236853146"
+    ]
+  },
+  "log_sha256": {
+    "unit-abort-final.log": "ae9e68cc274e46875c6ca8282642c940563d84781f4f47e91555d374e34398ea",
+    "runtime-numeric-tests.log": "bbd3c862b4aa0bcded0341e7bb7fd92aca3dd36635a5f20ff043d13a3ecaf1f7",
+    "build-source4169.log": "f0e3acaae2e08805ff6340b536df6cae2150e6cb3ee9d40d5ea5da0896dd5a4d",
+    "package-source4169.log": "4fa43852787dcd8b90beba66a90d505e9d11da1f5b171427895556983d3da586",
+    "twine-source4169.log": "3e8d5a789ba1bc6821556314df98d732ad38bc81c9a2e21ee1a9d0f3307c7a42",
+    "ci-4169-watch.log": "02ba2fe6885cf40ea304f021bb3f9b2da2ec0de2583d50fe3f023f6430e28922"
+  },
+  "scope": "Software implementation checks; does not promote unfinished or failed hardware accuracy. Final data regressions and final-head CI must be recorded separately before merge.",
+  "distribution_sha256": {
+    "mlsys_simulator-1.24.0-py3-none-any.whl": "f4bccfc7390a26437feab12889b9b09d676cbca6c22dc37418f4054b6367d572",
+    "mlsys_simulator-1.24.0.tar.gz": "90b1072b238de5acd950243ae9aba846d35ccc0d26199e697483ce45b5d3ccdc"
+  }
+}

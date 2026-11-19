@@ -1,0 +1,43 @@
+{
+  "kind": "qwen4b_calibration_diagnostic_public_summary_v1",
+  "role": "CALIBRATION_DIAGNOSTIC_NOT_HOLDOUT",
+  "independent_acceptance": false,
+  "cells": 9,
+  "requests_per_cell": 128,
+  "false_safe_cells": 0,
+  "false_unsafe_cells": 1,
+  "unknown_cells": 0,
+  "executed_steps": 2708,
+  "exact_training_shape_hit_steps": 108,
+  "within_nominal_span_steps": 2698,
+  "outside_nominal_span_steps": 10,
+  "unknown_steps": 0,
+  "all_queries_within_declared_envelope": true,
+  "by_phase": {
+    "prefill": {
+      "executed_steps": 108,
+      "exact_training_shape_hit_steps": 53,
+      "within_nominal_span_steps": 105,
+      "unknown_steps": 0
+    },
+    "decode": {
+      "executed_steps": 2302,
+      "exact_training_shape_hit_steps": 53,
+      "within_nominal_span_steps": 2302,
+      "unknown_steps": 0
+    },
+    "mixed": {
+      "executed_steps": 298,
+      "exact_training_shape_hit_steps": 2,
+      "within_nominal_span_steps": 291,
+      "unknown_steps": 0
+    }
+  },
+  "model_sha256": "afd24539c6e2ddc5e956bd6b8efc40382103f490e3b06a060d1fd5326273cb4a",
+  "report_raw_sha256": "efe0403d2542d94c61a90d077b31c65d9b2160d34db200c906f0ba56df079d09",
+  "coverage_raw_sha256": "ad1dc94ce0696640491ab11a62a20bb99de6c403cc59edc91dd079f2c51cc7f1",
+  "report_canonical_sha256": "9e98e9b7d85a35ccb0044445c20c51cf114eabc47181ef5afef7fc280141d2e5",
+  "coverage_canonical_sha256": "2e2c375387030c45850cf27e9b3085fc8d178bff8bd49998b8b3b2b62b3b0f50",
+  "count_unit": "Executed Core steps, including repeat occurrences; phase hit counts are not unique geometry counts",
+  "scope": "This9-cell N128 diagnostic is not combined with the independent54-cell N512 forward acceptance"
+}

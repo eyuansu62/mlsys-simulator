@@ -1,0 +1,41 @@
+{
+  "kind": "qwen4b_gpu_idle_preflight_v1",
+  "pci": "0000:32:00.0",
+  "torch_total_memory_bytes": 17095983104,
+  "sysfs_total_vram_bytes": 17095983104,
+  "idle_max_used_bytes": 536870912,
+  "max_busy_percent": 0,
+  "idle_consecutive_samples": 2,
+  "idle_sample_interval_s": 0.5,
+  "idle_max_wait_s": 120.0,
+  "residual_process_markers": [
+    "training_worker.py",
+    "mlsys_sim.vllm_sla_worker",
+    "diagnostic_worker.py",
+    "diagnostic_worker_v2.py",
+    "live_micro_selftest_worker.py",
+    "live_micro_calibration_v5_worker.py"
+  ],
+  "threshold_role": "Root preregistered protocol thresholds; not fitted from active calibration or forward results",
+  "metadata_probe_reference": "live-gpu-model-metadata.stdout",
+  "actual_idle_observation_performed": false,
+  "model_path": "/mnt/public/models/Qwen3-4B",
+  "model_symlink_count": 0,
+  "model_symlink_violations": [],
+  "unknown_busy_or_process_inventory_is_idle": false,
+  "never_kill_other_tasks": true,
+  "idle_evidence_policy": {
+    "version": "readable_zero_or_runtime_suspended_v2",
+    "readable_busy_percent": 0,
+    "suspended_runtime_status": "suspended",
+    "suspended_power_states": [
+      "D3hot",
+      "D3cold"
+    ],
+    "suspended_busy_error_errno": 16,
+    "kfd_proc_path": "/sys/class/kfd/kfd/proc",
+    "require_readable_empty_kfd_proc": true,
+    "require_no_owned_worker": true,
+    "busy_unavailable_is_zero": false
+  }
+}

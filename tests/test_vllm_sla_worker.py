@@ -6,12 +6,13 @@ import hashlib
 import json
 from pathlib import Path
 import tempfile
+from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
 
 from mlsys_sim import Experiment, SimulationError
 from mlsys_sim.profiles import profile_identity
-from mlsys_sim.vllm_sla_worker import (_captured_json, _study_inputs, formal_server_evidence,
+from mlsys_sim.vllm_sla_worker import (_VllmBackend, _captured_json, _study_inputs, formal_server_evidence,
                                        verify_checkpoint)
 
 
@@ -37,6 +38,93 @@ def evidence():
                               'output_tokens': 2, 'timeout_ms': 1000, 'prompt_token_id': 100,
                               'submit_before_ns': origin + 4000000, 'submit_after_ns': origin + 6000000}]}
     return capture, feedback
+
+
+class FakeEngine:
+    """Pinned engine semantics: external IDs are translated unless internal=True."""
+    def __init__(self, *, clock=None, finish=True):
+        self.external_to_internal = {}
+        self.pending = {}
+        self.aborts = []
+        self.clock, self.finish = clock, finish
+        self.sequence = 0
+
+    def add_request(self, external, prompt, parameters):
+        native = f'{external}-native-{self.sequence}'
+        self.sequence += 1
+        self.external_to_internal[external] = native
+        self.pending[native] = (external, prompt, parameters)
+        return native
+
+    def abort_request(self, request_ids, *, internal=False):
+        self.aborts.append((list(request_ids), internal))
+        selected = request_ids if internal else [self.external_to_internal.get(name) for name in request_ids]
+        for native in selected:
+            row = self.pending.pop(native, None)
+            if row is not None:
+                self.external_to_internal.pop(row[0], None)
+
+    def has_unfinished_requests(self):
+        return bool(self.pending)
+
+    def step(self):
+        if self.clock is not None:
+            self.clock.now += 2_000_000
+        outputs = [SimpleNamespace(request_id=external, finished=self.finish,
+            outputs=[SimpleNamespace(token_ids=[7, 8] if self.finish else [])])
+            for external, _, _ in self.pending.values()]
+        if self.finish:
+            self.pending.clear()
+            self.external_to_internal.clear()
+        return outputs
+
+
+class VllmSlaBackendTests(unittest.TestCase):
+    def test_internal_abort_does_not_translate_a_colliding_external_id(self):
+        engine = FakeEngine()
+        backend = _VllmBackend(engine, None)
+        request = {'request_id': 'q0', 'prompt_token_id': 100, 'input_tokens': 4}
+        target = backend.add_request(request)
+        other = backend.add_request({**request, 'request_id': target})
+        self.assertNotEqual(target, request['request_id'])
+        self.assertNotEqual(other, target)
+        backend.abort_requests([target])
+        self.assertEqual(engine.aborts, [([target], True)])
+        self.assertNotIn(target, engine.pending)
+        self.assertEqual(set(engine.pending), {other})
+        self.assertTrue(backend.has_unfinished_requests())
+        self.assertEqual(backend.step(), [{'native_request_id': other, 'finished': True,
+                                         'output_tokens_actual': 2}])
+        self.assertFalse(backend.has_unfinished_requests())
+
+    def test_collector_timeout_cancels_native_request_and_drains_backend(self):
+        from mlsys_sim.closed_loop_capture import collect_closed_loop
+        clock = SimpleNamespace(now=0)
+        engine = FakeEngine(clock=clock, finish=False)
+        backend = _VllmBackend(engine, None)
+        spec = {'schema_version': 1, 'study_id': 'native-abort', 'cohort': 'fixture',
+            'concurrency_grid': [1], 'requests_per_run': 1, 'replications': 1, 'seed': 1,
+            'think_ms': 0, 'input_lengths': [4], 'output_tokens': 2, 'timeout_ms': 1,
+            'max_run_ms': 100, 'prompt_token_id': 100}
+        result = collect_closed_loop(backend, spec, 1, clock_ns=lambda: clock.now)
+        row = result['requests'][0]
+        self.assertNotEqual(row['request_id'], row['native_request_id'])
+        self.assertEqual(engine.aborts, [([row['native_request_id']], True)])
+        self.assertEqual(row['status'], 'TIMED_OUT')
+        self.assertEqual(result['timed_out_count'], 1)
+        self.assertTrue(result['resources_drained'])
+        self.assertFalse(engine.pending)
+
+    def test_ordinary_completion_keeps_output_mapping_and_never_aborts(self):
+        engine = FakeEngine()
+        parameters = object()
+        backend = _VllmBackend(engine, parameters)
+        native = backend.add_request({'request_id': 'router', 'prompt_token_id': 100, 'input_tokens': 3})
+        self.assertEqual(engine.pending[native], ('router', {'prompt_token_ids': [100, 100, 100]}, parameters))
+        self.assertEqual(backend.step(), [{'native_request_id': native, 'finished': True,
+                                         'output_tokens_actual': 2}])
+        self.assertFalse(backend.has_unfinished_requests())
+        self.assertFalse(engine.aborts)
 
 
 class VllmSlaEvidenceTests(unittest.TestCase):
