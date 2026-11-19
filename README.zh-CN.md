@@ -25,6 +25,8 @@ Python拟合、普通CLI与逐phase预测、完整内存／Runtime绑定及未�
 
 ## 安装和运行
 
+第一次使用可以从[中文实验教程](docs/tutorial.zh-CN.md)开始，跟着做一次配置、运行、对照和结果分析。
+
 需要 Python 3.11 或更新版本。核心没有必需第三方运行依赖，JSON/TOML 使用标准库；已安装 PyYAML 时可读 YAML。
 实际 stage 采集另需 AMD 机器上已安装的 ROCm PyTorch 和 Runtime Adapter；CPU 模拟与 fixture 验证不会安装 GPU 软件或退回 CPU 冒充 GPU 计时。
 
