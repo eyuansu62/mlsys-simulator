@@ -27,8 +27,61 @@ class WebSimulationTests(unittest.TestCase):
         first = presets()
         first["defaults"]["workload"]["requests"] = 1
         first["models"][0]["model"]["hidden_size"] = 1
+        first["precisions"]["kv"][0]["bytes"] = 99
         self.assertEqual(presets()["defaults"]["workload"]["requests"], 48)
         self.assertEqual(presets()["models"][0]["model"]["hidden_size"], 1024)
+        self.assertEqual(presets()["precisions"]["kv"][0]["bytes"], 2.0)
+
+    def test_weight_kv_and_activation_precision_are_explicit(self):
+        payload = self.configuration()
+        payload["precision"].update({
+            "weight_precision": "int4_gptq128", "weight_bytes": 0.515625, "weight_dtype": "auto",
+            "activation_precision": "bf16", "activation_bytes": 2.0, "activation_dtype": "bfloat16",
+            "kv_precision": "fp8_e4m3", "kv_bytes": 1.0, "kv_dtype": "float8_e4m3",
+            "weight_dequant": "auto", "dequant_flops_per_weight": 2.0,
+        })
+        experiment, provenance = build_experiment(payload)
+        model = experiment["strategy"]["model"]
+        self.assertEqual(model["weight_bytes"], 0.515625)
+        self.assertEqual(model["weight_dtype"], "auto")
+        self.assertEqual(model["activation_bytes"], 2.0)
+        self.assertEqual(model["activation_dtype"], "bfloat16")
+        self.assertEqual(model["kv_bytes"], 1.0)
+        self.assertEqual(model["kv_dtype"], "float8_e4m3")
+        self.assertEqual(model["weight_dequant"], "fused")
+        self.assertEqual(experiment["calibration"]["dequant_flops_per_weight"], 2.0)
+        self.assertEqual(provenance["precision"]["weight_dequant"], "fused")
+
+        response = run_web_simulation(payload)
+        self.assertTrue(response["ok"], response)
+        self.assertEqual(response["result"]["memory"][0]["kv_bytes_per_token"], 57344)
+        baseline = run_web_simulation(self.configuration())
+        self.assertTrue(baseline["ok"], baseline)
+        self.assertEqual(baseline["result"]["memory"][0]["kv_bytes_per_token"], 114688)
+
+    def test_precision_rejects_inconsistent_dtype_or_bytes(self):
+        invalid = [
+            ({"weight_bytes": 0.5, "weight_dtype": "bfloat16"}, "INVALID_WEB_CONFIG"),
+            ({"kv_bytes": 0, "kv_dtype": "int8"}, "INVALID_WEB_CONFIG"),
+            ({"activation_bytes": "1", "activation_dtype": "auto"}, "INVALID_WEB_CONFIG"),
+            ({"weight_dequant": "guess"}, "INVALID_WEB_CONFIG"),
+            ({"dequant_flops_per_weight": 0}, "INVALID_WEB_CONFIG"),
+        ]
+        for patch, code in invalid:
+            with self.subTest(patch=patch):
+                payload = self.configuration()
+                payload["precision"].update(patch)
+                result = run_web_simulation(payload)
+                self.assertFalse(result["ok"])
+                self.assertEqual(result["error"]["code"], code)
+
+    def test_unpacked_weights_cannot_declare_dequant(self):
+        payload = self.configuration()
+        payload["precision"].update({"weight_bytes": 2.0, "weight_dtype": "bfloat16",
+                                     "activation_bytes": 2.0, "weight_dequant": "fused"})
+        result = run_web_simulation(payload)
+        self.assertFalse(result["ok"])
+        self.assertEqual(result["error"]["code"], "UNSUPPORTED_MECHANISM")
 
     def test_adapter_reports_original_engine_values(self):
         payload = self.configuration()

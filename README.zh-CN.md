@@ -43,8 +43,11 @@ mlsys-sim predict --experiment examples/pp2_analytical.json --out runs/pp2
 ### 本地 Web 界面
 
 安装后运行 `mlsys-sim-web`（或源码中 `python -m mlsys_sim.web`），浏览器打开
-`http://127.0.0.1:8765`。在表单中配置 Qwen3/自定义模型、单卡硬件和请求负载，
+`http://127.0.0.1:8765`。在表单中配置 Qwen3/自定义模型、单卡硬件、权重/激活/KV Cache
+精度和请求负载，
 运行后直接查看延迟、输出吞吐、显存预算与 KV 使用图表，并导出可重放配置和结果。
+精度字段支持 BF16/FP8/INT8/INT4、课程有效字节口径和显式反量化模式；只建模存储与反量化开销，
+不建模 PPL 或量化误差。
 界面复用 CPU 解析引擎，无新增运行依赖；使用范围与图表口径见[Web 实验台](docs/web-interface.md)。
 
 ### 课程 Agent 接口

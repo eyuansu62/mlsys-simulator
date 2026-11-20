@@ -22,19 +22,29 @@ python -m mlsys_sim.web
 
 1. 选择 Qwen3-0.6B、1.7B、4B，或填入自定义 Dense/GQA 结构。预设来自现有课程几何，
    包括独立 Query 投影宽度、共享词表权重与 Q/K Norm。自定义结构采用原 `ModelSpec` 默认值；
-   本表单自定义项不声明 Q/K Norm 或 final Norm。当前表单使用 BF16、单 GPU。
-2. 选择或修改显存（GiB）、计算峰值（TFLOP/s）和显存带宽（GB/s）。
+   本表单自定义项不声明 Q/K Norm 或 final Norm。当前表单使用单 GPU。
+2. 分别选择模型权重、激活和 KV Cache 精度。权重可选 BF16、FP16、FP8 E4M3、
+   FP8 block scale、INT8 Q8_0、INT4 GPTQ-128、INT4 Q4_K_M、FP4 NVFP4 或自定义有效字节；
+   KV 可选 BF16、FP16、FP8 E4M3、INT8、INT4 或自定义有效字节。`none/fused/materialized`
+   显式控制权重重反量化；“自动”在压缩权重时选择 `fused`，否则选择 `none`。
+3. 选择或修改显存（GiB）、计算峰值（TFLOP/s）和显存带宽（GB/s）。
    RX9070XT 算力/带宽是课程声明的名义输入，24/48 GiB 项是人工教学配置，均非硬件自动探测。
-3. 填写固定请求总数、输入/输出 token 长度、到达方式、速率和种子。
+4. 填写固定请求总数、输入/输出 token 长度、到达方式、速率和种子。
    可选固定间隔、Poisson 或全部同时到达；每次运行保留全部声明请求并尝试排空。
    这不是固定时长稳态扫描，客户端并发/到达率扫描仍使用现有 `sweep` 命令。
-4. 按需展开高级配置，修改 FIFO/连续批处理、batch/token 预算、Chunked Prefill、混批和 KV 池。
-5. 点击「运行模拟」。原引擎完成后，页面显示延迟、吞吐、显存图表和全部请求明细。
+5. 按需展开高级配置，修改 FIFO/连续批处理、batch/token 预算、Chunked Prefill、混批和 KV 池。
+6. 点击「运行模拟」。原引擎完成后，页面显示延迟、吞吐、显存图表和全部请求明细。
    配置修改后会标记旧结果；新运行失败会清除旧图并显示原始错误码。
 
 「导出配置」下载完整的可重放 `Experiment` JSON，可以交给原 `simulate --experiment` 命令。
 「导出结果」下载同一份原始汇总、逐请求结果、图表数据与来源元数据。
 表单的 KV 池及运行时/安全余量等实际预算都会出现在导出的配置中。
+
+精度字段直接映射到 `strategy.model` 的 `weight_bytes`、`activation_bytes`、`kv_bytes`、
+`weight_dtype`、`activation_dtype`、`kv_dtype` 和 `weight_dequant`，并写入
+`calibration.dequant_flops_per_weight`。有效字节必须与显式 dtype 标签一致；GPTQ、GGUF、
+NVFP4 等带块/缩放元数据的格式使用 `auto` 标签和课程声明的有效字节。这里只建模存储容量、
+内存流量与反量化计算，不建模 PPL、量化误差或任何模型质量指标。
 
 ## 图表口径
 
@@ -57,6 +67,8 @@ python -m mlsys_sim.web
 实测 Profile 与校准/验证仍通过现有 CLI/Python API 使用。
 所有 Web 运行保持 `source=analytical_uncalibrated`、`hardware_validated=false`。
 现有 9070XT 实测精度限制不会因增加界面而改变。
+量化精度只影响解析字节账和反量化开销；真正的 PPL/MMLU 或引擎精度验收必须在真机与
+对应 checkpoint 上完成，不能从本页面得出。
 
 每次最多 500 条请求、8192 输入和 512 输出 tokens；事件数上限 100000，
 模拟时间上限 600000 ms，独立进程墙钟超时 20 秒。所有请求共享一个运行槽，

@@ -27,6 +27,12 @@ _GEOMETRIES = (
     ("qwen3-4b", "Qwen3-4B", 36, 2560, 9728, 32, 8),
 )
 
+_DTYPE_BYTES = {
+    "float16": 2.0, "bfloat16": 2.0, "float32": 4.0, "float64": 8.0,
+    "float8_e4m3": 1.0, "float8_e5m2": 1.0, "int8": 1.0,
+    "int4": 0.5, "float4_e2m1": 0.5, "auto": None,
+}
+
 
 def _models() -> list[dict]:
     models = []
@@ -55,6 +61,40 @@ def presets() -> dict:
             {"id": "teaching48", "label": "48 GiB · 教学配置", "memory_gib": 48,
              "compute_tflops": 195, "bandwidth_gbps": 640},
         ],
+        "precisions": {
+            "weight": [
+                {"id": "bf16", "label": "BF16", "bytes": 2.0, "dtype": "bfloat16"},
+                {"id": "fp16", "label": "FP16", "bytes": 2.0, "dtype": "float16"},
+                {"id": "fp8_e4m3", "label": "FP8 E4M3", "bytes": 1.0, "dtype": "float8_e4m3"},
+                {"id": "fp8_e4m3_scaled", "label": "FP8 E4M3 + block scale", "bytes": 1.0625, "dtype": "auto"},
+                {"id": "int8_q8_0", "label": "INT8 Q8_0", "bytes": 1.125, "dtype": "auto"},
+                {"id": "int4_gptq128", "label": "INT4 GPTQ-128", "bytes": 0.515625, "dtype": "auto"},
+                {"id": "int4_q4_k_m", "label": "INT4 Q4_K_M", "bytes": 0.625, "dtype": "auto"},
+                {"id": "fp4_nvfp4", "label": "FP4 NVFP4", "bytes": 0.5625, "dtype": "auto"},
+                {"id": "custom", "label": "自定义有效字节", "bytes": None, "dtype": "auto"},
+            ],
+            "activation": [
+                {"id": "bf16", "label": "BF16", "bytes": 2.0, "dtype": "bfloat16"},
+                {"id": "fp16", "label": "FP16", "bytes": 2.0, "dtype": "float16"},
+                {"id": "fp8_e4m3", "label": "FP8 E4M3", "bytes": 1.0, "dtype": "float8_e4m3"},
+                {"id": "int8", "label": "INT8", "bytes": 1.0, "dtype": "int8"},
+                {"id": "custom", "label": "自定义有效字节", "bytes": None, "dtype": "auto"},
+            ],
+            "kv": [
+                {"id": "bf16", "label": "BF16", "bytes": 2.0, "dtype": "bfloat16"},
+                {"id": "fp16", "label": "FP16", "bytes": 2.0, "dtype": "float16"},
+                {"id": "fp8_e4m3", "label": "FP8 E4M3", "bytes": 1.0, "dtype": "float8_e4m3"},
+                {"id": "int8", "label": "INT8", "bytes": 1.0, "dtype": "int8"},
+                {"id": "int4", "label": "INT4", "bytes": 0.5, "dtype": "int4"},
+                {"id": "custom", "label": "自定义有效字节", "bytes": None, "dtype": "auto"},
+            ],
+            "dequant": [
+                {"id": "auto", "label": "自动（压缩权重用 fused）"},
+                {"id": "none", "label": "none"},
+                {"id": "fused", "label": "fused"},
+                {"id": "materialized", "label": "materialized"},
+            ],
+        },
         "defaults": {
             "model_id": "qwen3-1.7b",
             "hardware": {"memory_gib": 16, "compute_tflops": 195, "bandwidth_gbps": 640},
@@ -64,12 +104,19 @@ def presets() -> dict:
                          "max_batch_tokens": 2048, "chunked_prefill": True,
                          "prefill_chunk_tokens": 512, "mixed_batching": True},
             "memory": {"kv_pool_gib": 2},
+            "precision": {
+                "weight_precision": "bf16", "weight_bytes": 2.0, "weight_dtype": "bfloat16",
+                "activation_precision": "bf16", "activation_bytes": 2.0, "activation_dtype": "bfloat16",
+                "kv_precision": "bf16", "kv_bytes": 2.0, "kv_dtype": "bfloat16",
+                "weight_dequant": "auto", "dequant_flops_per_weight": 1.0,
+            },
         },
         "limits": {"max_requests": MAX_REQUESTS, "max_input_tokens": 8192,
                    "max_output_tokens": 512, "max_batch_size": 128,
                    "max_batch_tokens": 32768, "max_events": MAX_EVENTS,
                    "max_simulated_ms": MAX_SIMULATED_MS, "wall_timeout_s": 20},
         "source": "analytical_uncalibrated", "hardware_validated": False,
+        "precision_note": "Precision selects analytical storage bytes and dequant work; it does not model PPL, quantization error or numerical quality.",
         "hardware_note": "Compute/bandwidth are course nominal assumptions, not measurements.",
     }
 
@@ -104,7 +151,8 @@ def _boolean(value: Any, name: str) -> bool:
 
 def build_experiment(payload: dict) -> tuple[dict, dict]:
     """Build a fixed-size open-loop cohort; preserve the original engine contract."""
-    _object(payload, "configuration", {"model_id", "model", "hardware", "workload", "strategy", "memory"})
+    _object(payload, "configuration", {"model_id", "model", "hardware", "workload", "strategy", "memory",
+                                       "precision"})
     defaults = presets()["defaults"]
     model = next((item["model"] for item in _models() if item["id"] == payload.get("model_id")), None)
     if "model" in payload:
@@ -129,6 +177,8 @@ def build_experiment(payload: dict) -> tuple[dict, dict]:
         value = _object(payload.get(section, {}), section, set(defaults[section]))
         sections[section] = {**defaults[section], **value}
     hardware, load, strategy, memory = (sections[key] for key in ("hardware", "workload", "strategy", "memory"))
+    precision = {**defaults["precision"], **_object(payload.get("precision", {}), "precision",
+                                                    set(defaults["precision"]))}
     memory_gib = _number(hardware["memory_gib"], "hardware.memory_gib", 0.25, 1024)
     compute = _number(hardware["compute_tflops"], "hardware.compute_tflops", 0.01, 10000)
     bandwidth = _number(hardware["bandwidth_gbps"], "hardware.bandwidth_gbps", 0.1, 100000)
@@ -147,6 +197,31 @@ def build_experiment(payload: dict) -> tuple[dict, dict]:
     for name in ("chunked_prefill", "mixed_batching"):
         _boolean(strategy[name], f"strategy.{name}")
     kv_gib = _number(memory["kv_pool_gib"], "memory.kv_pool_gib", 1 / 1024, 1024)
+
+    weight_bytes = _number(precision["weight_bytes"], "precision.weight_bytes", 0.125, 8.0)
+    kv_bytes = _number(precision["kv_bytes"], "precision.kv_bytes", 0.125, 8.0)
+    activation_bytes = _number(precision["activation_bytes"], "precision.activation_bytes", 0.125, 8.0)
+    for kind in ("weight", "kv", "activation"):
+        dtype = precision[f"{kind}_dtype"]
+        if dtype not in _DTYPE_BYTES:
+            _error(f"precision.{kind}_dtype must be auto or a supported dtype label")
+        expected = _DTYPE_BYTES[dtype]
+        if expected is not None and expected != precision[f"{kind}_bytes"]:
+            _error(f"precision.{kind}_dtype must match precision.{kind}_bytes")
+    dequant = precision["weight_dequant"]
+    if dequant not in ("auto", "none", "fused", "materialized"):
+        _error("precision.weight_dequant must be auto, none, fused or materialized")
+    if dequant == "auto":
+        dequant = "fused" if weight_bytes < activation_bytes else "none"
+    dequant_flops = _number(precision["dequant_flops_per_weight"],
+                            "precision.dequant_flops_per_weight", 0.01, 1000.0)
+
+    model = dict(model)
+    model.update({
+        "weight_bytes": weight_bytes, "weight_dtype": precision["weight_dtype"],
+        "activation_bytes": activation_bytes, "activation_dtype": precision["activation_dtype"],
+        "kv_bytes": kv_bytes, "kv_dtype": precision["kv_dtype"], "weight_dequant": dequant,
+    })
 
     clock = 0.0
     rng = _rng(seed, 0, "arrivals")
@@ -173,7 +248,8 @@ def build_experiment(payload: dict) -> tuple[dict, dict]:
             "workspace_bytes_per_token": 1024, "runtime_bytes": 128 * 1024**2,
             "safety_margin_bytes": 256 * 1024**2}},
         "calibration": {"backend": "analytical", "profile_version": "web-uncalibrated-v1",
-                        "compute_efficiency": 0.5, "bandwidth_efficiency": 0.5},
+                        "compute_efficiency": 0.5, "bandwidth_efficiency": 0.5,
+                        "dequant_flops_per_weight": dequant_flops},
         "evaluation": {"drain": True},
         "execution": {"seed": seed, "max_events": MAX_EVENTS,
                       "max_simulated_ms": MAX_SIMULATED_MS, "detailed_events": True},
@@ -183,6 +259,10 @@ def build_experiment(payload: dict) -> tuple[dict, dict]:
         "generator_version": GENERATOR_VERSION, "workload_rule": "fixed_request_count_then_drain",
         "arrival_process": arrival, "seed": seed, "request_count": count,
         "requests_sha256": canonical_sha256(rows),
+        "precision": {"weight_bytes": weight_bytes, "weight_dtype": precision["weight_dtype"],
+                      "activation_bytes": activation_bytes, "activation_dtype": precision["activation_dtype"],
+                      "kv_bytes": kv_bytes, "kv_dtype": precision["kv_dtype"],
+                      "weight_dequant": dequant, "dequant_flops_per_weight": dequant_flops},
     }
 
 
