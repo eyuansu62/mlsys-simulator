@@ -5,7 +5,7 @@ import json
 import math
 import sys
 import time
-from typing import Any
+from typing import Any, NoReturn
 
 from .config import experiment_from_dict
 from .engine import simulate
@@ -121,7 +121,7 @@ def presets() -> dict:
     }
 
 
-def _error(message: str) -> None:
+def _error(message: str) -> NoReturn:
     raise SimulationError("INVALID_WEB_CONFIG", message)
 
 
