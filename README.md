@@ -153,8 +153,10 @@ directory must be new; existing results are never overwritten.
 
 For a local browser interface, run `mlsys-sim-web` (or `python -m mlsys_sim.web`
 from the checkout) and open `http://127.0.0.1:8765`. Configure a model, single-GPU
-hardware and a fixed request cohort, then inspect latency, output throughput and
-memory-budget charts. It reuses the CPU analytical engine, adds no runtime
+hardware, weight/activation/KV precision and a fixed request cohort, then inspect
+latency, output throughput and memory-budget charts. Precision controls declare
+effective storage bytes and dequant work; they do not model PPL or quantization
+error. It reuses the CPU analytical engine, adds no runtime
 dependencies and exports replayable experiments. See the [Web interface](docs/web-interface.md).
 
 For a course backend or Agent integration, run `mlsys-sim-agent` (or

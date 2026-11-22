@@ -22,7 +22,7 @@
       <form id="experiment-form">
         <fieldset>
           <legend><span class="section-number">01</span> 模型</legend>
-          <label for="model_id">模型结构 <span class="field-hint">BF16</span></label>
+          <label for="model_id">模型结构 <span class="field-hint" id="model-precision">BF16</span></label>
           <select id="model_id" name="model_id" disabled><option>正在加载模型…</option></select>
           <p class="model-geometry" id="model-geometry">读取本地配置</p>
           <div id="custom-model" hidden>
@@ -43,7 +43,27 @@
           <p class="help">可直接修改参数。预设为课程声明值，不是自动探测结果。</p>
         </fieldset>
         <fieldset>
-          <legend><span class="section-number">03</span> 请求负载</legend>
+          <legend><span class="section-number">03</span> 精度与 KV</legend>
+          <label for="weight_precision">模型权重精度</label>
+          <select id="weight_precision" disabled><option>正在加载精度…</option></select>
+          <div class="field-pair">
+            <div><label for="weight_bytes">权重有效字节 <span>B/elem</span></label><input type="number" id="weight_bytes" min="0.125" max="8" step="any" required></div>
+            <div><label for="activation_precision">激活精度</label><select id="activation_precision" disabled><option>正在加载精度…</option></select></div>
+          </div>
+          <div class="field-pair">
+            <div><label for="activation_bytes">激活有效字节 <span>B/elem</span></label><input type="number" id="activation_bytes" min="0.125" max="8" step="any" required></div>
+            <div><label for="kv_precision">KV Cache 精度</label><select id="kv_precision" disabled><option>正在加载精度…</option></select></div>
+          </div>
+          <div class="field-pair">
+            <div><label for="kv_bytes">KV 有效字节 <span>B/elem</span></label><input type="number" id="kv_bytes" min="0.125" max="8" step="any" required></div>
+            <div><label for="weight_dequant">权重反量化</label><select id="weight_dequant"><option value="auto">自动</option><option value="none">none</option><option value="fused">fused</option><option value="materialized">materialized</option></select></div>
+          </div>
+          <label for="dequant_flops_per_weight">反量化开销 <span>FLOPs / weight</span></label>
+          <input type="number" id="dequant_flops_per_weight" min="0.01" max="1000" step="any" required>
+          <p class="help" id="precision-help">精度改变权重、激活和 KV 的存储字节及反量化开销；不建模 PPL、量化误差或数值质量。</p>
+        </fieldset>
+        <fieldset>
+          <legend><span class="section-number">04</span> 请求负载</legend>
           <div class="field-pair"><div><label for="input_tokens">输入长度 <span>tokens</span></label><input type="number" id="input_tokens" min="1" max="8192" required></div><div><label for="output_tokens">输出长度 <span>tokens</span></label><input type="number" id="output_tokens" min="1" max="512" required></div></div>
           <div class="field-pair"><div><label for="requests">请求总数</label><input type="number" id="requests" min="1" max="500" required></div><div><label for="seed">随机种子</label><input type="number" id="seed" min="0" max="2147483647" required></div></div>
           <label for="arrival">到达方式</label><select id="arrival"><option value="periodic">固定间隔 · Periodic</option><option value="poisson">随机到达 · Poisson</option><option value="burst">同时到达 · Burst</option></select>

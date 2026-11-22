@@ -9,10 +9,44 @@ const fmt = (value, digits = 1) => finite(value)
   ? value.toLocaleString("zh-CN", {minimumFractionDigits: 0, maximumFractionDigits: digits}) : "—";
 const gib = (value) => finite(value) ? value / (1024 ** 3) : null;
 const geometryFields = ["num_layers", "hidden_size", "intermediate_size", "num_attention_heads", "num_kv_heads", "head_dim", "vocab_size"];
+const precisionKinds = {
+  weight: {select: "weight_precision", bytes: "weight_bytes", label: "权重"},
+  activation: {select: "activation_precision", bytes: "activation_bytes", label: "激活"},
+  kv: {select: "kv_precision", bytes: "kv_bytes", label: "KV"},
+};
 
 function setStatus(text, kind = "") {
   byId("status-badge").textContent = text;
   byId("status-badge").className = `status-badge ${kind}`;
+}
+
+function precisionOption(kind, id = byId(precisionKinds[kind].select).value) {
+  return state.presets?.precisions?.[kind]?.find((item) => item.id === id);
+}
+
+function setPrecisionPreset(kind, id) {
+  const fields = precisionKinds[kind];
+  const preset = precisionOption(kind, id);
+  byId(fields.select).value = id;
+  if (preset?.bytes !== null && preset?.bytes !== undefined) byId(fields.bytes).value = preset.bytes;
+}
+
+function syncPrecisionControls() {
+  for (const [kind, fields] of Object.entries(precisionKinds)) {
+    const preset = precisionOption(kind);
+    const custom = byId(fields.select).value === "custom" || !preset;
+    byId(fields.bytes).readOnly = !custom;
+    if (!custom) byId(fields.bytes).value = preset.bytes;
+  }
+  const weight = precisionOption("weight");
+  const kv = precisionOption("kv");
+  const activation = precisionOption("activation");
+  byId("model-precision").textContent = `${weight?.label || "自定义"} / KV ${kv?.label || "自定义"}`;
+  const packed = number("weight_bytes") < number("activation_bytes");
+  const autoMode = byId("weight_dequant").value === "auto";
+  byId("precision-help").textContent = autoMode
+    ? `自动反量化：权重有效字节 ${packed ? "小于" : "不小于"}激活有效字节，将使用 ${packed ? "fused" : "none"}。精度只影响存储与反量化开销，不建模 PPL 或量化误差。`
+    : "精度只影响存储与反量化开销，不建模 PPL 或量化误差。压缩权重必须使用 fused 或 materialized。";
 }
 
 function syncControls() {
@@ -34,6 +68,7 @@ function syncControls() {
   }
   if (fifo) {byId("chunked_prefill").checked = false; byId("mixed_batching").checked = false;}
   byId("prefill_chunk_tokens").disabled = fifo || !byId("chunked_prefill").checked;
+  syncPrecisionControls();
 }
 
 function setHardware(preset) {
@@ -46,7 +81,7 @@ function applyDefaults() {
   setHardware(defaults.hardware);
   const matching = state.presets.hardware.find((item) => ["memory_gib", "compute_tflops", "bandwidth_gbps"].every((key) => item[key] === defaults.hardware[key]));
   byId("hardware_preset").value = matching?.id || "custom";
-  for (const section of ["workload", "strategy", "memory"]) {
+  for (const section of ["workload", "strategy", "memory", "precision"]) {
     for (const [key, value] of Object.entries(defaults[section])) {
       const field = byId(key);
       if (!field) continue;
@@ -75,11 +110,23 @@ function payload() {
       mixed_batching: !fifo && byId("mixed_batching").checked,
     },
     memory: {kv_pool_gib: number("kv_pool_gib")},
+    precision: {
+      weight_precision: byId("weight_precision").value,
+      weight_bytes: number("weight_bytes"),
+      weight_dtype: precisionOption("weight")?.dtype || "auto",
+      activation_precision: byId("activation_precision").value,
+      activation_bytes: number("activation_bytes"),
+      activation_dtype: precisionOption("activation")?.dtype || "auto",
+      kv_precision: byId("kv_precision").value,
+      kv_bytes: number("kv_bytes"),
+      kv_dtype: precisionOption("kv")?.dtype || "auto",
+      weight_dequant: byId("weight_dequant").value,
+      dequant_flops_per_weight: number("dequant_flops_per_weight"),
+    },
   };
   if (byId("model_id").value === "custom") {
     data.model = {...Object.fromEntries(geometryFields.map((key) => [key, number(key)])),
-      name: byId("model_name").value, tie_word_embeddings: byId("tie_word_embeddings").checked,
-      weight_bytes: 2, kv_bytes: 2, activation_bytes: 2};
+      name: byId("model_name").value, tie_word_embeddings: byId("tie_word_embeddings").checked};
   } else data.model_id = byId("model_id").value;
   return data;
 }
@@ -233,8 +280,11 @@ function showResult(data) {
   const capacities = Object.values(charts.memory_capacity_bytes || {});
   byId("memory-capacity").textContent = capacities.length ? `声明显存 ${fmt(gib(capacities[0]), 2)} GiB · 含固定 KV 池` : "包含固定 KV 池与安全余量";
   byId("completion-summary").textContent = `完成 ${completed} / ${requests.length} 请求${other ? ` · 其他终态或未完成 ${other}` : " · 所有请求已排空"}`;
-  byId("timing-summary").textContent = `模拟区间 ${fmt(meta.elapsed_ms)} ms · 本机计算 ${fmt(meta.wall_elapsed_ms)} ms`;
-  byId("run-description").textContent = `${experiment.strategy.model.name} · 单 GPU ${fmt(gib(experiment.infra.devices[0].memory_bytes))} GiB · 固定请求数 + 排空`;
+  const memory = result.memory?.[0] || {};
+  const kvPerToken = finite(memory.kv_bytes_per_token) ? ` · KV ${fmt(memory.kv_bytes_per_token, 0)} B/token` : "";
+  byId("timing-summary").textContent = `模拟区间 ${fmt(meta.elapsed_ms)} ms · 本机计算 ${fmt(meta.wall_elapsed_ms)} ms${kvPerToken}`;
+  const model = experiment.strategy.model;
+  byId("run-description").textContent = `${model.name} · 单 GPU ${fmt(gib(experiment.infra.devices[0].memory_bytes))} GiB · 权重 ${fmt(model.weight_bytes, 6)} B · KV ${fmt(model.kv_bytes, 4)} B/elem · ${model.weight_dequant}`;
   byId("feedback").hidden = complete && !other;
   if (!complete || other) byId("feedback").textContent = `保留本次 ${result.status} 运行的全部结果；请在请求明细中检查未完成或失败项。完成请求的延迟不代表所有请求通过。`;
   drawLatency(); drawThroughput(); drawMemory();
@@ -327,6 +377,11 @@ async function initialize() {
     const hardwareSelect = byId("hardware_preset"); hardwareSelect.replaceChildren();
     for (const hardware of state.presets.hardware) hardwareSelect.add(new Option(hardware.label, hardware.id));
     hardwareSelect.add(new Option("自定义参数", "custom"));
+    for (const [kind, fields] of Object.entries(precisionKinds)) {
+      const select = byId(fields.select); select.replaceChildren();
+      for (const precision of state.presets.precisions[kind]) select.add(new Option(precision.label, precision.id));
+      select.disabled = false;
+    }
     applyDefaults();
     modelSelect.disabled = false; hardwareSelect.disabled = false;
     byId("run").disabled = false; byId("reset").disabled = false;
@@ -345,6 +400,10 @@ byId("hardware_preset").addEventListener("change", () => {
   if (preset) setHardware(preset);
 });
 for (const key of ["memory_gib", "compute_tflops", "bandwidth_gbps"]) byId(key).addEventListener("input", () => {byId("hardware_preset").value = "custom";});
+for (const [kind, fields] of Object.entries(precisionKinds)) {
+  byId(fields.select).addEventListener("change", () => setPrecisionPreset(kind, byId(fields.select).value));
+  byId(fields.bytes).addEventListener("input", () => {byId(fields.select).value = "custom";});
+}
 byId("reset").addEventListener("click", () => {applyDefaults(); markDirty();});
 byId("latency-metric").addEventListener("change", drawLatency);
 byId("export-config").addEventListener("click", () => {if (state.last) download(state.last.experiment, "mlsys-experiment.json");});
