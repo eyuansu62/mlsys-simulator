@@ -313,6 +313,22 @@ class LoadSweepTests(unittest.TestCase):
         self.assertEqual(result["points"][0]["classification"], "insufficient_samples")
         self.assertIsNone(result["boundaries"]["sla_max_observed"])
 
+    def test_poisson_timeout_vetoes_point_with_empty_replication(self):
+        spec = plan()
+        spec["rate_grid_rps"] = [10]
+        spec["workload"]["arrival"]["process"] = "poisson"
+        spec["workload"]["timeout_ms"] = 5
+
+        report = run_load_sweep(experiment(), spec)
+        point = report["points"][0]
+        empty, timed_out = point["runs"]
+        self.assertEqual(empty["summary"]["classification"], "insufficient_samples")
+        self.assertEqual(timed_out["result"]["counts"]["timed_out"], 1)
+        self.assertEqual(point["classification"], "observed_failure")
+        self.assertEqual(point["replication_slo_outcomes"], [None, False])
+        self.assertIs(point["slo_pass"], False)
+        self.assertIsNone(report["boundaries"]["sla_max_observed"])
+
     def test_missing_declared_tpot_samples_is_unknown(self):
         spec = plan()
         spec["slo"] = {"p99_tpot_ms": 10}
