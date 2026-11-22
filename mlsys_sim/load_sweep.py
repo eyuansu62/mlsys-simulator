@@ -452,20 +452,19 @@ def _run_bound_sweep(experiment: Experiment, plan: dict, profile_inputs: list[di
                         if row[key] is not None:
                             samples[metric].append(row[key])
         labels = [run["summary"]["classification"] for run in runs]
+        slo_outcomes = [run["summary"]["slo_pass"] for run in runs]
         classification = next((label for label in ("observed_failure", "insufficient_samples", "observed_overloaded")
                                if label in labels), "observed_completed" if clients else "observed_stable")
         points.append({"point_index": point_index, "offered_rps": None if clients else value,
                        "clients": value if clients else None, "classification": classification,
-                       "slo_pass": (None if "insufficient_samples" in labels else
-                                    all(run["summary"]["slo_pass"] is True for run in runs)),
+                       "slo_pass": False if False in slo_outcomes else None if None in slo_outcomes else True,
                        "sample_counts": {metric: len(values) for metric, values in samples.items()},
                        "pooled_latency_ms": {metric: _quantiles(values) for metric, values in samples.items()},
                        "mean_requests_per_s": mean(run["result"]["throughput"]["requests_per_s"] for run in runs),
                        "mean_window_completed_requests_per_s": mean(
                            run["summary"]["window_completed_requests_per_s"] for run in runs),
-                       "replication_slo_outcomes": [run["summary"]["slo_pass"] for run in runs],
-                       "mixed_replication_slo": any(run["summary"]["slo_pass"] is True for run in runs)
-                                                and any(run["summary"]["slo_pass"] is False for run in runs),
+                       "replication_slo_outcomes": slo_outcomes,
+                       "mixed_replication_slo": True in slo_outcomes and False in slo_outcomes,
                        "throughput_observed_range": [min(run["result"]["throughput"]["requests_per_s"] for run in runs),
                                                      max(run["result"]["throughput"]["requests_per_s"] for run in runs)],
                        "runs": runs})

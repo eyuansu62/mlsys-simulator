@@ -77,7 +77,8 @@ ITL 仍保留在原运行结果；单 token 输出没有 TPOT 样本。不能将
 
 失败、超时和未完成请求保留在 completion/SLO 分母中；它们会否决整点通过。
 每次重复都必须满足最小完成样本数及所有阈值，才能声明整个点通过；不选择最好的 seed。
-缺少声明指标样本或低于 `min_completed_samples` 返回未知；默认每次重复至少 100 条完成请求，
+任何重复明确失败，整点的 `slo_pass` 为 `false`。其余情况下，只要有一次因缺少声明指标样本或
+低于 `min_completed_samples` 而无法判断，整点就返回 `null`。默认每次重复至少 100 条完成请求，
 这只是一个透明的教学门槛，并非尾部分位数置信保证。
 同一时刻已经释放但因事件预算尚未 admission 的 client 也保留为 `UNFINISHED`；
 尚未出现完成反馈的未来 client 请求不会被虚构出来。
@@ -101,8 +102,21 @@ ITL 仍保留在原运行结果；单 token 输出没有 TPOT 样本。不能将
 闭环 client 数天然有界，使用 `observed_completed`，不把它称为开放队列稳定性。
 
 报告保留相邻 observed stable→overloaded 与 SLO pass→fail bracket 和网格分辨率。
+`last_observed_stable_rps` 是所有重复均满足开放队列稳定观察判据的最大已扫描到达率。
 `sla_max_observed` 只从所有重复均通过、且没有观察到开放过载的实际点中选择；不插值、不外推。
+闭环扫描的 `sla_max_observed` 表示 client 数，`last_observed_stable_rps` 为 `null`。
 随机 P99 可下降，SLO/稳定状态可非单调，报告完整保留这些事实。
+
+## Issue #3 软件验收
+
+| 需求 | 当前契约 | 回归入口 |
+|---|---|---|
+| 参数化到达与可复现负载 | `generate-workload --plan` 展开有界 Poisson 或周期流；到达和长度使用独立的带种子子流。 | `test_workload_generation.py` |
+| 吞吐、SLO 和稳定观察 | `sweep --plan` 保留全部实际扫描点与重复；用 `boundaries` 区分最大 SLO 通过点和最后一个观察稳定的开放到达率。 | `test_load_sweep.py`、`test_course_cli.py` |
+| 多次重复的尾部 | `pooled_latency_ms` 汇总所有声明重复的已完成请求，提供 P50/P90/P95/P99/P999 及样本数。 | `test_load_sweep.py` |
+
+扫表采用独立的 JSON 计划。原 `simulate` 继续消费固定到达的 `Experiment.workload`，
+保留 P50/P95/P99 的口径。上述验收覆盖 CPU 软件功能。开放到达率的真机稳态容量需另行实测。
 
 ## 可复现性与资源边界
 
