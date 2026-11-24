@@ -22,11 +22,12 @@ from .profiles import profile_identity
 from .schema import Experiment, RequestSpec, SimulationError
 from .serialization import experiment_dict
 from .state import SimulationResult, TERMINAL
+from .tpot_windows import TpotWindowProfile
 from .workload import _rng, canonical_sha256
 
 
 PROTOCOL = "finite_cohort_closed_loop_v1"
-_METRICS = {"ttft_p99_ms", "tpot_p99_ms", "end_to_end_p99_ms", "elapsed_requests_per_s",
+_METRICS = {"window_tpot_p99_ms", "ttft_p99_ms", "tpot_p99_ms", "end_to_end_p99_ms", "elapsed_requests_per_s",
             "elapsed_output_tokens_per_s"}
 
 
@@ -263,7 +264,8 @@ def _predict_cell(experiment: Experiment, spec: dict, concurrency: int, replicat
                                 "feedback": "real_terminal_then_think; timeout/failure_release_client_but_veto_success"}}
 
 
-def predict_closed_loop(experiment: Experiment, spec: dict, *, sibling_contention: dict | None = None) -> dict:
+def predict_closed_loop(experiment: Experiment, spec: dict, *, sibling_contention: dict | None = None,
+                        tpot_window_profile: TpotWindowProfile | None = None) -> dict:
     """Freeze one finite stream per repetition and predict real completion refill."""
     from .config import validate_experiment
 
@@ -284,6 +286,12 @@ def predict_closed_loop(experiment: Experiment, spec: dict, *, sibling_contentio
                         evaluation=replace(experiment.evaluation, measurement_window_ms=None, drain=True, max_drain_ms=None),
                         execution=replace(experiment.execution, max_simulated_ms=selected["max_run_ms"]))
     inputs = _profile_inputs(effective)
+    if tpot_window_profile is not None:
+        if (not isinstance(tpot_window_profile, TpotWindowProfile) or sibling_contention is not None
+                or effective.calibration.backend != "runtime" or len(inputs) != 1):
+            _invalid("Window-calibrated TPOT requires its unmodified base runtime model")
+        if tpot_window_profile.provenance["source"] == "test_fixture" and not effective.calibration.allow_test_fixture:
+            _invalid("TPOT test fixtures require experiment fixture opt-in")
 
     def predict(bound: Experiment) -> dict:
         streams = [generate_request_stream(selected, replication=index) for index in range(selected["replications"])]
@@ -302,9 +310,14 @@ def predict_closed_loop(experiment: Experiment, spec: dict, *, sibling_contentio
                     raise SimulationError("INPUT_CHANGED", "Frozen Profile origin became unreadable") from exc
                 if not unchanged:
                     _invalid("Profile bytes changed during finite-cohort prediction", "INPUT_CHANGED")
+                if tpot_window_profile is not None and run["status"] == "COMPLETED":
+                    run["tpot_forecast"] = tpot_window_profile.forecast(
+                        [r["tpot_ms"] for r in run["requests"]], selected, concurrency,
+                        inputs[0]["sha256"], run["request_stream_sha256"])
                 runs.append(run)
         identity = profile_identity(effective)
-        return {**({"sibling_contention": sibling_contention} if sibling_contention is not None else {}),
+        return {**({"tpot_window_profile": tpot_window_profile.provenance} if tpot_window_profile is not None else {}),
+                **({"sibling_contention": sibling_contention} if sibling_contention is not None else {}),
                 "schema_version": 1, "kind": "closed_loop_predictions", "protocol": PROTOCOL,
                 "status": "COMPLETED" if all(run["status"] == "COMPLETED" for run in runs) else "UNRESOLVED",
                 "study_id": selected["study_id"], "cohort": selected["cohort"], "spec": selected,
@@ -525,6 +538,15 @@ def validate_closed_loop(predictions: dict, observations: dict, contract: dict) 
     if (predictions.get("spec_sha256") != spec_sha
             or canonical_sha256(predictions.get("identity")) != identity_sha):
         _invalid("Frozen prediction spec/identity hashes disagree", "CALIBRATION_MISMATCH")
+    requested = selected["max_relative_error"].keys() | selected.get("max_absolute_error", {}).keys()
+    if "window_tpot_p99_ms" in requested:
+        profile = predictions.get("tpot_window_profile")
+        if (not isinstance(profile, dict) or profile.get("kind") != "ranked_native_tpot_windows_v1"
+                or not isinstance(profile.get("profile_sha256"), str)
+                or re.fullmatch("[0-9a-f]{64}", profile["profile_sha256"]) is None
+                or (profile.get("source") == "test_fixture" and not selected.get("allow_test_fixture"))
+                or "prediction_payload_sha256" not in selected):
+            _invalid("Window TPOT validation needs the calibrated forecast and an explicit frozen payload hash")
     prediction_sha = canonical_sha256(predictions)
     if selected.get("prediction_payload_sha256", prediction_sha) != prediction_sha:
         _invalid("Prediction changed after its preregistered payload hash", "INPUT_CHANGED")
@@ -609,11 +631,23 @@ def validate_closed_loop(predictions: dict, observations: dict, contract: dict) 
             for metric in sorted(selected["max_relative_error"].keys() | selected.get("max_absolute_error", {}).keys()):
                 p = predicted_assessment["metrics"].get(metric)
                 m = observed_assessment["metrics"].get(metric)
+                if metric == "window_tpot_p99_ms":
+                    window = prediction.get("tpot_forecast")
+                    p = None
+                    if window is not None:
+                        if (not isinstance(window, dict) or window.get("profile_sha256") !=
+                                predictions["tpot_window_profile"]["profile_sha256"]
+                                or window.get("requests") != spec["requests_per_run"]):
+                            _invalid("TPOT forecast does not match its frozen profile and complete cohort")
+                        p = _num(window.get("p99_ms"), "window TPOT P99")
+                    m = observed_assessment["metrics"].get("tpot_p99_ms")
                 p_count = predicted_assessment["metrics"]["sample_counts"].get(
-                    {"ttft_p99_ms": "ttft", "tpot_p99_ms": "tpot", "end_to_end_p99_ms": "end_to_end"}.get(metric),
+                    {"ttft_p99_ms": "ttft", "tpot_p99_ms": "tpot", "window_tpot_p99_ms": "tpot",
+                     "end_to_end_p99_ms": "end_to_end"}.get(metric),
                     predicted_assessment["metrics"]["completed_samples"])
                 m_count = observed_assessment["metrics"]["sample_counts"].get(
-                    {"ttft_p99_ms": "ttft", "tpot_p99_ms": "tpot", "end_to_end_p99_ms": "end_to_end"}.get(metric),
+                    {"ttft_p99_ms": "ttft", "tpot_p99_ms": "tpot", "window_tpot_p99_ms": "tpot",
+                     "end_to_end_p99_ms": "end_to_end"}.get(metric),
                     observed_assessment["metrics"]["completed_samples"])
                 available = (boundary_ok and p is not None and m is not None
                              and p_count >= selected["min_completed_samples"] and m_count >= selected["min_completed_samples"])

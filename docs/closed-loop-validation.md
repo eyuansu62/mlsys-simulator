@@ -130,3 +130,9 @@ P99 和吞吐的误差、预测 SLA、实测 SLA、二者一致性与采集完�
 短 prompt 和长 prompt 应分别冻结 spec，例如 `[64,128]` 与 `[512,1024]`，在相同并发网格、seed 和重复数上留出验证。
 若冻结 Profile 不覆盖长 prompt / batch 形状，应保留域外或未知结果；不能在看到留出误差后扩 grid、改系数、重拟合或删除 seed。
 所有时延、吞吐、容差、模型及硬件身份都来自显式输入，模块没有针对 9070 XT 的隐式精度修正。
+
+## 完整请求的 P99 TPOT 预测
+
+对 RX 9070 XT 已校准的 Qwen3-4B 有限闭环负载，可向 `predict_closed_loop` 传入
+`TpotWindowProfile`，在每个完整 run 的 `tpot_forecast` 中读取总体 P99 估计。
+[原始 54 组诊断、前向验证方案和使用示例](qwen4b-tpot-9070xt/README.md)。
