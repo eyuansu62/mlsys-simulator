@@ -1,0 +1,1202 @@
+[
+  {
+    "e2e_p99_ms": 309.822702980005,
+    "label": "01-stages-r0",
+    "missing_stages": [],
+    "mode": "stages",
+    "paired": 0,
+    "phases": {
+      "decode": {
+        "count": 7680,
+        "max_ms": 29.603861,
+        "p50_ms": 17.354501
+      },
+      "prefill": {
+        "count": 512,
+        "max_ms": 32.978969,
+        "p50_ms": 27.1545855
+      }
+    },
+    "prefill_ge38": 0,
+    "prefill_shapes": [
+      {
+        "count": 140,
+        "median_ms": 27.0423005,
+        "shape": [
+          [
+            "prefill",
+            64,
+            0
+          ],
+          [
+            "prefill",
+            64,
+            0
+          ]
+        ]
+      },
+      {
+        "count": 115,
+        "median_ms": 27.044511,
+        "shape": [
+          [
+            "prefill",
+            64,
+            0
+          ],
+          [
+            "prefill",
+            128,
+            0
+          ]
+        ]
+      },
+      {
+        "count": 132,
+        "median_ms": 27.097631,
+        "shape": [
+          [
+            "prefill",
+            128,
+            0
+          ],
+          [
+            "prefill",
+            64,
+            0
+          ]
+        ]
+      },
+      {
+        "count": 125,
+        "median_ms": 28.802764,
+        "shape": [
+          [
+            "prefill",
+            128,
+            0
+          ],
+          [
+            "prefill",
+            128,
+            0
+          ]
+        ]
+      }
+    ],
+    "source_sha256": {
+      "api-feedback.json": "4f08d825c3642bb999fc5f7725eaca1ecdb91a2ed0c099d4194f2e8dab10461e",
+      "capture-config.json": "07c37d155ffa81d43b7342ecffcb9d01327ee4eb24fb8935df0b68477be7c811",
+      "formal-progress.json": "74a929af15f32b88a44e066d8e4f5bec21dd18a35c5b19b98e17ee8772c26231",
+      "observed-run.json": "8c7f2711da268eb5cb6bb11d531c7dbb7b5ec060889cbec8daf672c89a9769a0",
+      "runner-binding.json": "d153780f99051a60f4af67ac432e7886a29638f9059d44fc6da988d8deb7b063",
+      "runtime-cost-capture.json": "73e6a32360374bb2cd24eabc85a9e7cf1519bb9427691c8276c40fe6a895fec6",
+      "runtime-cost-dataset.json": "63c192efc1b162129c1e6fe55ddf4dba22a702a93ef0f89260e711c6a1531f40",
+      "server-trace.json": "2d1fecf496a13cd42e18deeb8fc419e3465ffcd94dd705dcf7a3ea82b422d491",
+      "stage-timeline.json": "505a530c2e31bcc8fa789b68768e098642899511d27da293f5f713dfd0905841",
+      "summary.json": "651f430e0e51d449f5ea75373d2e9fca77834d312427ffc29ba26fc5b26646c9"
+    },
+    "ttft_ms": {
+      "p50": 27.2624005,
+      "p95": 29.114422649999998,
+      "p99": 30.13576177
+    }
+  },
+  {
+    "e2e_p99_ms": 318.9382555299968,
+    "label": "02-native-r0",
+    "missing_stages": [],
+    "mode": "native",
+    "paired": 0,
+    "phases": {
+      "decode": {
+        "count": 7680,
+        "max_ms": 29.973061,
+        "p50_ms": 17.748036
+      },
+      "prefill": {
+        "count": 512,
+        "max_ms": 30.931968,
+        "p50_ms": 27.611685
+      }
+    },
+    "prefill_ge38": 0,
+    "prefill_shapes": [
+      {
+        "count": 140,
+        "median_ms": 27.392756,
+        "shape": [
+          [
+            "prefill",
+            64,
+            0
+          ],
+          [
+            "prefill",
+            64,
+            0
+          ]
+        ]
+      },
+      {
+        "count": 115,
+        "median_ms": 27.47298,
+        "shape": [
+          [
+            "prefill",
+            64,
+            0
+          ],
+          [
+            "prefill",
+            128,
+            0
+          ]
+        ]
+      },
+      {
+        "count": 132,
+        "median_ms": 27.3981705,
+        "shape": [
+          [
+            "prefill",
+            128,
+            0
+          ],
+          [
+            "prefill",
+            64,
+            0
+          ]
+        ]
+      },
+      {
+        "count": 125,
+        "median_ms": 28.825315,
+        "shape": [
+          [
+            "prefill",
+            128,
+            0
+          ],
+          [
+            "prefill",
+            128,
+            0
+          ]
+        ]
+      }
+    ],
+    "source_sha256": {
+      "api-feedback.json": "8817637cb729781657167af56787c4453efd982b645820a59a60c0b5125515bc",
+      "capture-config.json": "e7a6608aef7c437a6539f2bdc5ace0374fec42b79280cd6280a43affa900b1ee",
+      "formal-progress.json": "273bd4f38d57b543319309b57cba8e0f83c678e2fd2808de67dc96351b35a61c",
+      "observed-run.json": "56c295dc58193fe67435cf349995f815c85404f4e963669b7cacfcd17bc82df0",
+      "runner-binding.json": "56a50db920f806bf37c091b255de60b028293127c4ef1563e59b23641997b218",
+      "runtime-cost-capture.json": "5d5034430fbf7e487b393ddd0fe411eea8d662568d150b043db019937622f5bd",
+      "runtime-cost-dataset.json": "00c8ad16c919681640bf2903246efb2e53618585657902a261bac55688897311",
+      "server-trace.json": "e936cc8201146fe7e4719d5cd34ac41aa743e2978ba4672d8279754eb5b9d778",
+      "summary.json": "5125693ff98d487fc498c7214f606f716563798a7a507baa5e96ea1361733b0f"
+    },
+    "ttft_ms": {
+      "p50": 27.712040000000002,
+      "p95": 29.25068535,
+      "p99": 30.24278477
+    }
+  },
+  {
+    "e2e_p99_ms": 306.7056942300027,
+    "label": "03-stages-r1",
+    "missing_stages": [],
+    "mode": "stages",
+    "paired": 0,
+    "phases": {
+      "decode": {
+        "count": 7680,
+        "max_ms": 29.547313,
+        "p50_ms": 17.234212499999998
+      },
+      "prefill": {
+        "count": 512,
+        "max_ms": 33.37293,
+        "p50_ms": 27.095332
+      }
+    },
+    "prefill_ge38": 0,
+    "prefill_shapes": [
+      {
+        "count": 136,
+        "median_ms": 26.958523,
+        "shape": [
+          [
+            "prefill",
+            64,
+            0
+          ],
+          [
+            "prefill",
+            64,
+            0
+          ]
+        ]
+      },
+      {
+        "count": 134,
+        "median_ms": 27.0670875,
+        "shape": [
+          [
+            "prefill",
+            64,
+            0
+          ],
+          [
+            "prefill",
+            128,
+            0
+          ]
+        ]
+      },
+      {
+        "count": 125,
+        "median_ms": 27.020903,
+        "shape": [
+          [
+            "prefill",
+            128,
+            0
+          ],
+          [
+            "prefill",
+            64,
+            0
+          ]
+        ]
+      },
+      {
+        "count": 117,
+        "median_ms": 28.791677,
+        "shape": [
+          [
+            "prefill",
+            128,
+            0
+          ],
+          [
+            "prefill",
+            128,
+            0
+          ]
+        ]
+      }
+    ],
+    "source_sha256": {
+      "api-feedback.json": "42321ef77d09e7c642c4e3ff725bb33d9e1d0f10d433ecf7130cb325def4f313",
+      "capture-config.json": "242f10a5a9b522c5a5cf095d81216b768eaec119b91680153282757347f0f439",
+      "formal-progress.json": "6c9914353280c33999490077f9840a1e984867747d75dc5a10d7872de142348f",
+      "observed-run.json": "5f8720cc2dcc90f990c61e169d37838b3f2c3150063af90514f4a07b4c53c886",
+      "runner-binding.json": "4e2f6fa216abcf51be4093f7e52b6b1911655704c85e717e5b3da4ee4ba2e185",
+      "runtime-cost-capture.json": "6591d05866a76d5d2b009996c0d90e4789a546c8777a826a5b25babf9ca9229e",
+      "runtime-cost-dataset.json": "05326644318974cc234cbe89ffb3f243601918096bd4fbaec0cab8990dfbc756",
+      "server-trace.json": "7f31e253436fdc90b839f6b18edfdf401e0e63e07156786ce55f6169cd9f614c",
+      "stage-timeline.json": "7bea2d0c9d694ce5d68cdce32e6ad010e87e8d32cfd8d2b038cd129ea305094f",
+      "summary.json": "96e87133ebf0ca1aeffcc0a520e7b10cd5d5ef3a8a524e00a56faa9740d5c2f1"
+    },
+    "ttft_ms": {
+      "p50": 27.203752,
+      "p95": 29.041186,
+      "p99": 29.4057666
+    }
+  },
+  {
+    "e2e_p99_ms": 321.8952076000029,
+    "label": "04-stages-r2",
+    "missing_stages": [],
+    "mode": "stages",
+    "paired": 0,
+    "phases": {
+      "decode": {
+        "count": 7680,
+        "max_ms": 30.704089,
+        "p50_ms": 17.470983
+      },
+      "prefill": {
+        "count": 512,
+        "max_ms": 30.170742,
+        "p50_ms": 27.3350015
+      }
+    },
+    "prefill_ge38": 0,
+    "prefill_shapes": [
+      {
+        "count": 120,
+        "median_ms": 27.263882000000002,
+        "shape": [
+          [
+            "prefill",
+            64,
+            0
+          ],
+          [
+            "prefill",
+            64,
+            0
+          ]
+        ]
+      },
+      {
+        "count": 131,
+        "median_ms": 27.179192,
+        "shape": [
+          [
+            "prefill",
+            64,
+            0
+          ],
+          [
+            "prefill",
+            128,
+            0
+          ]
+        ]
+      },
+      {
+        "count": 132,
+        "median_ms": 27.2423475,
+        "shape": [
+          [
+            "prefill",
+            128,
+            0
+          ],
+          [
+            "prefill",
+            64,
+            0
+          ]
+        ]
+      },
+      {
+        "count": 129,
+        "median_ms": 28.833246,
+        "shape": [
+          [
+            "prefill",
+            128,
+            0
+          ],
+          [
+            "prefill",
+            128,
+            0
+          ]
+        ]
+      }
+    ],
+    "source_sha256": {
+      "api-feedback.json": "a04c2f2b01f8591746ea9f81a0f15cda8ed1c9ca701239e6c5e34e560b14a5bb",
+      "capture-config.json": "b777fb71adeff295b94323df9c64d1cd8e4672ecc49b85dcc45cfedd970d1b8e",
+      "formal-progress.json": "3b3938a4f1704a48e724d22d546252f35a6529132fa1390fb18c5bd1f154f632",
+      "observed-run.json": "9851867c79812ce584352e552f8e3f24307e7e010f2551ff18403040bc683393",
+      "runner-binding.json": "8d04d4b6341fe01dd0f5e3b87ec83edc8cc34688b465d983b6a0293290c99292",
+      "runtime-cost-capture.json": "dcd8c7d21ed6b5e3b8ae2e2e29ef4530ddad1be47b7aa4794f04f04a93f980ae",
+      "runtime-cost-dataset.json": "fcb84b6dcd13a1d59a378305f63581801eb489cd45c38edd33b36e183e90a144",
+      "server-trace.json": "bd6e92f2ca627d13dc06c5a3c323646e5f822cd15d4bc22204c23a34a3a17d3c",
+      "stage-timeline.json": "d6173cc1cf2cd083434622099984756acfcdc5f7c084a20af4ebb3f30b7cd7fe",
+      "summary.json": "e3eff45a7e68a87c5d6624318fb5321ebe91ec257b7c94386b8dd00b4dcf8eeb"
+    },
+    "ttft_ms": {
+      "p50": 27.4491615,
+      "p95": 29.23226965,
+      "p99": 29.8712212
+    }
+  },
+  {
+    "e2e_p99_ms": 1799.041291970005,
+    "label": "05-hip-r0",
+    "mode": "hip",
+    "profiled_window": {
+      "clock_alignment": {
+        "offset_perf_minus_chrome_ns_lower": "-3961534805174090.0",
+        "offset_perf_minus_chrome_ns_upper": "-3961534805169679.000",
+        "status": "BOUNDED_BY_REAL_MARKER_ENCLOSURES"
+      },
+      "core_count": 32,
+      "largest_prefill_steps": [
+        {
+          "api_step": 320,
+          "association": "OBSERVED_UNIQUE_MARKER",
+          "contexts": [
+            0,
+            0
+          ],
+          "q": [
+            128,
+            64
+          ],
+          "raw_core_wall_ms": 76.169227,
+          "source_order": 663,
+          "stages": [
+            {
+              "hip_sync_overlap_ms": 0.0,
+              "stage": "schedule",
+              "trace_wall_ms": 0.116609,
+              "visible_device_overlap_ms": 0.0
+            },
+            {
+              "hip_sync_overlap_ms": 0.0,
+              "stage": "execute",
+              "trace_wall_ms": 75.46329,
+              "visible_device_overlap_ms": 27.023332
+            },
+            {
+              "hip_sync_overlap_ms": 0.01116,
+              "stage": "sample_or_gpu_wait",
+              "trace_wall_ms": 0.436289,
+              "visible_device_overlap_ms": 0.031635
+            },
+            {
+              "hip_sync_overlap_ms": 0.0,
+              "stage": "publish",
+              "trace_wall_ms": 0.0786,
+              "visible_device_overlap_ms": 0.0
+            },
+            {
+              "hip_sync_overlap_ms": 0.0,
+              "stage": "execute",
+              "trace_wall_ms": 75.133408,
+              "visible_device_overlap_ms": 27.023332
+            },
+            {
+              "hip_sync_overlap_ms": 0.0,
+              "stage": "sample_or_gpu_wait",
+              "trace_wall_ms": 0.271823,
+              "visible_device_overlap_ms": 0.031635
+            }
+          ],
+          "submitted_device_overlap_core_ms": 27.054967,
+          "submitted_device_union_ms": 27.054967,
+          "trace_core_ms": 76.186896,
+          "trace_wall_without_visible_device_ms": 49.131929,
+          "visible_device_overlap_ms": 27.054967
+        },
+        {
+          "api_step": 336,
+          "association": "OBSERVED_UNIQUE_MARKER",
+          "contexts": [
+            0,
+            0
+          ],
+          "q": [
+            64,
+            64
+          ],
+          "raw_core_wall_ms": 72.845849,
+          "source_order": 679,
+          "stages": [
+            {
+              "hip_sync_overlap_ms": 0.0,
+              "stage": "schedule",
+              "trace_wall_ms": 0.09498,
+              "visible_device_overlap_ms": 0.0
+            },
+            {
+              "hip_sync_overlap_ms": 0.0,
+              "stage": "execute",
+              "trace_wall_ms": 71.331324,
+              "visible_device_overlap_ms": 22.924218
+            },
+            {
+              "hip_sync_overlap_ms": 0.942376,
+              "stage": "sample_or_gpu_wait",
+              "trace_wall_ms": 1.271415,
+              "visible_device_overlap_ms": 1.159472
+            },
+            {
+              "hip_sync_overlap_ms": 0.0,
+              "stage": "publish",
+              "trace_wall_ms": 0.07632,
+              "visible_device_overlap_ms": 0.0
+            },
+            {
+              "hip_sync_overlap_ms": 0.0,
+              "stage": "execute",
+              "trace_wall_ms": 72.28328,
+              "visible_device_overlap_ms": 24.083466
+            },
+            {
+              "hip_sync_overlap_ms": 0.0,
+              "stage": "sample_or_gpu_wait",
+              "trace_wall_ms": 0.052001,
+              "visible_device_overlap_ms": 0.030234
+            }
+          ],
+          "submitted_device_overlap_core_ms": 24.1137,
+          "submitted_device_union_ms": 24.1137,
+          "trace_core_ms": 72.862189,
+          "trace_wall_without_visible_device_ms": 48.748489,
+          "visible_device_overlap_ms": 24.1137
+        }
+      ],
+      "prefill_core_count": 2,
+      "source": {
+        "probe_sha256": "e09e81245562e23131743a9a8c57ff7b585a582c8ccbd711be132797eece7e7e",
+        "raw_core_sha256": "9cac3ca582f9f31d9ae36198031f41281a7413f4073a9756aecd9c80a055a649",
+        "raw_event_count": 200847,
+        "raw_trace_bytes": 54082121,
+        "raw_trace_sha256": "b6adb2d214d120d3ffb8cf0480ea0bce4466bd436022ec3a48be440ddedab727",
+        "scheduler_sha256": "8fe7b48e9c17ba92674140a97de16548a7d718c939301cf0ef7fb32f8c0b4c93",
+        "selected_event_count": 38441,
+        "selection": "All X events in mlsys markers, HIP runtime and device work categories"
+      },
+      "trace_event_counts": {
+        "complete": 38441,
+        "device_work": 18312,
+        "hip_api": 19873,
+        "unassociated_device_work": 0
+      }
+    },
+    "source_sha256": {
+      "api-feedback.json": "d4f4481b28cd712c36a7be19a20df2f7fb1489b173234f24199f13dc3506d5c1",
+      "capture-config.json": "930e1d3a28bc31b80048487dfec38324c71e9aadb5170e1bae40b37362d8f161",
+      "formal-progress.json": "61053d24d91e4f03163204a37b6364f843c53ee461fac3fb20d3f9122eb29b3f",
+      "observed-run.json": "a552aa2b0f4bbcfbdadb30bb0c94f05de9780d30eda2b4627aea58822c0c9718",
+      "runner-binding.json": "4642532879eb88a1525bdf26d1e9146b8818aedc8d37c7cf63386c772203b41e",
+      "runtime-cost-capture.json": "9cac3ca582f9f31d9ae36198031f41281a7413f4073a9756aecd9c80a055a649",
+      "runtime-cost-dataset.json": "062f86c30aeabfe900322b807c09ecc38ab0e98b72b4c6b0e3b7abf8c9007d27",
+      "server-trace.json": "b3ee5d590806da1226d20b73775d615157ed6701daefb120a57ccad18a84e6c0",
+      "summary.json": "0a2fad717f925fc8c1e1faf7224277201d31ef48f736736ad48210ea6e7df4d1",
+      "torch-cpu-hip-trace.json": "b6adb2d214d120d3ffb8cf0480ea0bce4466bd436022ec3a48be440ddedab727",
+      "trace-diagnostic-role.json": "f6d1c5c52a4e20c9200995fb2fa3fec1a82247b48181c825021b93d37854feab",
+      "trace-probe.json": "e09e81245562e23131743a9a8c57ff7b585a582c8ccbd711be132797eece7e7e"
+    },
+    "ttft_ms": {
+      "p50": 27.463676,
+      "p95": 29.440485849999998,
+      "p99": 75.34410077000001
+    }
+  },
+  {
+    "e2e_p99_ms": 314.82731408999786,
+    "label": "d1-old-diag-r1",
+    "missing_stages": [],
+    "mode": "stages",
+    "paired": 0,
+    "phases": {
+      "decode": {
+        "count": 3840,
+        "max_ms": 27.098893,
+        "p50_ms": 17.482867499999998
+      },
+      "prefill": {
+        "count": 256,
+        "max_ms": 29.801803,
+        "p50_ms": 27.3027525
+      }
+    },
+    "prefill_ge38": 0,
+    "prefill_shapes": [
+      {
+        "count": 56,
+        "median_ms": 27.137343,
+        "shape": [
+          [
+            "prefill",
+            64,
+            0
+          ],
+          [
+            "prefill",
+            64,
+            0
+          ]
+        ]
+      },
+      {
+        "count": 54,
+        "median_ms": 27.175812999999998,
+        "shape": [
+          [
+            "prefill",
+            64,
+            0
+          ],
+          [
+            "prefill",
+            128,
+            0
+          ]
+        ]
+      },
+      {
+        "count": 77,
+        "median_ms": 27.130763,
+        "shape": [
+          [
+            "prefill",
+            128,
+            0
+          ],
+          [
+            "prefill",
+            64,
+            0
+          ]
+        ]
+      },
+      {
+        "count": 69,
+        "median_ms": 28.946446,
+        "shape": [
+          [
+            "prefill",
+            128,
+            0
+          ],
+          [
+            "prefill",
+            128,
+            0
+          ]
+        ]
+      }
+    ],
+    "source_sha256": {
+      "api-feedback.json": "921f8bb352358328b247622a081d08c29a58bca4e20bcd4c65cd7f06e97a0ef5",
+      "capture-config.json": "64a20b5eaac1819a8f8d7571cbb6ae9de88be370e81a43bace43a8f7dba6ebbc",
+      "formal-progress.json": "325f8c95b66d742d6a03ee069cc2d9502cdeefadc6ac27c227c926e43a37ea9a",
+      "forward-stream.json": "8a3a5c74d7c69b8c71bf088675cf01a90547a57f90335d86123f587462616ec2",
+      "observed-run.json": "56988b5eddd185de98912dcd8542cb74fef9fc2f857ca7833e5c3d38cb68f832",
+      "runner-binding.json": "4733f93188110fa40c1037edb078af984a80fe7250bc78b70af118afe669e74d",
+      "runtime-cost-capture.json": "083b29c2ce9510cf3dcd9ea8cbeb8bdbeb0917c0304c40bee7b6ae97595365cb",
+      "runtime-cost-dataset.json": "2f47a708e3b4d0a076cb95bec3c649656ff3ed1e3463ba956c29b9d5a7a97c8e",
+      "server-trace.json": "0bba0318f166b76d811769ed72903234550b17c81fdbfaab710921861fa33eb4",
+      "stage-timeline.json": "5efef601b136f2d1b401de47242fc6a7d8e95f83206dd7563269d00da49c1a6a",
+      "summary.json": "aeac9fbd9956adecac534c312ebfa936e76fac95e2b8c0d34a9e37ab2d06cdf7"
+    },
+    "ttft_ms": {
+      "p50": 27.421187,
+      "p95": 29.21771455,
+      "p99": 29.43369239
+    }
+  },
+  {
+    "e2e_p99_ms": 315.88092959000085,
+    "label": "d2-old-formal-r2",
+    "missing_stages": [],
+    "mode": "stages",
+    "paired": 0,
+    "phases": {
+      "decode": {
+        "count": 3840,
+        "max_ms": 26.793922,
+        "p50_ms": 17.468766
+      },
+      "prefill": {
+        "count": 256,
+        "max_ms": 31.423682,
+        "p50_ms": 27.427383499999998
+      }
+    },
+    "prefill_ge38": 0,
+    "prefill_shapes": [
+      {
+        "count": 63,
+        "median_ms": 27.220618,
+        "shape": [
+          [
+            "prefill",
+            64,
+            0
+          ],
+          [
+            "prefill",
+            64,
+            0
+          ]
+        ]
+      },
+      {
+        "count": 56,
+        "median_ms": 27.239248,
+        "shape": [
+          [
+            "prefill",
+            64,
+            0
+          ],
+          [
+            "prefill",
+            128,
+            0
+          ]
+        ]
+      },
+      {
+        "count": 70,
+        "median_ms": 27.2267155,
+        "shape": [
+          [
+            "prefill",
+            128,
+            0
+          ],
+          [
+            "prefill",
+            64,
+            0
+          ]
+        ]
+      },
+      {
+        "count": 67,
+        "median_ms": 28.925157,
+        "shape": [
+          [
+            "prefill",
+            128,
+            0
+          ],
+          [
+            "prefill",
+            128,
+            0
+          ]
+        ]
+      }
+    ],
+    "source_sha256": {
+      "api-feedback.json": "945777f1f67ce69d2c9c3376867602f86cc957d35701f5aa9e443e6a9ef90934",
+      "capture-config.json": "60a18ce516239481fd0ac752e8711ee8d6a2f7079b8006f2a1d7cf98ef8a5b8b",
+      "formal-progress.json": "3b1597d2666905da6b59e36487b2d4f1de6b3065aa94a158cca415baa3bddfde",
+      "forward-stream.json": "1336fb473d56024e163604d46b22d3a90fbf5a3a1c1ff7841137ca10ef77205b",
+      "observed-run.json": "d205a7782b2b8515837e81680b6fbcef5f0ff456c969b0d5a90d5c1ffd22af41",
+      "runner-binding.json": "b4ae8f971d8425d29689ab4df7593ab85683de0af0d4957df1c02e8162ee3cf8",
+      "runtime-cost-capture.json": "dfdb8f1983867f4397e3c644ce93a1af33a50d483964b19bde4d9dd25bd4930d",
+      "runtime-cost-dataset.json": "dab8c527af6ebd3d31d5f5f8949ffc2a1f09f1dd0413a8e03e3b9bc2c7300a23",
+      "server-trace.json": "edfe6a83cb1d96d7cbeea9d3e5ab1f4ccafd14d235cfd764b36f6f332ef70dcf",
+      "stage-timeline.json": "06cc8dc252ea1a0fc6ff9a57b85ec3a38b5dd26acd6b8af09daa1ac257bbc037",
+      "summary.json": "ab908ba64a88ed244f4805075c5a6332da3374e77bc37d6b5d7dee6bee55488e"
+    },
+    "ttft_ms": {
+      "p50": 27.571042499999997,
+      "p95": 29.204311,
+      "p99": 30.97237143999999
+    }
+  },
+  {
+    "e2e_p99_ms": 309.7711501500007,
+    "label": "d3-old-diag-r0",
+    "missing_stages": [],
+    "mode": "stages",
+    "paired": 0,
+    "phases": {
+      "decode": {
+        "count": 3840,
+        "max_ms": 23.082971,
+        "p50_ms": 17.5218145
+      },
+      "prefill": {
+        "count": 256,
+        "max_ms": 34.693464,
+        "p50_ms": 27.305360999999998
+      }
+    },
+    "prefill_ge38": 0,
+    "prefill_shapes": [
+      {
+        "count": 58,
+        "median_ms": 27.1646945,
+        "shape": [
+          [
+            "prefill",
+            64,
+            0
+          ],
+          [
+            "prefill",
+            64,
+            0
+          ]
+        ]
+      },
+      {
+        "count": 69,
+        "median_ms": 27.141903,
+        "shape": [
+          [
+            "prefill",
+            64,
+            0
+          ],
+          [
+            "prefill",
+            128,
+            0
+          ]
+        ]
+      },
+      {
+        "count": 55,
+        "median_ms": 27.193073,
+        "shape": [
+          [
+            "prefill",
+            128,
+            0
+          ],
+          [
+            "prefill",
+            64,
+            0
+          ]
+        ]
+      },
+      {
+        "count": 74,
+        "median_ms": 28.916034,
+        "shape": [
+          [
+            "prefill",
+            128,
+            0
+          ],
+          [
+            "prefill",
+            128,
+            0
+          ]
+        ]
+      }
+    ],
+    "source_sha256": {
+      "api-feedback.json": "fbed031384cf69324546bf15ae4d2d50398c0f576d1f2b7c303e6a2776c91a04",
+      "capture-config.json": "22d687b595d38b816416be85e8d0485d653f7c1956da10f2e1cd10466f259301",
+      "formal-progress.json": "c48f1036a15ec60f107fc743932c0141c8f5beb0842ee869a75c815432b9718c",
+      "forward-stream.json": "cdc93ed81cc649666e3fd1b80ff8b4bf0609002e3058d4fcd5a1f698371663de",
+      "observed-run.json": "b1983d529f0a9f0bb65246e4a31b246eb7689b4e37c65a678c6b9bf702b559d2",
+      "runner-binding.json": "5f8ee3ccc34d582dfd738e93967bfa4c3cda2a5521ae97e52661c5d3e59b8f14",
+      "runtime-cost-capture.json": "d1ee9379fbf887b17a49c38a96d131cc9bc6a5d8f3b92cb97d5bfae7c5b6322d",
+      "runtime-cost-dataset.json": "8cbf07069f2ab7a17c68d68866ebd7dbf161e7b2bbf0135a04cd71ebfbe51a98",
+      "server-trace.json": "e1aa71597e4353cfc75a2c7e959a29d4334a93c5174afcdf5995e93921796b9c",
+      "stage-timeline.json": "2adf2fe94115f0579836e9bbbe83ae1c7630b6a2ec6b8532c0039d34ee7f6422",
+      "summary.json": "3816678bf4336a372b1c5070859aa78bda1527bab52579138d5c789e19430945"
+    },
+    "ttft_ms": {
+      "p50": 27.3930225,
+      "p95": 29.184815699999998,
+      "p99": 31.36466974999998
+    }
+  },
+  {
+    "e2e_p99_ms": 310.5152434,
+    "label": "d4-old-formal-r0",
+    "missing_stages": [],
+    "mode": "stages",
+    "paired": 0,
+    "phases": {
+      "decode": {
+        "count": 3840,
+        "max_ms": 23.464277,
+        "p50_ms": 17.44613
+      },
+      "prefill": {
+        "count": 256,
+        "max_ms": 31.62439,
+        "p50_ms": 27.4847335
+      }
+    },
+    "prefill_ge38": 0,
+    "prefill_shapes": [
+      {
+        "count": 68,
+        "median_ms": 27.385545,
+        "shape": [
+          [
+            "prefill",
+            64,
+            0
+          ],
+          [
+            "prefill",
+            64,
+            0
+          ]
+        ]
+      },
+      {
+        "count": 48,
+        "median_ms": 27.3269405,
+        "shape": [
+          [
+            "prefill",
+            64,
+            0
+          ],
+          [
+            "prefill",
+            128,
+            0
+          ]
+        ]
+      },
+      {
+        "count": 80,
+        "median_ms": 27.284447999999998,
+        "shape": [
+          [
+            "prefill",
+            128,
+            0
+          ],
+          [
+            "prefill",
+            64,
+            0
+          ]
+        ]
+      },
+      {
+        "count": 60,
+        "median_ms": 28.920015499999998,
+        "shape": [
+          [
+            "prefill",
+            128,
+            0
+          ],
+          [
+            "prefill",
+            128,
+            0
+          ]
+        ]
+      }
+    ],
+    "source_sha256": {
+      "api-feedback.json": "a6d11d8f965f99a2508482da2a88ec30d60160b8f48722d36f947f11ef9f8ab1",
+      "capture-config.json": "03708b9ef466aedea0d6e146804b3df09b4ff30a26a9fc72b4868ccd94a15203",
+      "formal-progress.json": "760a9784bca9b72169f5eb60b89626636fbab2e74f91b615dc38015b962e9a3f",
+      "forward-stream.json": "5122fa4dbaff15cc1cbe6db92763a9db78016e61bd83b9186daf393c0aa39980",
+      "observed-run.json": "87fa2ee7eb5f347a5455ca5b668f1787227dd26e18de186933860e0c14f9482f",
+      "runner-binding.json": "dc9277204e54fa289574fc62c33e18dfef7b7a06ce52100e58bf0aa9572207f8",
+      "runtime-cost-capture.json": "7b0b6886953589f3a1e7091833cd462ab33e24ac796bfc9d154d27dc0f956f61",
+      "runtime-cost-dataset.json": "dd927084109e40ad4cfb118f82b030acfa453cf105d886f226f4dfbf2c96c7a6",
+      "server-trace.json": "af490b05c30ab4f970903cbe7665fe7d3aaf81943f2831bd72bf8825edda7364",
+      "stage-timeline.json": "32c1e21dd184462b5edf4cb8c4660bacd44cd9ab82f07e5615ff5be2801c6e97",
+      "summary.json": "29d55956bad308d9e47303232ac3833732ba351492bf706a21b47e19571c1445"
+    },
+    "ttft_ms": {
+      "p50": 27.566947,
+      "p95": 29.179699799999998,
+      "p99": 30.679353889999998
+    }
+  },
+  {
+    "e2e_p99_ms": 321.81108992000105,
+    "label": "d5-old-diag-r2",
+    "missing_stages": [],
+    "mode": "stages",
+    "paired": 0,
+    "phases": {
+      "decode": {
+        "count": 3840,
+        "max_ms": 23.774408,
+        "p50_ms": 17.8186045
+      },
+      "prefill": {
+        "count": 256,
+        "max_ms": 40.454131,
+        "p50_ms": 27.6806465
+      }
+    },
+    "prefill_ge38": 1,
+    "prefill_shapes": [
+      {
+        "count": 72,
+        "median_ms": 27.542697,
+        "shape": [
+          [
+            "prefill",
+            64,
+            0
+          ],
+          [
+            "prefill",
+            64,
+            0
+          ]
+        ]
+      },
+      {
+        "count": 69,
+        "median_ms": 27.472989,
+        "shape": [
+          [
+            "prefill",
+            64,
+            0
+          ],
+          [
+            "prefill",
+            128,
+            0
+          ]
+        ]
+      },
+      {
+        "count": 58,
+        "median_ms": 27.518814,
+        "shape": [
+          [
+            "prefill",
+            128,
+            0
+          ],
+          [
+            "prefill",
+            64,
+            0
+          ]
+        ]
+      },
+      {
+        "count": 57,
+        "median_ms": 28.920823,
+        "shape": [
+          [
+            "prefill",
+            128,
+            0
+          ],
+          [
+            "prefill",
+            128,
+            0
+          ]
+        ]
+      }
+    ],
+    "source_sha256": {
+      "api-feedback.json": "7d3459f0e7492f790d5342d10126d9170fe24cc322f7a2d34c4edf7d6667080d",
+      "capture-config.json": "95849e3c605df560f2a68474b836709e302a9f5e02dd3e1c8d52f919c3de5177",
+      "formal-progress.json": "491dbc25659a4a88b614558d8851a03873e9ffb90ac96d55fb798e2bbb549ec4",
+      "forward-stream.json": "dc81fefd69e54224affd2c3013bfb86b7ca94c171d8ccdbcb063d751b6813d77",
+      "observed-run.json": "f596df98ffea03272c37db89c344663baafedaf60b8ccbe567bf7102c9f592b2",
+      "runner-binding.json": "b1a743920737871e16f338a6bb05ca1b2354a4a603492d08fbc2d059f473ce42",
+      "runtime-cost-capture.json": "1ca6a7c9c0693016deb333aaaa35a622674983d903726535d5cad557927de85a",
+      "runtime-cost-dataset.json": "472670926ca0b7d627f3474d397c89c06170a6250a17cda0bdcbd84ea6bd5ba5",
+      "server-trace.json": "5c85b8bfdb28d4dab5b2f2bfe5cb436a189038a79cde9250d7eb98edbca4013a",
+      "stage-timeline.json": "44a36c01748266a61e1176a3a141336d13b366ce5e139be2fe6be46f49ba509a",
+      "summary.json": "29e9bccbff861cb6add0379c124cac4a66c9b97a47a3712ad2958be5faa018e9"
+    },
+    "ttft_ms": {
+      "p50": 27.771425,
+      "p95": 29.393606899999998,
+      "p99": 30.937842039999992
+    }
+  },
+  {
+    "e2e_p99_ms": 312.530178310003,
+    "label": "d6-old-formal-r1",
+    "missing_stages": [],
+    "mode": "stages",
+    "paired": 0,
+    "phases": {
+      "decode": {
+        "count": 3840,
+        "max_ms": 29.575359,
+        "p50_ms": 17.611264
+      },
+      "prefill": {
+        "count": 256,
+        "max_ms": 37.804902,
+        "p50_ms": 27.305518499999998
+      }
+    },
+    "prefill_ge38": 0,
+    "prefill_shapes": [
+      {
+        "count": 70,
+        "median_ms": 27.258764,
+        "shape": [
+          [
+            "prefill",
+            64,
+            0
+          ],
+          [
+            "prefill",
+            64,
+            0
+          ]
+        ]
+      },
+      {
+        "count": 57,
+        "median_ms": 27.215161,
+        "shape": [
+          [
+            "prefill",
+            64,
+            0
+          ],
+          [
+            "prefill",
+            128,
+            0
+          ]
+        ]
+      },
+      {
+        "count": 66,
+        "median_ms": 27.2213955,
+        "shape": [
+          [
+            "prefill",
+            128,
+            0
+          ],
+          [
+            "prefill",
+            64,
+            0
+          ]
+        ]
+      },
+      {
+        "count": 63,
+        "median_ms": 28.875932,
+        "shape": [
+          [
+            "prefill",
+            128,
+            0
+          ],
+          [
+            "prefill",
+            128,
+            0
+          ]
+        ]
+      }
+    ],
+    "source_sha256": {
+      "api-feedback.json": "128b63b8ab6c7ee038c3f93b1f2199a51f3e5f2222fa1246f1c86f5120afc0d8",
+      "capture-config.json": "0f9b0943ececf973c3d307166357c8999ee83eebd9d4952b266c65f176f2fb64",
+      "formal-progress.json": "72173fc7790e9b796720682730c5a6d2c497cb07b65089dc719c48e7be06a060",
+      "forward-stream.json": "6d6cdff2af40c160a36f646c69a7810e43fc940fbac229ca59e4dd924e1bfae5",
+      "observed-run.json": "4659f1bfbf443ada07705005febfbd153d91dccbab76ef61b50056068b288f94",
+      "runner-binding.json": "e274a6fd773edb83557871f67ba8fa548aab1881c205c3efb8047b01570d78d8",
+      "runtime-cost-capture.json": "3a1a1bfe9d2b7a597e30b08d9a22617f9f56c018c485fc14e971ecff7ad386cc",
+      "runtime-cost-dataset.json": "80d6e4440db2bf8bf86bfd00ba5c5fb0f6f661bc90c9212d4d52ce415c006d4c",
+      "server-trace.json": "32c738f238beffefe886ccf98c318e1eb145d8be7de7b1b04d3c7723aa2ccde8",
+      "stage-timeline.json": "8c069f96d75af2c7a3992a491f9396b734b5e9dc22d97055f8128feee7e71c77",
+      "summary.json": "eb646c5091a4f9f70e00d7bcb265272868ab0f46049cde439e5dc78bc0dd02ab"
+    },
+    "ttft_ms": {
+      "p50": 27.412845,
+      "p95": 29.1481879,
+      "p99": 30.68673934999999
+    }
+  }
+]

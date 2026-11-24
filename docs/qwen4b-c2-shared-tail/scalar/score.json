@@ -1,0 +1,172 @@
+{
+  "freeze_sha256": "9ee74e844faa394bc13e513be5a977e374173421697743e6a7c87a4a65bdc176",
+  "p99": true,
+  "role": "independent_controlled",
+  "rows": [
+    {
+      "condition_medians": {
+        "decode-separate": {
+          "observed": 17.65196,
+          "predicted": 17.76342835706485,
+          "relative_error": 0.006314786406996786
+        },
+        "decode-sham": {
+          "observed": 17.56177,
+          "predicted": 17.764002529989916,
+          "relative_error": 0.01151549815251629
+        },
+        "decode-sibling": {
+          "observed": 23.384514,
+          "predicted": 23.49357408804813,
+          "relative_error": 0.004663773985130959
+        },
+        "prefill-separate": {
+          "observed": 27.430691,
+          "predicted": 27.077964,
+          "relative_error": 0.012858844861035279
+        },
+        "prefill-sham": {
+          "observed": 27.3910335,
+          "predicted": 27.0976085,
+          "relative_error": 0.01071244719553932
+        },
+        "prefill-sibling": {
+          "observed": 35.757701,
+          "predicted": 35.354800875,
+          "relative_error": 0.011267506403725314
+        }
+      },
+      "historical_paired_gate": "NO_OBSERVED_SIBLING_POSITIVE",
+      "label": "pulse-holdout-r0",
+      "latency_p99": {
+        "e2e": {
+          "observed": 329.61087196000074,
+          "predicted": 321.0467372224339,
+          "relative_error": 0.025982561456911357
+        },
+        "ttft": {
+          "observed": 36.70103755999764,
+          "predicted": 37.07931862500118,
+          "relative_error": 0.01030709457151291
+        }
+      },
+      "observed_hits": {
+        "separate": 1
+      },
+      "p99_passed": true,
+      "predicted_hits": {},
+      "sibling_windows": 29,
+      "typical_passed": true
+    },
+    {
+      "condition_medians": {
+        "decode-separate": {
+          "observed": 17.753333,
+          "predicted": 17.76342835706485,
+          "relative_error": 0.0005686457334432848
+        },
+        "decode-sham": {
+          "observed": 17.75864,
+          "predicted": 17.764002529989916,
+          "relative_error": 0.0003019673798172473
+        },
+        "decode-sibling": {
+          "observed": 23.664815,
+          "predicted": 23.49357408804813,
+          "relative_error": 0.007236097639126693
+        },
+        "prefill-separate": {
+          "observed": 27.377326,
+          "predicted": 27.077964,
+          "relative_error": 0.01093466907615448
+        },
+        "prefill-sham": {
+          "observed": 27.368371,
+          "predicted": 27.077964,
+          "relative_error": 0.010611044405967718
+        },
+        "prefill-sibling": {
+          "observed": 35.913349999999994,
+          "predicted": 35.354800875,
+          "relative_error": 0.015552687928026554
+        }
+      },
+      "historical_paired_gate": "NO_OBSERVED_SIBLING_POSITIVE",
+      "label": "pulse-holdout-r1",
+      "latency_p99": {
+        "e2e": {
+          "observed": 339.7874112600016,
+          "predicted": 321.04673722243024,
+          "relative_error": 0.05515411523951719
+        },
+        "ttft": {
+          "observed": 36.59784088000044,
+          "predicted": 37.07931862500118,
+          "relative_error": 0.013155905742621377
+        }
+      },
+      "observed_hits": {
+        "uncontrolled": 1
+      },
+      "p99_passed": true,
+      "predicted_hits": {},
+      "sibling_windows": 30,
+      "typical_passed": true
+    },
+    {
+      "condition_medians": {
+        "decode-separate": {
+          "observed": 17.5978785,
+          "predicted": 17.767160481077788,
+          "relative_error": 0.009619453906207331
+        },
+        "decode-sham": {
+          "observed": 17.54801,
+          "predicted": 17.770318432165656,
+          "relative_error": 0.012668583626613827
+        },
+        "decode-sibling": {
+          "observed": 23.436006,
+          "predicted": 23.49357408804813,
+          "relative_error": 0.002456395003830103
+        },
+        "prefill-separate": {
+          "observed": 27.2574525,
+          "predicted": 27.077964,
+          "relative_error": 0.006584933056381526
+        },
+        "prefill-sham": {
+          "observed": 27.22463,
+          "predicted": 27.077964,
+          "relative_error": 0.005387254115115647
+        },
+        "prefill-sibling": {
+          "observed": 35.719642,
+          "predicted": 35.354800875,
+          "relative_error": 0.010214019642190042
+        }
+      },
+      "historical_paired_gate": "NO_OBSERVED_SIBLING_POSITIVE",
+      "label": "pulse-holdout-r2",
+      "latency_p99": {
+        "e2e": {
+          "observed": 324.8976266900038,
+          "predicted": 321.0467372224356,
+          "relative_error": 0.011852624184424898
+        },
+        "ttft": {
+          "observed": 36.522027690005416,
+          "predicted": 37.07931862500108,
+          "relative_error": 0.015259035991262104
+        }
+      },
+      "observed_hits": {},
+      "p99_passed": true,
+      "predicted_hits": {},
+      "sibling_windows": 29,
+      "typical_passed": true
+    }
+  ],
+  "strict_paired_positive": false,
+  "typical": true
+}
