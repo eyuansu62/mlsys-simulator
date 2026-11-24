@@ -1,0 +1,545 @@
+{
+  "role": "posthoc_original_54_only",
+  "rows": [
+    {
+      "cohort": "baseline",
+      "concurrency": 1,
+      "label": "01-baseline-c1-r0",
+      "ms_per_interval": {
+        "outside_core": 0.0654201593333333,
+        "own_decode_core": 17.868460746,
+        "own_prefill_core": 0.0010518999999999986
+      }
+    },
+    {
+      "cohort": "short",
+      "concurrency": 4,
+      "label": "02-short-c4-r0",
+      "ms_per_interval": {
+        "outside_core": 0.08404220000000001,
+        "own_decode_core": 18.931499666666667,
+        "own_prefill_core": 0.0014333333333333331
+      }
+    },
+    {
+      "cohort": "long",
+      "concurrency": 16,
+      "label": "03-long-c16-r0",
+      "ms_per_interval": {
+        "outside_core": 0.4101355146666671,
+        "own_decode_core": 9.943104960000044,
+        "own_mixed_core": 74.71694900399993
+      }
+    },
+    {
+      "cohort": "short",
+      "concurrency": 8,
+      "label": "04-short-c8-r0",
+      "ms_per_interval": {
+        "outside_core": 0.09306813333333333,
+        "own_decode_core": 24.20872446666667,
+        "own_prefill_core": 0.0013886666666666667
+      }
+    },
+    {
+      "cohort": "long",
+      "concurrency": 32,
+      "label": "05-long-c32-r0",
+      "ms_per_interval": {
+        "outside_core": 0.42009411133333296,
+        "own_decode_core": 9.967845482666712,
+        "own_mixed_core": 74.9003862866666
+      }
+    },
+    {
+      "cohort": "baseline",
+      "concurrency": 2,
+      "label": "06-baseline-c2-r0",
+      "ms_per_interval": {
+        "outside_core": 0.06275916666666673,
+        "own_decode_core": 18.53016138666667,
+        "own_prefill_core": 0.0011548600000000015
+      }
+    },
+    {
+      "cohort": "long",
+      "concurrency": 1,
+      "label": "07-long-c1-r0",
+      "ms_per_interval": {
+        "outside_core": 0.07232632533333329,
+        "own_decode_core": 17.987200386666665,
+        "own_prefill_core": 0.0013088933333333286
+      }
+    },
+    {
+      "cohort": "baseline",
+      "concurrency": 4,
+      "label": "08-baseline-c4-r0",
+      "ms_per_interval": {
+        "outside_core": 0.07446413333333333,
+        "own_decode_core": 18.448966000000002,
+        "own_prefill_core": 0.0017333333333333333
+      }
+    },
+    {
+      "cohort": "short",
+      "concurrency": 16,
+      "label": "09-short-c16-r0",
+      "ms_per_interval": {
+        "outside_core": 0.1518952666666667,
+        "own_decode_core": 25.041059933333333,
+        "own_prefill_core": 0.0029053333333333336
+      }
+    },
+    {
+      "cohort": "baseline",
+      "concurrency": 8,
+      "label": "10-baseline-c8-r0",
+      "ms_per_interval": {
+        "outside_core": 0.11506093333333334,
+        "own_decode_core": 25.309885333333334,
+        "own_prefill_core": 0.00211
+      }
+    },
+    {
+      "cohort": "short",
+      "concurrency": 32,
+      "label": "11-short-c32-r0",
+      "ms_per_interval": {
+        "outside_core": 0.1699108,
+        "own_decode_core": 24.426296733333334,
+        "own_prefill_core": 0.0024126666666666667
+      }
+    },
+    {
+      "cohort": "long",
+      "concurrency": 2,
+      "label": "12-long-c2-r0",
+      "ms_per_interval": {
+        "outside_core": 0.07875758733333349,
+        "own_decode_core": 19.910352245333332,
+        "own_prefill_core": 0.0016426199999999985
+      }
+    },
+    {
+      "cohort": "short",
+      "concurrency": 1,
+      "label": "13-short-c1-r0",
+      "ms_per_interval": {
+        "outside_core": 0.056966846666666696,
+        "own_decode_core": 18.251550583999993,
+        "own_prefill_core": 0.0009049066666666665
+      }
+    },
+    {
+      "cohort": "long",
+      "concurrency": 4,
+      "label": "14-long-c4-r0",
+      "ms_per_interval": {
+        "outside_core": 0.15186900599999997,
+        "own_decode_core": 14.620810652000007,
+        "own_mixed_core": 18.44589020933333
+      }
+    },
+    {
+      "cohort": "baseline",
+      "concurrency": 16,
+      "label": "15-baseline-c16-r0",
+      "ms_per_interval": {
+        "outside_core": 0.2810384893333336,
+        "own_decode_core": 21.184195403333327,
+        "own_mixed_core": 17.51743658666667
+      }
+    },
+    {
+      "cohort": "long",
+      "concurrency": 8,
+      "label": "16-long-c8-r0",
+      "ms_per_interval": {
+        "outside_core": 0.27866408666666664,
+        "own_decode_core": 14.833904599999999,
+        "own_mixed_core": 39.636419309999994
+      }
+    },
+    {
+      "cohort": "baseline",
+      "concurrency": 32,
+      "label": "17-baseline-c32-r0",
+      "ms_per_interval": {
+        "outside_core": 0.3167119333333333,
+        "own_decode_core": 21.875433599999997,
+        "own_mixed_core": 17.504437666666668
+      }
+    },
+    {
+      "cohort": "short",
+      "concurrency": 2,
+      "label": "18-short-c2-r0",
+      "ms_per_interval": {
+        "outside_core": 0.06678092666666663,
+        "own_decode_core": 20.669192104666653,
+        "own_prefill_core": 0.0011145599999999977
+      }
+    },
+    {
+      "cohort": "short",
+      "concurrency": 16,
+      "label": "19-short-c16-r1",
+      "ms_per_interval": {
+        "outside_core": 0.1716643333333333,
+        "own_decode_core": 25.119320266666662,
+        "own_prefill_core": 0.003032
+      }
+    },
+    {
+      "cohort": "long",
+      "concurrency": 1,
+      "label": "20-long-c1-r1",
+      "ms_per_interval": {
+        "outside_core": 0.06467526600000012,
+        "own_decode_core": 17.733637927333334,
+        "own_prefill_core": 0.0017510599999999907
+      }
+    },
+    {
+      "cohort": "baseline",
+      "concurrency": 4,
+      "label": "21-baseline-c4-r1",
+      "ms_per_interval": {
+        "outside_core": 0.07250019999999999,
+        "own_decode_core": 18.708596933333332,
+        "own_prefill_core": 0.0011826666666666665
+      }
+    },
+    {
+      "cohort": "long",
+      "concurrency": 2,
+      "label": "22-long-c2-r1",
+      "ms_per_interval": {
+        "outside_core": 0.07642433333333344,
+        "own_decode_core": 19.259159666666662,
+        "own_prefill_core": 0.0015243666666666686
+      }
+    },
+    {
+      "cohort": "baseline",
+      "concurrency": 8,
+      "label": "23-baseline-c8-r1",
+      "ms_per_interval": {
+        "outside_core": 0.10075293333333334,
+        "own_decode_core": 24.912277200000002,
+        "own_prefill_core": 0.0016946666666666666
+      }
+    },
+    {
+      "cohort": "short",
+      "concurrency": 32,
+      "label": "24-short-c32-r1",
+      "ms_per_interval": {
+        "outside_core": 0.17717306666666666,
+        "own_decode_core": 24.168260666666665,
+        "own_prefill_core": 0.0036093333333333333
+      }
+    },
+    {
+      "cohort": "baseline",
+      "concurrency": 16,
+      "label": "25-baseline-c16-r1",
+      "ms_per_interval": {
+        "outside_core": 0.3060546,
+        "own_decode_core": 21.901936866666663,
+        "own_mixed_core": 17.472875733333332
+      }
+    },
+    {
+      "cohort": "short",
+      "concurrency": 1,
+      "label": "26-short-c1-r1",
+      "ms_per_interval": {
+        "outside_core": 0.05473674733333333,
+        "own_decode_core": 17.54168174466667,
+        "own_prefill_core": 0.0010872466666666622
+      }
+    },
+    {
+      "cohort": "long",
+      "concurrency": 4,
+      "label": "27-long-c4-r1",
+      "ms_per_interval": {
+        "outside_core": 0.13840066800000012,
+        "own_decode_core": 15.125656734666663,
+        "own_mixed_core": 18.441720286
+      }
+    },
+    {
+      "cohort": "short",
+      "concurrency": 2,
+      "label": "28-short-c2-r1",
+      "ms_per_interval": {
+        "outside_core": 0.06040527400000001,
+        "own_decode_core": 18.536242624,
+        "own_prefill_core": 0.0008987733333333339
+      }
+    },
+    {
+      "cohort": "long",
+      "concurrency": 8,
+      "label": "29-long-c8-r1",
+      "ms_per_interval": {
+        "outside_core": 0.27087567333333334,
+        "own_decode_core": 13.003325874666663,
+        "own_mixed_core": 40.617974843333336
+      }
+    },
+    {
+      "cohort": "baseline",
+      "concurrency": 32,
+      "label": "30-baseline-c32-r1",
+      "ms_per_interval": {
+        "outside_core": 0.2845456280000005,
+        "own_decode_core": 20.94007934666667,
+        "own_mixed_core": 18.048311557333324
+      }
+    },
+    {
+      "cohort": "long",
+      "concurrency": 16,
+      "label": "31-long-c16-r1",
+      "ms_per_interval": {
+        "outside_core": 0.44180316666666664,
+        "own_decode_core": 4.7824172,
+        "own_mixed_core": 81.53553143133334
+      }
+    },
+    {
+      "cohort": "baseline",
+      "concurrency": 1,
+      "label": "32-baseline-c1-r1",
+      "ms_per_interval": {
+        "outside_core": 0.058677032666666525,
+        "own_decode_core": 17.376846845999996,
+        "own_prefill_core": 0.0007713666666666717
+      }
+    },
+    {
+      "cohort": "short",
+      "concurrency": 4,
+      "label": "33-short-c4-r1",
+      "ms_per_interval": {
+        "outside_core": 0.06649746666666667,
+        "own_decode_core": 18.4636646,
+        "own_prefill_core": 0.0015013333333333333
+      }
+    },
+    {
+      "cohort": "baseline",
+      "concurrency": 2,
+      "label": "34-baseline-c2-r1",
+      "ms_per_interval": {
+        "outside_core": 0.08457728533333295,
+        "own_decode_core": 21.141601435999984,
+        "own_prefill_core": 0.0013536799999999975
+      }
+    },
+    {
+      "cohort": "short",
+      "concurrency": 8,
+      "label": "35-short-c8-r1",
+      "ms_per_interval": {
+        "outside_core": 0.10133493333333332,
+        "own_decode_core": 24.371910333333336,
+        "own_prefill_core": 0.0014813333333333334
+      }
+    },
+    {
+      "cohort": "long",
+      "concurrency": 32,
+      "label": "36-long-c32-r1",
+      "ms_per_interval": {
+        "outside_core": 0.5315802733333331,
+        "own_decode_core": 4.94604494,
+        "own_mixed_core": 81.83740824
+      }
+    },
+    {
+      "cohort": "long",
+      "concurrency": 4,
+      "label": "37-long-c4-r2",
+      "ms_per_interval": {
+        "outside_core": 0.16368341399999983,
+        "own_decode_core": 17.45030387733329,
+        "own_mixed_core": 15.612178775333373
+      }
+    },
+    {
+      "cohort": "baseline",
+      "concurrency": 16,
+      "label": "38-baseline-c16-r2",
+      "ms_per_interval": {
+        "outside_core": 0.2692466453333332,
+        "own_decode_core": 21.679230094666668,
+        "own_mixed_core": 17.427241193333334
+      }
+    },
+    {
+      "cohort": "short",
+      "concurrency": 1,
+      "label": "39-short-c1-r2",
+      "ms_per_interval": {
+        "outside_core": 0.0700097266666664,
+        "own_decode_core": 17.394768285333335,
+        "own_prefill_core": 0.0010113866666666615
+      }
+    },
+    {
+      "cohort": "baseline",
+      "concurrency": 32,
+      "label": "40-baseline-c32-r2",
+      "ms_per_interval": {
+        "outside_core": 0.29859773533333334,
+        "own_decode_core": 21.317433709999996,
+        "own_mixed_core": 17.521921166666665
+      }
+    },
+    {
+      "cohort": "short",
+      "concurrency": 2,
+      "label": "41-short-c2-r2",
+      "ms_per_interval": {
+        "outside_core": 0.08566340599999973,
+        "own_decode_core": 23.235487928666608,
+        "own_prefill_core": 0.0014008799999999928
+      }
+    },
+    {
+      "cohort": "long",
+      "concurrency": 8,
+      "label": "42-long-c8-r2",
+      "ms_per_interval": {
+        "outside_core": 0.2571413526666666,
+        "own_decode_core": 12.828409451999997,
+        "own_mixed_core": 40.503565148
+      }
+    },
+    {
+      "cohort": "short",
+      "concurrency": 4,
+      "label": "43-short-c4-r2",
+      "ms_per_interval": {
+        "outside_core": 0.08110273333333334,
+        "own_decode_core": 18.467574066666664,
+        "own_prefill_core": 0.001626
+      }
+    },
+    {
+      "cohort": "long",
+      "concurrency": 16,
+      "label": "44-long-c16-r2",
+      "ms_per_interval": {
+        "outside_core": 0.4513178539999999,
+        "own_decode_core": 6.779432201333352,
+        "own_mixed_core": 81.17088257666664
+      }
+    },
+    {
+      "cohort": "baseline",
+      "concurrency": 1,
+      "label": "45-baseline-c1-r2",
+      "ms_per_interval": {
+        "outside_core": 0.06421873933333348,
+        "own_decode_core": 17.504546412,
+        "own_prefill_core": 0.0011030400000000009
+      }
+    },
+    {
+      "cohort": "long",
+      "concurrency": 32,
+      "label": "46-long-c32-r2",
+      "ms_per_interval": {
+        "outside_core": 0.4220657139999999,
+        "own_decode_core": 7.898081553999977,
+        "own_mixed_core": 79.93995230400002
+      }
+    },
+    {
+      "cohort": "baseline",
+      "concurrency": 2,
+      "label": "47-baseline-c2-r2",
+      "ms_per_interval": {
+        "outside_core": 0.06507673266666666,
+        "own_decode_core": 18.285859907333332,
+        "own_prefill_core": 0.001315879999999995
+      }
+    },
+    {
+      "cohort": "short",
+      "concurrency": 8,
+      "label": "48-short-c8-r2",
+      "ms_per_interval": {
+        "outside_core": 0.0903956,
+        "own_decode_core": 24.273064799999997,
+        "own_prefill_core": 0.001654
+      }
+    },
+    {
+      "cohort": "baseline",
+      "concurrency": 4,
+      "label": "49-baseline-c4-r2",
+      "ms_per_interval": {
+        "outside_core": 0.06999073333333333,
+        "own_decode_core": 18.618843599999998,
+        "own_prefill_core": 0.0014826666666666666
+      }
+    },
+    {
+      "cohort": "short",
+      "concurrency": 16,
+      "label": "50-short-c16-r2",
+      "ms_per_interval": {
+        "outside_core": 0.13429480000000002,
+        "own_decode_core": 24.425335200000003,
+        "own_prefill_core": 0.002238
+      }
+    },
+    {
+      "cohort": "long",
+      "concurrency": 1,
+      "label": "51-long-c1-r2",
+      "ms_per_interval": {
+        "outside_core": 0.05889678600000021,
+        "own_decode_core": 17.328864987333333,
+        "own_prefill_core": 0.000734753333333345
+      }
+    },
+    {
+      "cohort": "short",
+      "concurrency": 32,
+      "label": "52-short-c32-r2",
+      "ms_per_interval": {
+        "outside_core": 0.1630022,
+        "own_decode_core": 24.969320133333333,
+        "own_prefill_core": 0.0032326666666666667
+      }
+    },
+    {
+      "cohort": "long",
+      "concurrency": 2,
+      "label": "53-long-c2-r2",
+      "ms_per_interval": {
+        "outside_core": 0.06342129933333342,
+        "own_decode_core": 19.01324585933333,
+        "own_prefill_core": 0.0013013733333333383
+      }
+    },
+    {
+      "cohort": "baseline",
+      "concurrency": 8,
+      "label": "54-baseline-c8-r2",
+      "ms_per_interval": {
+        "outside_core": 0.09945766666666667,
+        "own_decode_core": 24.233054,
+        "own_prefill_core": 0.00188
+      }
+    }
+  ]
+}

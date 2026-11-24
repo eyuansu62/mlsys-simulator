@@ -1,0 +1,1075 @@
+{
+  "archives": [
+    {
+      "bytes": 1811141,
+      "member_sha256": {
+        "calibration-baseline-c1-r0.log": "e1cd5d3d04e79a50388a95125d6a6c20bfd3d3bedb626a0dfe3fa7ecea965602",
+        "raw/calibration-baseline-c1-r0/api-feedback.json": "ae5bde161a39b49df92708acbeb4d8e3a26d42bbecf8382c2ffc66c0dd52517f",
+        "raw/calibration-baseline-c1-r0/capture-config.json": "806f66c52d133140860da84f5747165d558374b0d318d92290d29080a9c51fa1",
+        "raw/calibration-baseline-c1-r0/captures/sla-49a29aec9fba46988be266163276ef7f-r0-s0-tp0-pid8-e4ef9934bf754935961f39da4ff757d2.json": "54b88d64b16b3ad3605f2fd7f36b8c1c9c7e2475bf5de57c2368f769be522ddd",
+        "raw/calibration-baseline-c1-r0/captures/sla-49a29aec9fba46988be266163276ef7f-scheduler-r0-pid8-2619e7e591a545e4869580dd762dac4d.json": "7e4025366fd9d53ee3379e46da198b0d7afc70f38d0b4a52162204e289671d1b",
+        "raw/calibration-baseline-c1-r0/formal-progress.json": "f5e1e40292f11dd9da51d4e2f3c44cc7e9f6dde0bd403440113c4d07d441adb9",
+        "raw/calibration-baseline-c1-r0/observed-run.json": "43be12bb96ab9a14d7de95e2d7bcab5c986a6eec79ffd32bf16114d04304a055",
+        "raw/calibration-baseline-c1-r0/runner-binding.json": "54b88d64b16b3ad3605f2fd7f36b8c1c9c7e2475bf5de57c2368f769be522ddd",
+        "raw/calibration-baseline-c1-r0/runtime-cost-capture.json": "3505943cd70fb04b01da7d1a6612097858c9cfc47a664f09dcf515fdfafdc5b8",
+        "raw/calibration-baseline-c1-r0/runtime-cost-dataset.json": "0206289b738be691bb6b6a0f84aba6f83ee711097da3b18aec434562ceb19c23",
+        "raw/calibration-baseline-c1-r0/server-trace.json": "56be737a39199608aa97f4183f4fa436756f5c5981d9528c738d5d19642caac7",
+        "raw/calibration-baseline-c1-r0/summary.json": "59c5779ed206c88f9ed9a7a18f0997ed29fe7293d1602997fd0241900bad2258"
+      },
+      "path": "audit-calibration-1795504355773677466/calibration-baseline-c1-r0.tgz",
+      "sha256": "278578566e41b26a336ae3450c147f94fcd31f9954bbf017007127fb1bad0374"
+    },
+    {
+      "bytes": 1816753,
+      "member_sha256": {
+        "calibration-baseline-c1-r1.log": "67371019fcfed309cf763f71a9d0f26c3726f93608a219023612898666224d84",
+        "raw/calibration-baseline-c1-r1/api-feedback.json": "a7a1082cdcc6df39a7e1963130696233ff65f46c256cc50be2f2ae49bab21f9d",
+        "raw/calibration-baseline-c1-r1/capture-config.json": "b5652012da4a9433e453277eb347cb0b3f7fdf49184b8d9b49e380a255b18fe4",
+        "raw/calibration-baseline-c1-r1/captures/sla-e66196e219c74bd199279701572b4507-r0-s0-tp0-pid8-6158eead7d0b4389a3c7a9ba7e590a19.json": "a773be0934ae628a17741c1a79230376cbb351d7430ae4a44bb149c8a4758953",
+        "raw/calibration-baseline-c1-r1/captures/sla-e66196e219c74bd199279701572b4507-scheduler-r0-pid8-ce3ee1fb9d404110982f6861b3a74a2b.json": "d981b5e1479ea508c219a290155584c94378e2ea1c62687b6ea62a0fa6e4e601",
+        "raw/calibration-baseline-c1-r1/formal-progress.json": "a9501e366fe317743105957dcf4abef3ed1728b11ffa4aee65c02b0107f823d5",
+        "raw/calibration-baseline-c1-r1/observed-run.json": "1cb627d709b79efbef960ca01e9ba09a3540e19fc628a5e307285c5facb75a3e",
+        "raw/calibration-baseline-c1-r1/runner-binding.json": "a773be0934ae628a17741c1a79230376cbb351d7430ae4a44bb149c8a4758953",
+        "raw/calibration-baseline-c1-r1/runtime-cost-capture.json": "cd2d43b78dc99d25e15bc392aed99ac3c7017d9e548d226db92225271739ce96",
+        "raw/calibration-baseline-c1-r1/runtime-cost-dataset.json": "cffb1a08dfc1ec9f79c34dff2cc2185126eb1700d5226027e81408bd1d33dfd8",
+        "raw/calibration-baseline-c1-r1/server-trace.json": "de09ad11305a94d9a46fb51a1097ae7e4298eb480a38d60fb5942d369ce15388",
+        "raw/calibration-baseline-c1-r1/summary.json": "a6ae233392d35f405bcd9a9dffc5b732ffb276f8d238fe82571dbe8303e3fe3f"
+      },
+      "path": "audit-calibration-1795504355773677466/calibration-baseline-c1-r1.tgz",
+      "sha256": "c9d9232daafd5feeba84427986ca70a18b42f9084f98f1e4703d6f2bbaf6dddd"
+    },
+    {
+      "bytes": 675771,
+      "member_sha256": {
+        "calibration-baseline-c16-r0.log": "3e3bff177f00f8520a77429241a526b9d7bd3ca4f576b9fdd4aa181ad64a2006",
+        "raw/calibration-baseline-c16-r0/api-feedback.json": "dc2db802bf36b60e0358a5d1b9cfcc61112fd01b60f7ef4175a1a57b259e59bf",
+        "raw/calibration-baseline-c16-r0/capture-config.json": "06186eb7c9e8da3d83a8b83d79314d4be4ca4e5e659eb98d383ceab7f13453be",
+        "raw/calibration-baseline-c16-r0/captures/sla-4510603993974b70a5ce785ced3c7b5f-r0-s0-tp0-pid8-d6167dde74584e219385aca115e97e6a.json": "eeba4aba6022dc6b6272c75ede3e41005bf15b5045a5cfe726c8f9682e527f06",
+        "raw/calibration-baseline-c16-r0/captures/sla-4510603993974b70a5ce785ced3c7b5f-scheduler-r0-pid8-44843ce963b34c12a1cde00bc007452f.json": "b979080995e5fab3072edfbc251b046527b6763e4e4e02c9e2cd3a85e17166be",
+        "raw/calibration-baseline-c16-r0/formal-progress.json": "43684d72eedbddd02f660dd0fbbc793ae73c91c2b272f829cfe129f5cb8b3261",
+        "raw/calibration-baseline-c16-r0/observed-run.json": "a446a34c0db9d24186af26628b98f8470f498d818a42ecb514c3ba68d4099a3f",
+        "raw/calibration-baseline-c16-r0/runner-binding.json": "eeba4aba6022dc6b6272c75ede3e41005bf15b5045a5cfe726c8f9682e527f06",
+        "raw/calibration-baseline-c16-r0/runtime-cost-capture.json": "d877ccdff79cd09afe3dcae9a9ed631edf316ede533af0f96b3db7fe57c849ed",
+        "raw/calibration-baseline-c16-r0/runtime-cost-dataset.json": "ba280e01b1ff548f4230f9304df880219689b5f771920ad87a4a395341990fdd",
+        "raw/calibration-baseline-c16-r0/server-trace.json": "0685e1e33c7459a5a2a965f246b216cc57f22c880a5814ff803ef61c527c6a4a",
+        "raw/calibration-baseline-c16-r0/summary.json": "d8c35f042e5d2f74e1788f3a2f55e16ff73f84f6d0746682d546911c6c72427a"
+      },
+      "path": "audit-calibration-1795504355773677466/calibration-baseline-c16-r0.tgz",
+      "sha256": "d232c2434002957e78f1158f4852fdd901e8e40edc9d7774144b795f0bcebfb7"
+    },
+    {
+      "bytes": 676955,
+      "member_sha256": {
+        "calibration-baseline-c16-r1.log": "ea5c510456a2294019721da077c5765e2e8c853475d84debc1cc3650e06f2e1e",
+        "raw/calibration-baseline-c16-r1/api-feedback.json": "2089db13caa36c60b9402b6e47bb8a48ea06d193f94b3abdebb6be10de35d582",
+        "raw/calibration-baseline-c16-r1/capture-config.json": "7d8869e402b44ff49a21a1231c9b1dea685312de14c5fdd20f8e38f6594e73d3",
+        "raw/calibration-baseline-c16-r1/captures/sla-8c9c057f219145568b1ea0a56daf1d0e-r0-s0-tp0-pid8-dc74daee008747618c25a40a634be0b9.json": "8492112c0844ffda35ae1a9e0f2d0f599afaf9f02601a7b03853a12c5e52be69",
+        "raw/calibration-baseline-c16-r1/captures/sla-8c9c057f219145568b1ea0a56daf1d0e-scheduler-r0-pid8-00a6214623d04131b481934af4b4cc5f.json": "d4121d468e519efb98fe849deb935021b031fe9cd124a7b1303a43fb751aa6e6",
+        "raw/calibration-baseline-c16-r1/formal-progress.json": "55e1a0d9a78fd72de7df3547b802802077207993c3bff81040748e444b3cc0d7",
+        "raw/calibration-baseline-c16-r1/observed-run.json": "b90de215f751bbc35ae8793d932f67a1abffbc654d8b7a355d1e4b0f8d3207d2",
+        "raw/calibration-baseline-c16-r1/runner-binding.json": "8492112c0844ffda35ae1a9e0f2d0f599afaf9f02601a7b03853a12c5e52be69",
+        "raw/calibration-baseline-c16-r1/runtime-cost-capture.json": "4a904f0b91b8d1e9f214879142b423b549a8ff04efb42d82fb736b4845a6fa3c",
+        "raw/calibration-baseline-c16-r1/runtime-cost-dataset.json": "e4a0c279053a37b7da2d7b0e8007cb3d8aa2b5710c8b386ec723b7e6bd40119d",
+        "raw/calibration-baseline-c16-r1/server-trace.json": "1f465085b17482fa1634aa11dfeba291114ab6052a08f72c2dc7bd09eac1eb0c",
+        "raw/calibration-baseline-c16-r1/summary.json": "b59db5a3ec9395d52cfd7c7b131e69e8389b7f86dbfa832d116f3b46d702453d"
+      },
+      "path": "audit-calibration-1795504355773677466/calibration-baseline-c16-r1.tgz",
+      "sha256": "4d8c402d7f38a4734eedaaa397e86a798b8924ae338e23e0b6bde9513cfcc833"
+    },
+    {
+      "bytes": 1244373,
+      "member_sha256": {
+        "calibration-baseline-c2-r0.log": "49b336c6b8ad6045b41e308835edcebf165bf63711cdbb46d3009dbe070f884e",
+        "raw/calibration-baseline-c2-r0/api-feedback.json": "5eccf84ceed24e11748c4f0f01aae9330b734fd3b400f0f495f4816552aeb58c",
+        "raw/calibration-baseline-c2-r0/capture-config.json": "c517da052fcf14cad893f2240a4653fd0e52c02117f41a0775cc86e0569826a4",
+        "raw/calibration-baseline-c2-r0/captures/sla-0554a5c89581477382ad3aef1ca2fffc-r0-s0-tp0-pid8-bbcbf9f9a4734fa49fbe07ad1e810e28.json": "4070fae02c7004b744dbcc7bde97505b1629cd8c272c95c2239bcdbc91e0126c",
+        "raw/calibration-baseline-c2-r0/captures/sla-0554a5c89581477382ad3aef1ca2fffc-scheduler-r0-pid8-423d714bf67d419e9f09d92fa3d7afdf.json": "f2a493f7ee80dafeaf2df36f36e84eea1d80680a21cbb74ddca1fc4cf31aea0f",
+        "raw/calibration-baseline-c2-r0/formal-progress.json": "595ae2be31ec9f94318b4b88e0197450543f96f631e2a4c77d1f1e0e6ca71726",
+        "raw/calibration-baseline-c2-r0/observed-run.json": "72ccd6fba02c50a661ea5036309a3160e5ccb76830fa12cba6e8bc91af90d783",
+        "raw/calibration-baseline-c2-r0/runner-binding.json": "4070fae02c7004b744dbcc7bde97505b1629cd8c272c95c2239bcdbc91e0126c",
+        "raw/calibration-baseline-c2-r0/runtime-cost-capture.json": "d0946aff950481624c0bb7919dae5841ed4e1ae9954c0888fcbd7cab538a43f9",
+        "raw/calibration-baseline-c2-r0/runtime-cost-dataset.json": "ad34e8d2c7cee722c82d20c8b790eeecc1b23bd9898612cbd91e5081a6918af1",
+        "raw/calibration-baseline-c2-r0/server-trace.json": "950f2a3ff0e5ce0f197676344f655624eff764e1d8fa8bbba2dbbcdf22738a2e",
+        "raw/calibration-baseline-c2-r0/summary.json": "ac08f44336b69e3835f6a550848ad7b2ef5d2981b10c936ceb675822d45efe20"
+      },
+      "path": "audit-calibration-1795504355773677466/calibration-baseline-c2-r0.tgz",
+      "sha256": "3a889165cdae953b4b46cb1a4c2a25d20028c7ffcc9567348d7ab62e73a615f7"
+    },
+    {
+      "bytes": 1236555,
+      "member_sha256": {
+        "calibration-baseline-c2-r1.log": "d8cd29e5799ac38a386c60a5437f334f04745c5220869e6bf8cba8ff50152ee5",
+        "raw/calibration-baseline-c2-r1/api-feedback.json": "4a7081f711aa289411a2fb59385b0d0b0cd3de83e80bdd29a64f2a0ebc78858d",
+        "raw/calibration-baseline-c2-r1/capture-config.json": "20fa8e4b4ffb541df87d6280aa48470bb48b067c580b79a717eafb5b29f6122f",
+        "raw/calibration-baseline-c2-r1/captures/sla-a3b3b708b69b40869a6f0a586bce23c9-r0-s0-tp0-pid8-0f4c1ff8dc6e452ea0a943b2a9260dd7.json": "dfe15b70366497409f5f78e102acec9c90757f0af8ca6b352802a656ec3aa006",
+        "raw/calibration-baseline-c2-r1/captures/sla-a3b3b708b69b40869a6f0a586bce23c9-scheduler-r0-pid8-a303b354ed884821bf577895adcab8b1.json": "8d2c181acba4e062b8165e35042d9e8883eebe49df721153d9a99ece124b79ba",
+        "raw/calibration-baseline-c2-r1/formal-progress.json": "ec7104d58b71378aee4aeca93a78bdcaa334476b1be15a94ae940b3763d65559",
+        "raw/calibration-baseline-c2-r1/observed-run.json": "4bad29d3bda2b4d0a90b4632ab36e14ad55105df7dacb19b8738bbdf4bc08768",
+        "raw/calibration-baseline-c2-r1/runner-binding.json": "dfe15b70366497409f5f78e102acec9c90757f0af8ca6b352802a656ec3aa006",
+        "raw/calibration-baseline-c2-r1/runtime-cost-capture.json": "e401a057e76071ef30bd3ebc55519b38c067e78c13a5d122d0eae25baa932e0a",
+        "raw/calibration-baseline-c2-r1/runtime-cost-dataset.json": "9bf7e6fe85fb8e02e0772fc1e7fc0a60f93a7ac2fdd9024d8e2958bb12b57b1f",
+        "raw/calibration-baseline-c2-r1/server-trace.json": "f7dc96dca55a7165fda9964b3a59d52cb409e281cd85afdc2edf43e2f6e0a237",
+        "raw/calibration-baseline-c2-r1/summary.json": "de1a4b4be185c9e1fcd3465517db8625b8d64d9c38ccca6e626ac066f54bef60"
+      },
+      "path": "audit-calibration-1795504355773677466/calibration-baseline-c2-r1.tgz",
+      "sha256": "ad5082d4c4a05063569e01147e942c89611c5c8b952c37bce442ef7b13dfd1aa"
+    },
+    {
+      "bytes": 677143,
+      "member_sha256": {
+        "calibration-baseline-c32-r0.log": "6eb4dfda23008bac5f5eb6b672a9d312347ddb973b2d726aa0ca9235328e1845",
+        "raw/calibration-baseline-c32-r0/api-feedback.json": "5de3ba87f1eca526325d4bc46ab29cd4e0551ee64cedc42586fd0938bc2ede59",
+        "raw/calibration-baseline-c32-r0/capture-config.json": "f5b368ed9b5f9159b8fb0b3f7295d60171f769d5a56626f59e5f97150816e66e",
+        "raw/calibration-baseline-c32-r0/captures/sla-e70ce8fce23d45d982e94ee615b3dad3-r0-s0-tp0-pid8-5f365bafae014145b406209230614184.json": "5010881c02ff1ab94b2d8fb4facaf700eac6067a9a07f77ce2026ffca6815319",
+        "raw/calibration-baseline-c32-r0/captures/sla-e70ce8fce23d45d982e94ee615b3dad3-scheduler-r0-pid8-79941dc6a9024365ad393f983310ff9f.json": "1eaa4bb0e0eaa880e37176563385a616cd519f82dc74b9441aef8420e4401065",
+        "raw/calibration-baseline-c32-r0/formal-progress.json": "974ffccffbbfb340bf7731e4f9e544dd1819529be1a7ed0f8e2e7d65346047a5",
+        "raw/calibration-baseline-c32-r0/observed-run.json": "ef75f9f8cd91334a1c0460f3970dbea2a7645c2206180f2a6ac1c3ab3a2752a9",
+        "raw/calibration-baseline-c32-r0/runner-binding.json": "5010881c02ff1ab94b2d8fb4facaf700eac6067a9a07f77ce2026ffca6815319",
+        "raw/calibration-baseline-c32-r0/runtime-cost-capture.json": "ff30d8843c7e316ac990c7f9b0b09f1a2de47e15053e1687076f54b2c69e1879",
+        "raw/calibration-baseline-c32-r0/runtime-cost-dataset.json": "2a615d514f571a771a756743f40895912540e58c72b150651bc332303fcd1a45",
+        "raw/calibration-baseline-c32-r0/server-trace.json": "eeb2861ec69646d2f57e505838020c9522be43d83cf266fd73c16ce1f752a623",
+        "raw/calibration-baseline-c32-r0/summary.json": "01d5428a2c4e2f4cf237a5f725195af15f49cb3b47663aaf0ec6ef3af90ade92"
+      },
+      "path": "audit-calibration-1795504355773677466/calibration-baseline-c32-r0.tgz",
+      "sha256": "8c1137c4c1548016e0651e519656990f864b557391383c8583711405c6aca381"
+    },
+    {
+      "bytes": 676843,
+      "member_sha256": {
+        "calibration-baseline-c32-r1.log": "b3f2bf4ebc53f4dfb3fdd682538728d69a4900f79b3f3dcd3962f1a32d6a26b4",
+        "raw/calibration-baseline-c32-r1/api-feedback.json": "b564ab39f76cf785b763ca4927a87157b58afaac5b1749b8627c16a5be8801e5",
+        "raw/calibration-baseline-c32-r1/capture-config.json": "fd5442522fb1c11640bd77b89d2ecc0fa2e9276b1bcee385cd6cd89028b4a609",
+        "raw/calibration-baseline-c32-r1/captures/sla-1d4ce8e0f7fc47d7a5d613f04bf2c52f-r0-s0-tp0-pid8-f52f55216ca645aa90016b2a66cd23dd.json": "02d14102e229465b8d22ca082d69ea7371c4670ecd3c6224db00af4502cf7791",
+        "raw/calibration-baseline-c32-r1/captures/sla-1d4ce8e0f7fc47d7a5d613f04bf2c52f-scheduler-r0-pid8-2a072ed5e4ae4f8f8400670d072c82cd.json": "cb51ecf74cdd72374620b79d3971d9f25fad78c1cee26fd212f26ad3eb31dcae",
+        "raw/calibration-baseline-c32-r1/formal-progress.json": "0d3958488cc1da4ea0a3d25a16b030814191c9c29f4bd23650b248f0f8bf40de",
+        "raw/calibration-baseline-c32-r1/observed-run.json": "b4fe4e724e288a605e623d982b9e5ff9ea35b715d79281687fab42dd04530cc2",
+        "raw/calibration-baseline-c32-r1/runner-binding.json": "02d14102e229465b8d22ca082d69ea7371c4670ecd3c6224db00af4502cf7791",
+        "raw/calibration-baseline-c32-r1/runtime-cost-capture.json": "7e612cf2c97b3f2f871b8513693e7f96351ef805afeceebbfe5186e18012ba12",
+        "raw/calibration-baseline-c32-r1/runtime-cost-dataset.json": "b5de8f67e2f2f30832c9ab94f56e31676737ad6da178a35bf549ce9d77a26885",
+        "raw/calibration-baseline-c32-r1/server-trace.json": "7ac932591714b8479f0730253516b015986b2af1b7cb01a1c3b47d2ab3c1f68d",
+        "raw/calibration-baseline-c32-r1/summary.json": "65dece6cd9ef639341eef7289f00779a7f6962e04a44590ebf30d9b108f78e81"
+      },
+      "path": "audit-calibration-1795504355773677466/calibration-baseline-c32-r1.tgz",
+      "sha256": "5dbe883956ba6c1c1bdd1d8a60fc660050cfce2feefee5258b963a19f993515c"
+    },
+    {
+      "bytes": 893697,
+      "member_sha256": {
+        "calibration-baseline-c4-r0.log": "c02bb83f4aebd2d05b40c225db0d28d51cdd76a8f040ca61e2871e78126daf32",
+        "raw/calibration-baseline-c4-r0/api-feedback.json": "992e649ff97118717f1bdc83caaa15d7c7d1b4b2f604e64e543b4ff21bd6ebab",
+        "raw/calibration-baseline-c4-r0/capture-config.json": "6c8c4a877b985a7bb4f98535b83224b220bf1528e71de8f2c19a3953b2b084a7",
+        "raw/calibration-baseline-c4-r0/captures/sla-bbb3900706d4461897ef4d4d3fd25149-r0-s0-tp0-pid8-34439444dbb844fbb66219557fc33bd3.json": "8f3d7df7fce1668abe3de3d3568315b03b08794445ee27deba4c111afbe3a293",
+        "raw/calibration-baseline-c4-r0/captures/sla-bbb3900706d4461897ef4d4d3fd25149-scheduler-r0-pid8-969eba154346416da204be0099bc54d5.json": "42e645e6847a0944ece81cd8318fd9b0930d9012751645ba92fae596ad30fdf1",
+        "raw/calibration-baseline-c4-r0/formal-progress.json": "d238ae2180f458550f4c8e996d83a1d68f54b988ab3377feb8701aa34aaefd94",
+        "raw/calibration-baseline-c4-r0/observed-run.json": "10db1f3f1fa06a717affe1962b8db619eb3753066ed7bb64efc9b0fb47dc5ab5",
+        "raw/calibration-baseline-c4-r0/runner-binding.json": "8f3d7df7fce1668abe3de3d3568315b03b08794445ee27deba4c111afbe3a293",
+        "raw/calibration-baseline-c4-r0/runtime-cost-capture.json": "df73114f26eadf532c9195faf1440b391fc83d155c9c635df7ded12cc8dc4a4b",
+        "raw/calibration-baseline-c4-r0/runtime-cost-dataset.json": "b0198878da93a7e2b629e069210c547faddb53dd8c7d6cb19bf067cc7b07f105",
+        "raw/calibration-baseline-c4-r0/server-trace.json": "f3cb4d5492a6008bdd3b1853980ac4021bce82fa08fb9bd52e1db13d3b53cd11",
+        "raw/calibration-baseline-c4-r0/summary.json": "214a567ff0f0de610a96f8695436407ddfaf42a34b38cc7a6c0caea10a6ea606"
+      },
+      "path": "audit-calibration-1795504355773677466/calibration-baseline-c4-r0.tgz",
+      "sha256": "837b678493fbbc40c824e452598976b7abbe42c1cfe9fd7149cc74481130e08b"
+    },
+    {
+      "bytes": 901387,
+      "member_sha256": {
+        "calibration-baseline-c4-r1.log": "ade5599fa1605f11f77b5df9260cf031ac5c388bfd1afed38bd85652bfe7476b",
+        "raw/calibration-baseline-c4-r1/api-feedback.json": "d02d3fcca7401f90b71f32ebd36a3ccdc6c2415d7937032f791b17f43dd4eba2",
+        "raw/calibration-baseline-c4-r1/capture-config.json": "5f72f2b1f0500dc4ab5f22da59cd3fa9ca3fe167d63e4c26bb930e495867e961",
+        "raw/calibration-baseline-c4-r1/captures/sla-ac96fef8076b49eab28993c0d8c5c2b0-r0-s0-tp0-pid8-b2edbf79b8b14994ace52ddb7bd3247b.json": "d4bc819fbefc202bf92e52b877c1723e635f970b9179cdbec714d51c52d8896c",
+        "raw/calibration-baseline-c4-r1/captures/sla-ac96fef8076b49eab28993c0d8c5c2b0-scheduler-r0-pid8-d7702b1a2e4549469e04c9f38ab3e271.json": "6c5d074dcd8eed82140f7f848fa8bb8cf7ff6b2d325abe441388c601c7ce315b",
+        "raw/calibration-baseline-c4-r1/formal-progress.json": "ddb952b45fee79ff1f0cbb77cf7dc03744eea78e8237b2012cbec63b59a8c236",
+        "raw/calibration-baseline-c4-r1/observed-run.json": "1da4b3e3901818d41270f6bf1bfed6fd265a3b2d2d7045f46a2d4e72d2e53b42",
+        "raw/calibration-baseline-c4-r1/runner-binding.json": "d4bc819fbefc202bf92e52b877c1723e635f970b9179cdbec714d51c52d8896c",
+        "raw/calibration-baseline-c4-r1/runtime-cost-capture.json": "e2e09b46cf034a552d01b88a54c34690e04ac5776fb4c9eeba5f75c6a44f26ed",
+        "raw/calibration-baseline-c4-r1/runtime-cost-dataset.json": "816d367f3a6524becbe1b40e79885818c6c50d7ffbb6abb2da18c583bd9726e8",
+        "raw/calibration-baseline-c4-r1/server-trace.json": "cd7e8f0eeb500854da327f43ff724654b24259ad5e70f034c028f93406195d99",
+        "raw/calibration-baseline-c4-r1/summary.json": "1978e6d7a018edfdda6a1c70aab014acc68c87bd4dfa0d96ed39aa2b6146090b"
+      },
+      "path": "audit-calibration-1795504355773677466/calibration-baseline-c4-r1.tgz",
+      "sha256": "efe8d79b213d39f50670314a17500554e2299e681bb940a0e1e0a6ddce5b1e87"
+    },
+    {
+      "bytes": 727916,
+      "member_sha256": {
+        "calibration-baseline-c8-r0.log": "75f9ee9634faf460de56c9bdc6f83d07e801b583251ca53ffbb3f17a35d0c066",
+        "raw/calibration-baseline-c8-r0/api-feedback.json": "3fd341cf3a6e77cdd8d2141741f48fc458f102fada001e27de682637532808bd",
+        "raw/calibration-baseline-c8-r0/capture-config.json": "dda35db21e49767187c4c03b33cb3c28264f7e863962b863770d3b2142af3ee9",
+        "raw/calibration-baseline-c8-r0/captures/sla-a4cc56b8250c4d1b88cf37ea194b8d54-r0-s0-tp0-pid8-67596c19eff0430d8030a8971f4cbcde.json": "8476f88283e55cd34ff7c72bf1891e68ea374c6667fc3a82a1a15f6bd659b055",
+        "raw/calibration-baseline-c8-r0/captures/sla-a4cc56b8250c4d1b88cf37ea194b8d54-scheduler-r0-pid8-4e33337482264b89b072762eef016317.json": "7e8bcb1f91172af87db34e40c9439c158f2ed5fc26f2ff7519a708097f063ab4",
+        "raw/calibration-baseline-c8-r0/formal-progress.json": "6241c982f4995caa541623021e7781570c9509fbcddf2545f5db198d44500d8c",
+        "raw/calibration-baseline-c8-r0/observed-run.json": "b0664d4f5f8bf4fc5d729dec3f5c997ae8ea0c869c0930e2a2d34c5ccb7bf80e",
+        "raw/calibration-baseline-c8-r0/runner-binding.json": "8476f88283e55cd34ff7c72bf1891e68ea374c6667fc3a82a1a15f6bd659b055",
+        "raw/calibration-baseline-c8-r0/runtime-cost-capture.json": "3d1af2cb42effcea0d3d78e8105abb8cd092b4fa802e9fdbd2c10acf9ffb5044",
+        "raw/calibration-baseline-c8-r0/runtime-cost-dataset.json": "4cce0a1f2b6283944dc95b133f55460f6b65f3f5a64531c9c4ea386a55dfc204",
+        "raw/calibration-baseline-c8-r0/server-trace.json": "1bb1ce2a48c7e0345b8f826daf6de55e4fba7a250b933d3ee0852e31b514a5a0",
+        "raw/calibration-baseline-c8-r0/summary.json": "2d46945352570c76ebd1ca2955fd5216c7c87b88b00b81dbc97645b3a1179b54"
+      },
+      "path": "audit-calibration-1795504355773677466/calibration-baseline-c8-r0.tgz",
+      "sha256": "4b2d2732df5217984c754cd0f14e39447d7b10091562d737c6e05c2101d92e4a"
+    },
+    {
+      "bytes": 724127,
+      "member_sha256": {
+        "calibration-baseline-c8-r1.log": "583670863f3788ba35a40a9582eb84a4fd8484482e6984a4f36f015b64333c70",
+        "raw/calibration-baseline-c8-r1/api-feedback.json": "d06227dec481364f7806443228243a0f5323b38d05a3d24a4bb31d5fea0e3884",
+        "raw/calibration-baseline-c8-r1/capture-config.json": "e915d8a4c7e18aa3704b7a965089285014e26040756e0d4602fcbb76575639a3",
+        "raw/calibration-baseline-c8-r1/captures/sla-9358288a744845c7b800c84d1ca9f42f-r0-s0-tp0-pid8-e9107bc5b8fc4d5fa560a7610229537e.json": "07ce5a53bf3437349dd5e7d1b95632ebc2c73969565f9db544f925bf64af090e",
+        "raw/calibration-baseline-c8-r1/captures/sla-9358288a744845c7b800c84d1ca9f42f-scheduler-r0-pid8-382a2c3d277b4d199fbec6b9ea9b7052.json": "33968b0bc2659aa24658f131a391817a8c9403784a57208d1dea684864c843b1",
+        "raw/calibration-baseline-c8-r1/formal-progress.json": "4c4f258f4520c3ebfd17bf8809b897723cf96f51c664cbfa3ec6598923239845",
+        "raw/calibration-baseline-c8-r1/observed-run.json": "4b1b635bd30fba2cdcb56931a4bb17dc814091fd4027cdcd768e952ad0d78248",
+        "raw/calibration-baseline-c8-r1/runner-binding.json": "07ce5a53bf3437349dd5e7d1b95632ebc2c73969565f9db544f925bf64af090e",
+        "raw/calibration-baseline-c8-r1/runtime-cost-capture.json": "31467e629980606919c53634387763cbb8a36fe0e08ef4d047d12c98181672fd",
+        "raw/calibration-baseline-c8-r1/runtime-cost-dataset.json": "aedba61b015a85adfec61a8098a08c800d821412bcefa58f9cbda5f2a76d011a",
+        "raw/calibration-baseline-c8-r1/server-trace.json": "dd312ea0b0a48134faa9a59d33ed1c6ce81ec1777a313ea8d57519d810b9e22f",
+        "raw/calibration-baseline-c8-r1/summary.json": "e9ad1f1e33efb7d8621efe67051fa46c510fe35bfb1ffd6e0f668427e2ec0db1"
+      },
+      "path": "audit-calibration-1795504355773677466/calibration-baseline-c8-r1.tgz",
+      "sha256": "1ba6416f89993a269f33201cf1724bb7c80474dfd65808b7003c744a4786b1cc"
+    },
+    {
+      "bytes": 1904206,
+      "member_sha256": {
+        "calibration-long-c1-r0.log": "0a297edf382d30bd8aeed58b0c4bd9017b3396721aba1e9a012b028b450df3fe",
+        "raw/calibration-long-c1-r0/api-feedback.json": "7ae7190c2bfabe260ef74f1d6d88fd7d7f46e0baa71bb225dca83363197ec361",
+        "raw/calibration-long-c1-r0/capture-config.json": "315dd95bff479d834e0963b701bc7072024b5273cd99eaae6e146bd3a4f00a18",
+        "raw/calibration-long-c1-r0/captures/sla-3c714a23d9b64090be2827f3cd7ff4b1-r0-s0-tp0-pid8-a6494518860f4a0c90579527b885f7dc.json": "a4b97d109112634c1df8b47d2d2a0909ea62b7d2e724f06e822f1136b3d8ab28",
+        "raw/calibration-long-c1-r0/captures/sla-3c714a23d9b64090be2827f3cd7ff4b1-scheduler-r0-pid8-c1c71c38e86a44e3b5a52abe821750c7.json": "9dfaf94712a5c36e5f168d7dd766d285fffdc4f8c9b00c8af309513a5f7168d5",
+        "raw/calibration-long-c1-r0/formal-progress.json": "071557b11c60f3245dfb0031d355f0cb3f4650268bc3091ce08011676fc87922",
+        "raw/calibration-long-c1-r0/observed-run.json": "7624a66bfeff8f920ae8c6ddc77265fdc0f9acf909218c8f4be8068dc4ef1d12",
+        "raw/calibration-long-c1-r0/runner-binding.json": "a4b97d109112634c1df8b47d2d2a0909ea62b7d2e724f06e822f1136b3d8ab28",
+        "raw/calibration-long-c1-r0/runtime-cost-capture.json": "558afc11353783b3277abb8e195ad7ea9f0663aa50b5b72fbef0c69959d1a402",
+        "raw/calibration-long-c1-r0/runtime-cost-dataset.json": "15dd0e610ad9cfb81522dbced520cee59532c85ff0777dea251027f3c8ad6d93",
+        "raw/calibration-long-c1-r0/server-trace.json": "7a663937b536eeea860f3436842e50bdfe4f65786bbc2989298dfd27cf241f04",
+        "raw/calibration-long-c1-r0/summary.json": "f425835d37f87b0bd3f177d24086055ea2f42ef21936c6d0825e68e481c24f97"
+      },
+      "path": "audit-calibration-1795504355773677466/calibration-long-c1-r0.tgz",
+      "sha256": "26ef59d6ec4bb94e0c978ba2fd3b45c2d4ffcae914aa6c089d35a8689a915f2b"
+    },
+    {
+      "bytes": 1893687,
+      "member_sha256": {
+        "calibration-long-c1-r1.log": "1f3dfd4a6809b3da3d1de6ec08d06ef8987d8aab75b291dd890ac2f282b20e39",
+        "raw/calibration-long-c1-r1/api-feedback.json": "5fd6b9da0740743c5ad6c92a53594afe5e1955f366747948f3bcb2cf0fd3ba1c",
+        "raw/calibration-long-c1-r1/capture-config.json": "824a5cc1f86a6089cac79b846e1de3c56dc3fed7ccc88ad88cb1892d305c8071",
+        "raw/calibration-long-c1-r1/captures/sla-a55149c27145415690fe841aaa2bcf3c-r0-s0-tp0-pid8-c2408760d2ee45d59fb659021da8b6f5.json": "0d9af9f4c205dcb25201b9da8e01b2a4bcf5b3e218ebf3b9935297817adee83d",
+        "raw/calibration-long-c1-r1/captures/sla-a55149c27145415690fe841aaa2bcf3c-scheduler-r0-pid8-8abb8ad462194e619a890c868c425597.json": "ede59952d5b2d7f89c209924654479517e429db1281173185867b6e145c945ae",
+        "raw/calibration-long-c1-r1/formal-progress.json": "766ec2124c3d5646a45c363c78ac530cbba11f9b4fffc1b5520240c5a63b0347",
+        "raw/calibration-long-c1-r1/observed-run.json": "a7892cc3b1ea6429d6c1ee0f52ab11be950c62f47df7cc824c5f4bea691ac146",
+        "raw/calibration-long-c1-r1/runner-binding.json": "0d9af9f4c205dcb25201b9da8e01b2a4bcf5b3e218ebf3b9935297817adee83d",
+        "raw/calibration-long-c1-r1/runtime-cost-capture.json": "b0df63af5f6b954ad73ebeb30569fab41c40069268daf86f468fc1b432cdc3cc",
+        "raw/calibration-long-c1-r1/runtime-cost-dataset.json": "836b642b9b5e6bc96629b144a5cfae4eef1f69a5589b199b2af98cc162ecae5a",
+        "raw/calibration-long-c1-r1/server-trace.json": "7cb9731e3b5001c403c2ab7f68c7c40adeddf6ce3800ba1e53f5059ef087bf48",
+        "raw/calibration-long-c1-r1/summary.json": "e74f5f4921585537e3e1f21a6a511672cdc1b541fc535fbb93637b10467a9aff"
+      },
+      "path": "audit-calibration-1795504355773677466/calibration-long-c1-r1.tgz",
+      "sha256": "beb4af8276c3321c553226ab3975340a6fd0662b2cee8d6d20a44b52ec02530f"
+    },
+    {
+      "bytes": 837818,
+      "member_sha256": {
+        "calibration-long-c16-r0.log": "a72b35b53f703440b38a2e67dbc553c59095eee2e8e559cd589109d3776f987c",
+        "raw/calibration-long-c16-r0/api-feedback.json": "fbf76dad15785759e435cb357362ed09797b1f5c45bad87cf4931a3dc9cebdac",
+        "raw/calibration-long-c16-r0/capture-config.json": "db8bc1d3b6812b4bb98a2fe0d6536a7e4291c7ffc69272ff958c8009f8e1b2c1",
+        "raw/calibration-long-c16-r0/captures/sla-23252b38eb3a4a8f928fb3d0d89860eb-r0-s0-tp0-pid8-aba976e13561442290f652028b122e2a.json": "74bebe4d03e62b1bbfe42cc21e2599ee7782ce6929879cd0475a454bf0383b62",
+        "raw/calibration-long-c16-r0/captures/sla-23252b38eb3a4a8f928fb3d0d89860eb-scheduler-r0-pid8-f0567afbb1494df7bbec17308605303e.json": "c905dd6e09189ef1ba31358bc903c57abed9f75b134b33c19dbb986446867bc6",
+        "raw/calibration-long-c16-r0/formal-progress.json": "09bc7a44cf504a4b5b44ff78399cc340b4b1091cc600d2303582eae535c9c34b",
+        "raw/calibration-long-c16-r0/observed-run.json": "e828a445e3da7a92e8eb46bfc8dd7755b2c15d525d5fab6e414b28bf3a426954",
+        "raw/calibration-long-c16-r0/runner-binding.json": "74bebe4d03e62b1bbfe42cc21e2599ee7782ce6929879cd0475a454bf0383b62",
+        "raw/calibration-long-c16-r0/runtime-cost-capture.json": "ab783e137fb9cf439a75fc80ff032d48e5cad6b17f8a5fc6d0c54daec4017d25",
+        "raw/calibration-long-c16-r0/runtime-cost-dataset.json": "493b83fa1aa84aeac2c90555998db145d455640332fe5ec0b7aaf36384dbead3",
+        "raw/calibration-long-c16-r0/server-trace.json": "f8e65d526d090a214bbae41228c86b36ded777729f9b7ea4aff67c105b29fd16",
+        "raw/calibration-long-c16-r0/summary.json": "e8186774cda92793ae9dff82e3df99c37c84abea67598470aca8cbdbe94667e8"
+      },
+      "path": "audit-calibration-1795504355773677466/calibration-long-c16-r0.tgz",
+      "sha256": "eb323c6d8ab4168a0986c72e2e5241c3605da1f575d8767a854310b1983a856b"
+    },
+    {
+      "bytes": 836809,
+      "member_sha256": {
+        "calibration-long-c16-r1.log": "a286719e909e440ef6c9d8cb03bcf706a7137c488b390771bcbf2ccd2335dac2",
+        "raw/calibration-long-c16-r1/api-feedback.json": "8f1a4c507ace9829a982d8b15576924d13272cd60a73a216349d5453658953ad",
+        "raw/calibration-long-c16-r1/capture-config.json": "a9ce1a9c9862b284422679cea416b9f819772bf8f41d3486ed82fb42e17cba3e",
+        "raw/calibration-long-c16-r1/captures/sla-e9c64562f8c94228ac7d2e5b55f4d5f6-r0-s0-tp0-pid8-8b7a281a54e64537a2ccbdfa6c1aa720.json": "55c9b1a94fb1b272935469272a5d99c25cb8fdc610028bafe5923ae7bb132044",
+        "raw/calibration-long-c16-r1/captures/sla-e9c64562f8c94228ac7d2e5b55f4d5f6-scheduler-r0-pid8-093e49eaa6c34b8abca479dea8d9a3e1.json": "d1e7fc746a3227d40cf8b2a052087b32e2556083ee30d473c95e6012cbedfd3c",
+        "raw/calibration-long-c16-r1/formal-progress.json": "c33390b19c1000e2353007e3d94023c75de2f90d9061025a9c1a9125f508f88e",
+        "raw/calibration-long-c16-r1/observed-run.json": "4a370f668e5c39bdbf67cbf8816daddbce6a61c12e3333e2a7d631e18b9130c9",
+        "raw/calibration-long-c16-r1/runner-binding.json": "55c9b1a94fb1b272935469272a5d99c25cb8fdc610028bafe5923ae7bb132044",
+        "raw/calibration-long-c16-r1/runtime-cost-capture.json": "98f649c4aad791be9c0982ee8bdd71e2f5dd74d3291b995a54fce0ca4c4437e3",
+        "raw/calibration-long-c16-r1/runtime-cost-dataset.json": "ca4c9db368ff5c6bc61b957b13683b863a6a214e41f582a6e91301e2698eab85",
+        "raw/calibration-long-c16-r1/server-trace.json": "57a99e8674e2190848723bd24ae6e4a48b24549f6edf4669e9a9be5017794909",
+        "raw/calibration-long-c16-r1/summary.json": "c50affd44394d37bfbf81c9636a5e4f92378197f7343ec6830ae636f250d2a23"
+      },
+      "path": "audit-calibration-1795504355773677466/calibration-long-c16-r1.tgz",
+      "sha256": "34d1c675a44f681b3a24da68fdb29c98332fcee0a5fa31458514020d7c880a8e"
+    },
+    {
+      "bytes": 1361289,
+      "member_sha256": {
+        "calibration-long-c2-r0.log": "795c6a1c2222276858b83c88ea7d72e8a0c1614f4024b624724f4fd76e501925",
+        "raw/calibration-long-c2-r0/api-feedback.json": "7f326b544a13493b1a94d4dd543a4cbf86dd1db6e2132c2a1d9e7ebe8500ab44",
+        "raw/calibration-long-c2-r0/capture-config.json": "aabf19d213a4ba48fbf72f7885d986bd450efe2566ae50b331e159af33d64c9d",
+        "raw/calibration-long-c2-r0/captures/sla-a20f72a1bec84bf7a5735d33fc455377-r0-s0-tp0-pid8-8aaf480c26ea43f6ae2fcbebb7ef5c02.json": "cd12b31a821503b962c207e3a170908110e0fa9266729a73f5cf88d3ad379893",
+        "raw/calibration-long-c2-r0/captures/sla-a20f72a1bec84bf7a5735d33fc455377-scheduler-r0-pid8-e1e5fd9d6c8f4695a7702227ba36350f.json": "24c58f92d8fa510afcbc28559b6c088f6599570347807f247b6fd9218bb8ad51",
+        "raw/calibration-long-c2-r0/formal-progress.json": "fa418d7b3d9061f9e801df0bf8178d788d07bb73584b997a78e44240c8fb5d8b",
+        "raw/calibration-long-c2-r0/observed-run.json": "733870b21644213388d75bc256fab2726fee2008c942433db4b1938457ebedd0",
+        "raw/calibration-long-c2-r0/runner-binding.json": "cd12b31a821503b962c207e3a170908110e0fa9266729a73f5cf88d3ad379893",
+        "raw/calibration-long-c2-r0/runtime-cost-capture.json": "d9df51da6ced9dd30081a3ffe7fbf1dbdcadf53fc0be988bae1ad0cf6b67abfe",
+        "raw/calibration-long-c2-r0/runtime-cost-dataset.json": "d5aeaef1f552d6228f007b0559cd1309cdfb41c3003e3473586f6fcc87989546",
+        "raw/calibration-long-c2-r0/server-trace.json": "1b63135dbc259a4de2d53f87f2b90c10e7f5fbfc19661fe9bce1edcfa0573f83",
+        "raw/calibration-long-c2-r0/summary.json": "970956f9dce92fa4a247500435528eda88ae1338bc4b4ceb5a5da53d6510e91d"
+      },
+      "path": "audit-calibration-1795504355773677466/calibration-long-c2-r0.tgz",
+      "sha256": "98b3adb4dbe60e5b54ea2b9fe424d044d68a52ba4f06dfd847ad5b369a9685f4"
+    },
+    {
+      "bytes": 1364024,
+      "member_sha256": {
+        "calibration-long-c2-r1.log": "4999e7569df821560bebd3e701dd5803a7d795f0d4d87b0522f05ccdc93f7ee7",
+        "raw/calibration-long-c2-r1/api-feedback.json": "8089b84ff2a82ef2b1afe2a02d7128c792e8059b9922f88328e33af878b8a2cc",
+        "raw/calibration-long-c2-r1/capture-config.json": "b7e885a7b650aa4bb5d5830ec3a7e6b9bd4d0d328a4399ed992dd354edebbdf5",
+        "raw/calibration-long-c2-r1/captures/sla-7c546be019fe4738b697695979d08d6b-r0-s0-tp0-pid8-7732e37238cf4f4589e1e390eec333a1.json": "3e2df09a47a14c157f40f637bc3c6c549581e098cd94d6c36323a95ac1c67e64",
+        "raw/calibration-long-c2-r1/captures/sla-7c546be019fe4738b697695979d08d6b-scheduler-r0-pid8-ac14c36be6054b5aba5ff5db85cbc4fb.json": "99346209c0d2606467adc1d2ffb8b5bf6120521bef72da2f882fd35631609d35",
+        "raw/calibration-long-c2-r1/formal-progress.json": "3d95e7b4c2e01ee81f860b309c1623042e1b66b4baf4211eaa7a1a1659b15259",
+        "raw/calibration-long-c2-r1/observed-run.json": "104fc37df0832f9149ddd9afd44162d4226a90e2641c9580ecec4ff43a8e70b0",
+        "raw/calibration-long-c2-r1/runner-binding.json": "3e2df09a47a14c157f40f637bc3c6c549581e098cd94d6c36323a95ac1c67e64",
+        "raw/calibration-long-c2-r1/runtime-cost-capture.json": "4445b5e1b95e514592c5557cf406236b23e862b2fdcf2e4907a2a7c8beea48c7",
+        "raw/calibration-long-c2-r1/runtime-cost-dataset.json": "b8dc4b34d6ab0f7147694a1ad5761a2180b96b483a1064c2fd29a1527c9ae266",
+        "raw/calibration-long-c2-r1/server-trace.json": "cbbf6e7c475bf4604543782b3c75daa097ee1b4b3380ccfbadb8b374b0f32acb",
+        "raw/calibration-long-c2-r1/summary.json": "932255a4d685cf76b3a10c43512bc5f0f0b1ea99ff34c526b8e551fc0c6ed4df"
+      },
+      "path": "audit-calibration-1795504355773677466/calibration-long-c2-r1.tgz",
+      "sha256": "f6e47b00bcd65039c825966a1f98d66633d8210c1edd045e2154e079ada0e025"
+    },
+    {
+      "bytes": 835063,
+      "member_sha256": {
+        "calibration-long-c32-r0.log": "03d32e086f5ddb7e995cbbd4524f9e0d2cd26aecb1de5973f812c1c1bd524f38",
+        "raw/calibration-long-c32-r0/api-feedback.json": "203a899b0e083e0d049a50e620da1ef9668bbcb30bb43bcc096751750e8b4e01",
+        "raw/calibration-long-c32-r0/capture-config.json": "3379154d79f5d0cf419079ec1a8f660d64dd4dfe630f4a7681b033f2d597f415",
+        "raw/calibration-long-c32-r0/captures/sla-2adf872efc034f0aa55df9e8e3588b4a-r0-s0-tp0-pid8-5b63423806864c3892a2cd66108d5aee.json": "501a08102a471426ba38f62e32ae2e045963d48d65881621851e356d7204476c",
+        "raw/calibration-long-c32-r0/captures/sla-2adf872efc034f0aa55df9e8e3588b4a-scheduler-r0-pid8-bfac7f37fc094f3cacb3bb1a073cd93d.json": "0003bbab2c3b059d8fb4a15c58cd9ccd5566c8582280189e26f180f8dc1cd7ef",
+        "raw/calibration-long-c32-r0/formal-progress.json": "7fa15a6b5a3b2bc125555ab4333a169a9a87408de3c487aa7bbbabcca4f64755",
+        "raw/calibration-long-c32-r0/observed-run.json": "70450783a03e79a1c4563d5a544b753833d0387ea7c2ffa7e1c04b2f7fc3d090",
+        "raw/calibration-long-c32-r0/runner-binding.json": "501a08102a471426ba38f62e32ae2e045963d48d65881621851e356d7204476c",
+        "raw/calibration-long-c32-r0/runtime-cost-capture.json": "3c75be07360c880b14476ebc1af011696b9c0d548824d9ff2d0a5e714cedfebb",
+        "raw/calibration-long-c32-r0/runtime-cost-dataset.json": "cfa78d049a5bc8609f4f5fc9122fadb68ec665ccd0e178b76eb7a366e954dda1",
+        "raw/calibration-long-c32-r0/server-trace.json": "5c764614302d4a49b3ff8f495218a27051f1aa443330ab54deb9eeb5a817b69d",
+        "raw/calibration-long-c32-r0/summary.json": "a4c429f4d786c67d457430898c5692c1d06f07fa117368bf929f7692471fc5d4"
+      },
+      "path": "audit-calibration-1795504355773677466/calibration-long-c32-r0.tgz",
+      "sha256": "e41a78e84414e660de165d3e162db08b270e5718d4f3789b92f556ce6bf6fc6b"
+    },
+    {
+      "bytes": 837324,
+      "member_sha256": {
+        "calibration-long-c32-r1.log": "6223b3b6122201f729bd481844cbddac7e8e69c13e8f7b771217f530cf3d5660",
+        "raw/calibration-long-c32-r1/api-feedback.json": "b7ea9c75399d38673549df2a6a948e2e3a75be31ee91cb0942c8b09c3d4271eb",
+        "raw/calibration-long-c32-r1/capture-config.json": "a9778f3d887076d830fbe856661993c3e3fb24b529263995b4a4b916521fdd5b",
+        "raw/calibration-long-c32-r1/captures/sla-665de10a76474cbea3558e26bfffbb32-r0-s0-tp0-pid8-4931123f63254d818adc50d355f353b6.json": "f7db704a8f1be286d0d617db42d8ff1b22b00b4fa76080be3cc4fdcb05f3b081",
+        "raw/calibration-long-c32-r1/captures/sla-665de10a76474cbea3558e26bfffbb32-scheduler-r0-pid8-56050ecb728f40bea56d0b1d1391d965.json": "ca503f4da5623e659a61ee1df867699108e6cb391d9707fd54f932a887bbaaba",
+        "raw/calibration-long-c32-r1/formal-progress.json": "9deed0d1860d10a7fe04bb7edcb22e06b01690f7722f33aa7a5820a4b1a7863c",
+        "raw/calibration-long-c32-r1/observed-run.json": "e23cec3e60eb613258a743818331bf77af548384733dd880a79dba53a35b1ac4",
+        "raw/calibration-long-c32-r1/runner-binding.json": "f7db704a8f1be286d0d617db42d8ff1b22b00b4fa76080be3cc4fdcb05f3b081",
+        "raw/calibration-long-c32-r1/runtime-cost-capture.json": "ed407597c162c1a41a8cce735ea4f7dcc01f00686ac505a031be412e7a7c7789",
+        "raw/calibration-long-c32-r1/runtime-cost-dataset.json": "074c291beb67eadc56e447993dfd7c62d51a14dd5f69aa8e347efe91d32b66f9",
+        "raw/calibration-long-c32-r1/server-trace.json": "dc1e10426ac0bc36d9d72f82fc803015de739b5c9f8eb35cc0c70fd8e42c2c44",
+        "raw/calibration-long-c32-r1/summary.json": "187c25e8b16fcd59f8e4a5f58935b925d9740bf13e34b49043c4275595a708d2"
+      },
+      "path": "audit-calibration-1795504355773677466/calibration-long-c32-r1.tgz",
+      "sha256": "3c7a52effb027986d6a023ece0a09102afda5b1a8953850dfc2c2a73af495742"
+    },
+    {
+      "bytes": 1126565,
+      "member_sha256": {
+        "calibration-long-c4-r0.log": "ac43a21aa92fd7c51ca2b35a635270d7e99b3da6fcb2878a5b22fb1d64c25fba",
+        "raw/calibration-long-c4-r0/api-feedback.json": "d68168c940a43662c46d08878ceae89b0321d77de6c6499854db8c4c89b1fa29",
+        "raw/calibration-long-c4-r0/capture-config.json": "fab144e1e55fc0f9c319d61d55eccf89e4014d4f573d8f48dea9ef3c3b70a21c",
+        "raw/calibration-long-c4-r0/captures/sla-38df73a52dc54ada90ce5f6761b89595-r0-s0-tp0-pid8-878dd1e602a54094a54b21d6c5568848.json": "7a221ddee88e1adc8e646a29f0f0176d7988782f1d2044c6ba973fa11be4b34f",
+        "raw/calibration-long-c4-r0/captures/sla-38df73a52dc54ada90ce5f6761b89595-scheduler-r0-pid8-fc57f43d70094b4aaed749ce73d7bf86.json": "7bf431abddbb4f64e8be8fbe47e800a2123a9a8dff43ea384bc83f10eba816a9",
+        "raw/calibration-long-c4-r0/formal-progress.json": "7616bb1a5298ea66a260466ce977e0b5e7f945ebbe72bf265bdb39629bdc1bae",
+        "raw/calibration-long-c4-r0/observed-run.json": "f9e6d635c3e61ef3dafa8b77bd6a565afcf0ddcbecf44dee0c998a5aff0b5dc1",
+        "raw/calibration-long-c4-r0/runner-binding.json": "7a221ddee88e1adc8e646a29f0f0176d7988782f1d2044c6ba973fa11be4b34f",
+        "raw/calibration-long-c4-r0/runtime-cost-capture.json": "037bb063434277724c211b242f2677b3b10610d0e47276b72d1e435acff46c28",
+        "raw/calibration-long-c4-r0/runtime-cost-dataset.json": "9c857d4721562743b9964ceebac46c9db66823074a90e1e6ddd3f6bfbede5a7b",
+        "raw/calibration-long-c4-r0/server-trace.json": "d0eb5340c377b8edbe7d1d671a18a05aa543b2f61cabf78d2a2ab4d9e4348a6c",
+        "raw/calibration-long-c4-r0/summary.json": "0aa5efe119a09826f45d55d4fa32b42416c2398a6220cf48984306fa5bc827ed"
+      },
+      "path": "audit-calibration-1795504355773677466/calibration-long-c4-r0.tgz",
+      "sha256": "41de188eb13dba480d1176d2b280d29d1125e1f0804c3b6669792876baed0fea"
+    },
+    {
+      "bytes": 1131508,
+      "member_sha256": {
+        "calibration-long-c4-r1.log": "717557f9f2986dd51fc0db87490e236e999281ab7141ae0e7deca86f38091f16",
+        "raw/calibration-long-c4-r1/api-feedback.json": "6dea88f3cc34b63055b1b575ee9450dd7425b05dfbf455349a3f7b33a12bf682",
+        "raw/calibration-long-c4-r1/capture-config.json": "137794c034fd484f3ad73d9b1534cc9c9fd91f818cffe0df6d3dbd86dcce1318",
+        "raw/calibration-long-c4-r1/captures/sla-9dad7c707f0b4f4485ce20e67501ad01-r0-s0-tp0-pid8-1f2a3038fd0746858df21e77e7bb2a6e.json": "542d930d90b2deea52fa574abde2be5ac52f4b91c5985df923d87cf7f807fc85",
+        "raw/calibration-long-c4-r1/captures/sla-9dad7c707f0b4f4485ce20e67501ad01-scheduler-r0-pid8-db4745b7d11d4584bdb75f56c0e97b48.json": "e3da103ef62745666153ce2cafe294d447c1d4935d79b3e6d10fb99e9cd29576",
+        "raw/calibration-long-c4-r1/formal-progress.json": "bfbdf0ca66fee707139ede39eedb9d3edf42b49c8e74716b9920e626988602bf",
+        "raw/calibration-long-c4-r1/observed-run.json": "7da6f2180e3295ff7e07b5b69eed2cee9c5b5591c8efcd8de4769e32e461ac2c",
+        "raw/calibration-long-c4-r1/runner-binding.json": "542d930d90b2deea52fa574abde2be5ac52f4b91c5985df923d87cf7f807fc85",
+        "raw/calibration-long-c4-r1/runtime-cost-capture.json": "672a1320df616f805600c106c62673016307d19cdb805fc075f40f480617d084",
+        "raw/calibration-long-c4-r1/runtime-cost-dataset.json": "7a76590fd2e1165c7bb51f3daf79190c6fd897b9841f72396c1dcafe18a710d5",
+        "raw/calibration-long-c4-r1/server-trace.json": "d6b42b5db1e41a7b39a127781a8962f60581167972742014ada1e2b9c102ed34",
+        "raw/calibration-long-c4-r1/summary.json": "402ac1a7278d4b9c4acfeffddd2bd9162795a5d4dcd6269fa5cf86968826602c"
+      },
+      "path": "audit-calibration-1795504355773677466/calibration-long-c4-r1.tgz",
+      "sha256": "d8e324b96c40faaa624afd1eab571e44cade6fcae054094f7903149494c281eb"
+    },
+    {
+      "bytes": 940367,
+      "member_sha256": {
+        "calibration-long-c8-r0.log": "a37c08dc44fbffd37329f761f180e2c6b3115ef71438d4811d0655c3274c3234",
+        "raw/calibration-long-c8-r0/api-feedback.json": "91c4b48a1d8c1922eaf40328bf0cbe156a292af1bd6fc66f15395add7104351e",
+        "raw/calibration-long-c8-r0/capture-config.json": "2fc681ace751f00852053ee855a277893327d782cc498d105740e657c07691bd",
+        "raw/calibration-long-c8-r0/captures/sla-98c3fce136f34e91b4366a25b7de3164-r0-s0-tp0-pid8-20097e1e0fa54811913d64dcd462151a.json": "d833c18bc54920b185cc75e51ca69c164a37a1f75e60404ac24e13c471815d21",
+        "raw/calibration-long-c8-r0/captures/sla-98c3fce136f34e91b4366a25b7de3164-scheduler-r0-pid8-f02303848b174941aac5bba8b2ad85d5.json": "ce64e87d94842aeaad3e7a8cd20016a1141b04f85acd7d6b3a67b2089589c371",
+        "raw/calibration-long-c8-r0/formal-progress.json": "b12649cd72422d00b6aac5bdf65626f8ba3f4394cddf5f5eee94530c877cb8f5",
+        "raw/calibration-long-c8-r0/observed-run.json": "6c5ffb831700f5a94cc751fbb1fd85a1ca92d0546bc99c67eefb6a0c0e9f3200",
+        "raw/calibration-long-c8-r0/runner-binding.json": "d833c18bc54920b185cc75e51ca69c164a37a1f75e60404ac24e13c471815d21",
+        "raw/calibration-long-c8-r0/runtime-cost-capture.json": "a848d54c8a68ac2ed8554079a68cabc5c801e6b0291577e92bda22bb5102338a",
+        "raw/calibration-long-c8-r0/runtime-cost-dataset.json": "3fd5121007408c28029a8824f6839c61def66821827a3ad00be05b803db7acba",
+        "raw/calibration-long-c8-r0/server-trace.json": "bab947e5a10cc393d826449974f81a5f841516339fe8a9f4235ef019fc1c6108",
+        "raw/calibration-long-c8-r0/summary.json": "1b9532db84a93825ca4ade29b762d3712a8cf4fe04dcd71c177ea1348d3408e0"
+      },
+      "path": "audit-calibration-1795504355773677466/calibration-long-c8-r0.tgz",
+      "sha256": "c926042d42bd6fb26f2e6162e763bd2866f0fa4b2509fe8f42bf242cd88e9999"
+    },
+    {
+      "bytes": 937232,
+      "member_sha256": {
+        "calibration-long-c8-r1.log": "271bbf8bea979592d8de62337562191f430d0597a40ede9a57622ce7317eef00",
+        "raw/calibration-long-c8-r1/api-feedback.json": "7c6eb41ecadec9a58a7ac95a6a5b9649779ed8d4d4a3f61bf1b16f582b066232",
+        "raw/calibration-long-c8-r1/capture-config.json": "b44116ec5b6d5c3cf290efedf2f109aa48a70acf5d90680c2464cbfb8b756d6a",
+        "raw/calibration-long-c8-r1/captures/sla-3b1dd17c365f4e0ab262c9ad8a55cc1d-r0-s0-tp0-pid8-463acb658b924dc19d8cbf74df8c35b8.json": "719a28f736b788581b79a0e6fd5315553bbaf1ef0ac476e58806924147968168",
+        "raw/calibration-long-c8-r1/captures/sla-3b1dd17c365f4e0ab262c9ad8a55cc1d-scheduler-r0-pid8-0b375fabbe3e4b0480cfa7355d8a1164.json": "475fc727395562778f859acfd56af826057282a7a4687c6ea631b66a3c3995b0",
+        "raw/calibration-long-c8-r1/formal-progress.json": "8d6d69c0095ae7458521cad3839935428c75a702c46f5a03df0ce8c76a9a2a33",
+        "raw/calibration-long-c8-r1/observed-run.json": "80ce2829d915fa077220c3c03839dc9ee41a6e47f4080a51621218526d07caa2",
+        "raw/calibration-long-c8-r1/runner-binding.json": "719a28f736b788581b79a0e6fd5315553bbaf1ef0ac476e58806924147968168",
+        "raw/calibration-long-c8-r1/runtime-cost-capture.json": "8a2dcb283443461009d31796d9c90fdc96c6f5a8004312e9b48f1551a778ce69",
+        "raw/calibration-long-c8-r1/runtime-cost-dataset.json": "5f56175562cb9f474e8f836bbe8b8ddcd8b30599cb4f8d69fd4a27b58e90eb36",
+        "raw/calibration-long-c8-r1/server-trace.json": "e2b064426d00a9caed05f572df6633a8fa9a427ef6f442ccff7acbe50154d67b",
+        "raw/calibration-long-c8-r1/summary.json": "398f0caac08d3507a54b4b2cd24b68dfdb744096fb5c5eac55e00a89409831cf"
+      },
+      "path": "audit-calibration-1795504355773677466/calibration-long-c8-r1.tgz",
+      "sha256": "ba90e599bdeb6d24436674b1f597832e9c5a532cc8f8bea794e8c8423f780b10"
+    },
+    {
+      "bytes": 1837400,
+      "member_sha256": {
+        "calibration-short-c1-r0.log": "9e271be1c2c546827d3d4cb0ea7ae13e6c2c848b8ad7d8de3de474479153ee54",
+        "raw/calibration-short-c1-r0/api-feedback.json": "68a61458084eae2bf2829d827f6d943376dd2ec3195198405b36392b2d252c88",
+        "raw/calibration-short-c1-r0/capture-config.json": "c271705148a5ad4033dbf9d55ab91bd9368ed6b4e63da24ef9dc4e22d0c07af1",
+        "raw/calibration-short-c1-r0/captures/sla-bfd22635eb2941baba70ab5fb2c90d52-r0-s0-tp0-pid8-1d63bb2b95564f379fc0bc0f5a72c488.json": "d28d8d9c1b85a427e0df7a33877f004c8e987ec95ad7353b08e3bef1bd99eef4",
+        "raw/calibration-short-c1-r0/captures/sla-bfd22635eb2941baba70ab5fb2c90d52-scheduler-r0-pid8-ebcf89a723e845ba8bd51ed1e83503e8.json": "e77bbf69c3ce3bfd94a063d0a20daf8402d340f8be21eb8365a1e33842f6fae9",
+        "raw/calibration-short-c1-r0/formal-progress.json": "a701ef299e21d1c6f0e8a305ec31a1bde983aa15e9c23e58e16ef1b3b32d6665",
+        "raw/calibration-short-c1-r0/observed-run.json": "84881730a2cc80961c86c2d7d711440bba9e946e38a5293894c2da430de15f4a",
+        "raw/calibration-short-c1-r0/runner-binding.json": "d28d8d9c1b85a427e0df7a33877f004c8e987ec95ad7353b08e3bef1bd99eef4",
+        "raw/calibration-short-c1-r0/runtime-cost-capture.json": "8da34437dc6458d1dae4ae75d983249c8ee8d504321048981b0326fdf0209d10",
+        "raw/calibration-short-c1-r0/runtime-cost-dataset.json": "5b9109765d4762a99905287068a20f226cdbc3815fdd6b3e8938218425f91e1f",
+        "raw/calibration-short-c1-r0/server-trace.json": "105cd7249d27e6c2a6e50437a78eb3046c5aa232cd0acb779eeead999ceb8670",
+        "raw/calibration-short-c1-r0/summary.json": "a27adeea3308e0ebe74e83530f3c96e1b3c2ea224046a49aed7aad4ede5819bf"
+      },
+      "path": "audit-calibration-1795504355773677466/calibration-short-c1-r0.tgz",
+      "sha256": "f07d91e88758692156b27b217beb9880145a8d25b5ffd7fee9b8242c3c24fd99"
+    },
+    {
+      "bytes": 1841336,
+      "member_sha256": {
+        "calibration-short-c1-r1.log": "a7fde07904765c68a221fee26db7e96b26ed99bdcddaeeec0706a26b089b424b",
+        "raw/calibration-short-c1-r1/api-feedback.json": "1a5d6c9d26bc8b9202b39aab9803407322c86f4f0b2fdf224a64e53ebd1127ad",
+        "raw/calibration-short-c1-r1/capture-config.json": "7194fdb328fdd7382f8799b25992ef186502008d241bbda3b3a1231c6ae01c54",
+        "raw/calibration-short-c1-r1/captures/sla-abea676a0d754fbd9d4a8e13d58638f0-r0-s0-tp0-pid8-9ee14167ec1847dd80860ce9eaae86e7.json": "44e996771be40e08dc916503b39b1c9e77f74d08fdf5fe30e246a070ab0fc3ea",
+        "raw/calibration-short-c1-r1/captures/sla-abea676a0d754fbd9d4a8e13d58638f0-scheduler-r0-pid8-568b98981ab843a68265b5aa5713ec87.json": "5ee2bf89c81d501c60d48752ee6d1e69ccb959604b0ccfe890ef99ea09898cf9",
+        "raw/calibration-short-c1-r1/formal-progress.json": "20bcde01d77511257516350fb63df253224384b7579de7f164286cc49d16d65c",
+        "raw/calibration-short-c1-r1/observed-run.json": "33a4dbbc0b4bbb8936eb2b675df3b166679985ce798a0916046997e1c9a40168",
+        "raw/calibration-short-c1-r1/runner-binding.json": "44e996771be40e08dc916503b39b1c9e77f74d08fdf5fe30e246a070ab0fc3ea",
+        "raw/calibration-short-c1-r1/runtime-cost-capture.json": "44bee4e4aa56280c30a1ac9aa089245642192afd024c34f39e1418bde0a7799d",
+        "raw/calibration-short-c1-r1/runtime-cost-dataset.json": "a53c5239269d1cfebcdcf912fc013c7a12339d525c7a1043461fabf1550351b4",
+        "raw/calibration-short-c1-r1/server-trace.json": "803b0c11ab883379de552de7c5c3f0135d6e4950af5c74d2a3594afe4c905d4a",
+        "raw/calibration-short-c1-r1/summary.json": "810862166289fc780883f0e9b89ddbdf3f5bfe7aa936759ff825a7b9e6272032"
+      },
+      "path": "audit-calibration-1795504355773677466/calibration-short-c1-r1.tgz",
+      "sha256": "eb257e1c04d4d0bb83b0aeeb9a38b39dc9e59f81ee39d3e37d10d7375b0c8fa1"
+    },
+    {
+      "bytes": 661953,
+      "member_sha256": {
+        "calibration-short-c16-r0.log": "3362cee99955b4c221651180338dec442ee57c04afd64de90d61a464c0b6b341",
+        "raw/calibration-short-c16-r0/api-feedback.json": "d18df8c483376271e288c20f8cbddc8d6426382003809add9c81e9f79a780b90",
+        "raw/calibration-short-c16-r0/capture-config.json": "0bea03abfaac95d24cb9cdfc6f41a2d681265ef3bce7b384d4fe84dbf8629b09",
+        "raw/calibration-short-c16-r0/captures/sla-c37b7cf9296b4b90abbba319682ae493-r0-s0-tp0-pid8-930bcf5762e34b40b44b674ca7ccad40.json": "017c736c973f54c3efbd4df529845cec50f2fc9a5ec88ae1847cd1fb4764435a",
+        "raw/calibration-short-c16-r0/captures/sla-c37b7cf9296b4b90abbba319682ae493-scheduler-r0-pid8-cae2a99458d943e8bfd903f4cda0ea36.json": "3e3569da230cfbfab01c1df920ce98317b5097d4c643fc52ddf8a5d1a3492e09",
+        "raw/calibration-short-c16-r0/formal-progress.json": "17623b8eb24ff325e68aa313008985ca99382d13895f957a2a9295d1a0ce5c91",
+        "raw/calibration-short-c16-r0/observed-run.json": "a8d8ebc75841c6c4926f8134d3a7cf018bb5bccb71dece8b369431ab10b95c11",
+        "raw/calibration-short-c16-r0/runner-binding.json": "017c736c973f54c3efbd4df529845cec50f2fc9a5ec88ae1847cd1fb4764435a",
+        "raw/calibration-short-c16-r0/runtime-cost-capture.json": "ed5a97370fc92c6fcaa195d1fe98fe88005aab0e35b31d79e74fdc7cd103476c",
+        "raw/calibration-short-c16-r0/runtime-cost-dataset.json": "b23432c1fae2c44634bd9c3a4cd3ad5c7959d1a76a05de1e0673900666e6219a",
+        "raw/calibration-short-c16-r0/server-trace.json": "c851ed3000712bcaaa10fda0dcd7bbd0b9d2487c228f3969d12e142218873f22",
+        "raw/calibration-short-c16-r0/summary.json": "a5a7384693307139fec4eed8dc35dd3047c363a5a795c31977938282446851e0"
+      },
+      "path": "audit-calibration-1795504355773677466/calibration-short-c16-r0.tgz",
+      "sha256": "dd7d2a999e4c2583daf9ba1e6b51ca74a8dac9aa2d5e54011d51ddbab7af7e77"
+    },
+    {
+      "bytes": 662244,
+      "member_sha256": {
+        "calibration-short-c16-r1.log": "05c7789b6e515c0bb2ab9dc4a4a0dff44cabc5bb575a83632a5e8df8b34571d7",
+        "raw/calibration-short-c16-r1/api-feedback.json": "1031f640d0b4f311ed6cc043f73c4f0572d7eb30cd3dfd650595f35b6cd20a5c",
+        "raw/calibration-short-c16-r1/capture-config.json": "f49ef53eb2ce1463b22439116d1dbdfdc419a9a5aa0ac25c7ec4b5e558e9db77",
+        "raw/calibration-short-c16-r1/captures/sla-bb647f327d3e418a9b9910c4082b3369-r0-s0-tp0-pid8-5e3bc570197a42bb90bf8561402157a7.json": "41db744c7da44f78cad2344091340ffde9c1747242cb0cd55d73ec1d8bd63063",
+        "raw/calibration-short-c16-r1/captures/sla-bb647f327d3e418a9b9910c4082b3369-scheduler-r0-pid8-1134e5c84bbc4c6ab457f5f5223e9ffe.json": "a8ffbf85c88a0dca66bc69bd4966f27056a79a7c60fe823e4d2dce5d67f1a01d",
+        "raw/calibration-short-c16-r1/formal-progress.json": "cd4e3c21d3427f1807b47d7c14e85ecaa123c0d7088f67bfdeac1400c20ecf49",
+        "raw/calibration-short-c16-r1/observed-run.json": "afca733627d7a0ca720eda06c67ede6709c573e9d2019712c354d87c62dd6d3f",
+        "raw/calibration-short-c16-r1/runner-binding.json": "41db744c7da44f78cad2344091340ffde9c1747242cb0cd55d73ec1d8bd63063",
+        "raw/calibration-short-c16-r1/runtime-cost-capture.json": "495c338444eac1b84fca68d83b198643c5a8dd21556594dab0debfa05eedf4e7",
+        "raw/calibration-short-c16-r1/runtime-cost-dataset.json": "44c00a6bc479a1529b5af1a601e053a1aa01e251149be5d9152d5ff6b74d8445",
+        "raw/calibration-short-c16-r1/server-trace.json": "8635810869730ce9d4f7c18e8ef5f64239a60f994314c4e6305e08ea6964c286",
+        "raw/calibration-short-c16-r1/summary.json": "03121b8a26016b2bc3ba25de37ceb7c8f79b015f9224132da4a67c5b84497c36"
+      },
+      "path": "audit-calibration-1795504355773677466/calibration-short-c16-r1.tgz",
+      "sha256": "6130ccc2aa07349ab812f7144f0748b68aed27fa7c917264b65fc2df355a4f2f"
+    },
+    {
+      "bytes": 1297730,
+      "member_sha256": {
+        "calibration-short-c2-r0.log": "939795ec535667a6c44428eada8e5f9dd693b437a079ee8b40ec029f490a592f",
+        "raw/calibration-short-c2-r0/api-feedback.json": "32a9334005f431f3823f60d3a6ac74dca037d936e319e6a13692ddfb08e4afa7",
+        "raw/calibration-short-c2-r0/capture-config.json": "1fd7e62411a41a620847df44e5656736ed787c2018df9182f708d799a7d5ff9e",
+        "raw/calibration-short-c2-r0/captures/sla-c801583bc2bc4a3bb97ed605c01c57ee-r0-s0-tp0-pid8-ec15eb65752046fb91ee2a1f5af61302.json": "167ad79944438aa76f77d3fd48deb0a4aa3a5760b440a30fcfdb614cb99ad414",
+        "raw/calibration-short-c2-r0/captures/sla-c801583bc2bc4a3bb97ed605c01c57ee-scheduler-r0-pid8-5763e5981f284c2db3c201c28becda8a.json": "a2c50c65e617f82764dfe032775a1edad353f030cc59f86913accf1ec42d5166",
+        "raw/calibration-short-c2-r0/formal-progress.json": "6532cdf9a18728a727b13689afa8b1b282e72d5b5d509a5c0bbd2255b195c98d",
+        "raw/calibration-short-c2-r0/observed-run.json": "8f59c912bf56c81dbcae214f92681eefb5e94193e471c08e688cb4ecdedcbede",
+        "raw/calibration-short-c2-r0/runner-binding.json": "167ad79944438aa76f77d3fd48deb0a4aa3a5760b440a30fcfdb614cb99ad414",
+        "raw/calibration-short-c2-r0/runtime-cost-capture.json": "cc1db90cbe158e3cc9c7f2b0661eccc49e491703e3ddc5469f5f9b852f5a977a",
+        "raw/calibration-short-c2-r0/runtime-cost-dataset.json": "320d0137df8d8e170aebd0857df8fb1a452d1c74ac0d4fc7f6ba4c6d175c0aad",
+        "raw/calibration-short-c2-r0/server-trace.json": "032f5279f016d84d9903217dd45dad17511d86d2888643440586ff1b9048ad92",
+        "raw/calibration-short-c2-r0/summary.json": "9792058b8774538cc076127afbc2665f67a3452d5e136e9898f229296415dd73"
+      },
+      "path": "audit-calibration-1795504355773677466/calibration-short-c2-r0.tgz",
+      "sha256": "45930cf85e0b311881b09f1d9131c2821e26614cb4ca3673fe5e4b6ccaa70259"
+    },
+    {
+      "bytes": 1302735,
+      "member_sha256": {
+        "calibration-short-c2-r1.log": "0991ac7fb32e4d96eca98a8a3c2a56f37e6fec1c6bddd58747c0fd8014d8b798",
+        "raw/calibration-short-c2-r1/api-feedback.json": "ec0339a525a188aa0e927a9008842a86318ca473ac4d23a6db82f5c6f1363441",
+        "raw/calibration-short-c2-r1/capture-config.json": "d17f161ec55ed686bd5f49c49d789674ff9ab7250a160a0bdf021bee757fb608",
+        "raw/calibration-short-c2-r1/captures/sla-c3aab28a8b9449dd8177c0d67567ceaa-r0-s0-tp0-pid8-7b2e3bc516bb4735863e8b09fd54af43.json": "24410345da7dec34fb98568d77576d5d22bb08571068b812f1aac77016fdc942",
+        "raw/calibration-short-c2-r1/captures/sla-c3aab28a8b9449dd8177c0d67567ceaa-scheduler-r0-pid8-f92240dbaa4b4fcfb2d19d668467b0d9.json": "1457815f627a04f292debc97d719509936127aac7dc53b188702ba4be49a7efc",
+        "raw/calibration-short-c2-r1/formal-progress.json": "606bf208766f2fc8db363f9c2bd249e5e3f705729e947a78dce88e124b4eb286",
+        "raw/calibration-short-c2-r1/observed-run.json": "2cc71d8593374deee718a0726063b551f09b035b0c360ec66e13701e60a4f2e0",
+        "raw/calibration-short-c2-r1/runner-binding.json": "24410345da7dec34fb98568d77576d5d22bb08571068b812f1aac77016fdc942",
+        "raw/calibration-short-c2-r1/runtime-cost-capture.json": "5814a936d556e1d76c96ffd093b3e9ad5bd0800844df98ff10370de233a6410c",
+        "raw/calibration-short-c2-r1/runtime-cost-dataset.json": "7be9dd0efad22f65583cf999b99d966c6c6349437052ccb5038ee53389a44afe",
+        "raw/calibration-short-c2-r1/server-trace.json": "41a2dd139790550684a793fab26338f1c64277dfa2d2e5857d61d06709e87c18",
+        "raw/calibration-short-c2-r1/summary.json": "9b3a9bdf0c1fd2a2ba58697af38c46a7ca1b759a32e805445cb30758994657b2"
+      },
+      "path": "audit-calibration-1795504355773677466/calibration-short-c2-r1.tgz",
+      "sha256": "d6e1c8c35ea9c5622436a513239159ca3b018459e678e31d9f5836b34b061aaa"
+    },
+    {
+      "bytes": 662437,
+      "member_sha256": {
+        "calibration-short-c32-r0.log": "798fa50c909fb525a77e4d7d7faf007d642ea3007aa08d57625045238ae7ca29",
+        "raw/calibration-short-c32-r0/api-feedback.json": "ccbf29e42bb5ab0622e06ed3ae7a09f7b38c7f3bf264226af4338017e41a02e5",
+        "raw/calibration-short-c32-r0/capture-config.json": "584d938367d6ff2282852799af3b962e111d5021143d951a3e10507d92f6f144",
+        "raw/calibration-short-c32-r0/captures/sla-8c36e33956374c0b9acc30d119991865-r0-s0-tp0-pid8-134391fb66ea450598ab81f4ac0faef9.json": "592f8441dd93e4fbf2fece5d3b7a3a41387d8f0372790c9153d870747986597e",
+        "raw/calibration-short-c32-r0/captures/sla-8c36e33956374c0b9acc30d119991865-scheduler-r0-pid8-923ffd514820419f8ef046c29284f999.json": "35b8b3939b49677d16868332fa39fead6770612d05556196d985a78377af1f6b",
+        "raw/calibration-short-c32-r0/formal-progress.json": "51e912854f023d3ce75728b5df4a0bbbd188b2f622d47d6559d5078983356079",
+        "raw/calibration-short-c32-r0/observed-run.json": "2d38f6b68bbab608e89ac6668df4b0d693461549ed1012d9063c1a7af2f1b27b",
+        "raw/calibration-short-c32-r0/runner-binding.json": "592f8441dd93e4fbf2fece5d3b7a3a41387d8f0372790c9153d870747986597e",
+        "raw/calibration-short-c32-r0/runtime-cost-capture.json": "a9f5025041072c6c9728b4cd7b431386e8dca80ce69306f8a13ab5cbb53a7bbe",
+        "raw/calibration-short-c32-r0/runtime-cost-dataset.json": "03ba37e86048832389df19e440d82f7b038db71c4a31ffd2c1c128b354f2c2bf",
+        "raw/calibration-short-c32-r0/server-trace.json": "47fe3d912415de1b3a10d66f5d33bb71dc904cacefcb6145c850ad0e86d435db",
+        "raw/calibration-short-c32-r0/summary.json": "cbc0795876d0f70e0b1c0074aee967731dee3634384e1a25334f6e7899d6f131"
+      },
+      "path": "audit-calibration-1795504355773677466/calibration-short-c32-r0.tgz",
+      "sha256": "c38167f8964241525e3862330670176782c28f0b431e2fcd14fb0b8344b1a93e"
+    },
+    {
+      "bytes": 662569,
+      "member_sha256": {
+        "calibration-short-c32-r1.log": "af595603060ef63a5e0434349cdb11305a3ab71a8d50e32ae155eaf79a3e3cbc",
+        "raw/calibration-short-c32-r1/api-feedback.json": "a0bedda11da8faf58d5883d12717c6e06f56025b7e108df9e97fa78acff89949",
+        "raw/calibration-short-c32-r1/capture-config.json": "530ce4a664658478aeed810f18841f70a3c590272e123d42f06af025e4939bd3",
+        "raw/calibration-short-c32-r1/captures/sla-6cdb0de763c243cd8974228e1350a0ce-r0-s0-tp0-pid8-4245a57fe8394401938b731474c161a9.json": "c33a74140408818da0b1e130cd9ccc907ebc426c4d3b0778f863343b1955d640",
+        "raw/calibration-short-c32-r1/captures/sla-6cdb0de763c243cd8974228e1350a0ce-scheduler-r0-pid8-5c02117a6a33433d955325b60af2333c.json": "196d0ddf650b54322595251e9981deeed2e7af8d0bc91b33348a48851930cbce",
+        "raw/calibration-short-c32-r1/formal-progress.json": "210d6544051461ab5302f8b5cda9a88bae3c2b0ab1c1694305cf0fb5493eb81f",
+        "raw/calibration-short-c32-r1/observed-run.json": "e2efb9bde220cc4d51c835ea408247aa72cc3cf7bb440bd7eed02f8384a379e6",
+        "raw/calibration-short-c32-r1/runner-binding.json": "c33a74140408818da0b1e130cd9ccc907ebc426c4d3b0778f863343b1955d640",
+        "raw/calibration-short-c32-r1/runtime-cost-capture.json": "4c3624b6cc53e1114020a63394675a907200683762058d9a5bede20791195a8d",
+        "raw/calibration-short-c32-r1/runtime-cost-dataset.json": "e59c22bc665a75b9bee37c00599fe118784aa074a78aea4f8d9e59e289b4309c",
+        "raw/calibration-short-c32-r1/server-trace.json": "ae8b26a1cdbe06b4fece63b5e3c51b35bd3d11ea415d668cc29db210fc134698",
+        "raw/calibration-short-c32-r1/summary.json": "fcbc2fdf3eb7269fc6ecf39500e102c0e86854ce20da972dd2745207b7f42ab2"
+      },
+      "path": "audit-calibration-1795504355773677466/calibration-short-c32-r1.tgz",
+      "sha256": "75f7d97128d7cb9f2b61c2b28afadac8e97326ffcbbd7f337a935e4cadc1e025"
+    },
+    {
+      "bytes": 986059,
+      "member_sha256": {
+        "calibration-short-c4-r0.log": "2bb1b13c28b8911a4cf84b17ea8327bd01b1cc463bbb7e90019a3eb596c4a88a",
+        "raw/calibration-short-c4-r0/api-feedback.json": "1dc579a07aa3e981325c42da8f88cbb317a8e441e4becca03314f9b15a9f0564",
+        "raw/calibration-short-c4-r0/capture-config.json": "7878348b3b2561ee7bfe9bfd8c1c4da2550eafde9ec9917f0b6c289b7c2ea62a",
+        "raw/calibration-short-c4-r0/captures/sla-5e06389997a3479da62d2e822be370e2-r0-s0-tp0-pid8-9f33d11339304e7d9806cfa3ce309a09.json": "f2f6ec9d83c42999b1dc78786d29886c409e23d70c557242ff52dfaa572a7ad2",
+        "raw/calibration-short-c4-r0/captures/sla-5e06389997a3479da62d2e822be370e2-scheduler-r0-pid8-3267be4616304cb2a0bb34cde4405bdd.json": "00c37774183342b8a65e6c980b27159f840c42eccaab085dcfda9f35b49afc08",
+        "raw/calibration-short-c4-r0/formal-progress.json": "6330d9d2f2216674f241c6914c9ad70c6aa0dbe12c83b2d261ad173da93d5026",
+        "raw/calibration-short-c4-r0/observed-run.json": "e5de5f2c4de4d1e0b6ac936dcdacc6c4c8d5a8dccd6a94844e14bac373c73ef3",
+        "raw/calibration-short-c4-r0/runner-binding.json": "f2f6ec9d83c42999b1dc78786d29886c409e23d70c557242ff52dfaa572a7ad2",
+        "raw/calibration-short-c4-r0/runtime-cost-capture.json": "7f70a454ba015cebe0815402fde3bc23da1deccd8c80eec49ccb846eee07eb55",
+        "raw/calibration-short-c4-r0/runtime-cost-dataset.json": "6a72422967e6c18a7985b44db089d7df464ec56ccff08e30b78f1b13f8b178ba",
+        "raw/calibration-short-c4-r0/server-trace.json": "3acbcb65961f0419c905cfc49f52f41bec947ea337c6f6a7142565134d4b3dbc",
+        "raw/calibration-short-c4-r0/summary.json": "e540b93f9d28d95ef660aa7ef7a3f38f7bc51eb60967fa2403de157716d31edb"
+      },
+      "path": "audit-calibration-1795504355773677466/calibration-short-c4-r0.tgz",
+      "sha256": "c0d688956abe4979e16a6a2ed3730b0eef5b75cb8d3f1e56f929335089bfe479"
+    },
+    {
+      "bytes": 984725,
+      "member_sha256": {
+        "calibration-short-c4-r1.log": "1336877e02b6531c79c12e7abf5ad7b14f12f96dbeee11a8910fb3db54219304",
+        "raw/calibration-short-c4-r1/api-feedback.json": "8382c7778a7cc9dfd83ff1a13bf9f80231d029a2a48dd4ce20ab1d8f4a184e35",
+        "raw/calibration-short-c4-r1/capture-config.json": "554f4e49179894c0ba064cc600719c24780c929543ae6b56556ee7bfd33f3e8e",
+        "raw/calibration-short-c4-r1/captures/sla-89858ccc44d54f60b63e086446195012-r0-s0-tp0-pid8-a72b77d0e477409e949d67c98e827323.json": "7fc1e2209a2fb97aee21e78e1529a7495ee3558dc810dd466441efa20d512882",
+        "raw/calibration-short-c4-r1/captures/sla-89858ccc44d54f60b63e086446195012-scheduler-r0-pid8-105667c59c5049e3b830be1e2636d49f.json": "8e13c59e34f73131bc448bcea397ebcbdecfdbb9bbec81bc1a04195c1bd2b088",
+        "raw/calibration-short-c4-r1/formal-progress.json": "05750518c2839f6cae602b791abd81f7d4b530dc6fdb765a9f5725ef6173255f",
+        "raw/calibration-short-c4-r1/observed-run.json": "c29b168511202a60f444f2f6e4d3bb400e4182e9a74f8c8cba2fe1414f4bdb8e",
+        "raw/calibration-short-c4-r1/runner-binding.json": "7fc1e2209a2fb97aee21e78e1529a7495ee3558dc810dd466441efa20d512882",
+        "raw/calibration-short-c4-r1/runtime-cost-capture.json": "9c9b7f974302ab8651c8c8404bf3476a25fd12407abb3b990f1828a634cdb971",
+        "raw/calibration-short-c4-r1/runtime-cost-dataset.json": "045044063ba170ba213f3e2a1f7caa9df1104fc071e528a3185c9ead862d306c",
+        "raw/calibration-short-c4-r1/server-trace.json": "0ccad65b21173ff35932ce0e4a159c5de1fdb996017f1847a1f81023c61fc774",
+        "raw/calibration-short-c4-r1/summary.json": "200bbbd86d2cabef74b264fdeea8904ebe5155db2b601afeac35b0d6c675cdd7"
+      },
+      "path": "audit-calibration-1795504355773677466/calibration-short-c4-r1.tgz",
+      "sha256": "bf1e066477f6d83d3057f8b851c35a98d86aa463b5dccd65e42f5f2049595deb"
+    },
+    {
+      "bytes": 772581,
+      "member_sha256": {
+        "calibration-short-c8-r0.log": "731089b8fc278090756700011e83808550ac889501a4b8ac80cf9829bd7285fe",
+        "raw/calibration-short-c8-r0/api-feedback.json": "8daa344341afa0720f93d0f99dae52082fd8343a52ee6ff0a2359670ad7738cc",
+        "raw/calibration-short-c8-r0/capture-config.json": "713e4f48a9f2b2b12ebaff070161bdd15c2609cd3ea2ef6906055316ec1fa0bd",
+        "raw/calibration-short-c8-r0/captures/sla-1fe98980a0584afb9017e5578d023104-r0-s0-tp0-pid8-01a1aa622c4949bc8bb767ed129d8a5f.json": "f388c3fdd36493d277c356b8575304e898c4134342d5d1e09812878c2c366286",
+        "raw/calibration-short-c8-r0/captures/sla-1fe98980a0584afb9017e5578d023104-scheduler-r0-pid8-dd193ec2f9584754a7879c82020ec64f.json": "5a885b985a514b6710d049b1187966d25f21f64eb7e06dad08b81538cc8c717e",
+        "raw/calibration-short-c8-r0/formal-progress.json": "8841fc041e24965a1b6bb21c049d766566297e9cd67baca781fe346ac5b7a7c3",
+        "raw/calibration-short-c8-r0/observed-run.json": "87497dacfb9cc82f9a1a1351b0c8e0f59b3eeb8df5a1973eae91fda2f813dc23",
+        "raw/calibration-short-c8-r0/runner-binding.json": "f388c3fdd36493d277c356b8575304e898c4134342d5d1e09812878c2c366286",
+        "raw/calibration-short-c8-r0/runtime-cost-capture.json": "c0ba4d2dbef3f92aa0b2614e18ebf7d04d304affff06c0056c1dbc2ae92c3e98",
+        "raw/calibration-short-c8-r0/runtime-cost-dataset.json": "bf759e2759dc84c3c75ef33c2b2d92d97a994f3a0abd799a7af526d9873ddf37",
+        "raw/calibration-short-c8-r0/server-trace.json": "d35957e0033467c36e2e463e9947dcb5b8e62616c736fd09f37771df54e6df6e",
+        "raw/calibration-short-c8-r0/summary.json": "04756fe5560fe71dabf0a8d231975241bc8a627b3b8e54f474a676b27255cf8a"
+      },
+      "path": "audit-calibration-1795504355773677466/calibration-short-c8-r0.tgz",
+      "sha256": "b3cb2374979ddf656c15f46bf3ac2b91ac196be2c4e8d45eb6eb7eb4ada2695d"
+    },
+    {
+      "bytes": 764858,
+      "member_sha256": {
+        "calibration-short-c8-r1.log": "20d424a2f70269d24e85934532dff17ae2750ee43b07bb69f75a663789c5ad70",
+        "raw/calibration-short-c8-r1/api-feedback.json": "02989893dbb227b7d2e0dee4d774dd96fdf2b022835dbdf89868be674cd5e4fb",
+        "raw/calibration-short-c8-r1/capture-config.json": "b7e3a65601fec1434871bae27d3c53f1f1c9215f91b37929bec8e9da29ad739a",
+        "raw/calibration-short-c8-r1/captures/sla-67fbbf3fe9c24c359651a9fe29d0061c-r0-s0-tp0-pid8-dbcbc60a03bd4173b050a1a246fa7c01.json": "b07be30c754acb1003139c06443a0342a8b7e51790e0479514e1760bf3bc73c8",
+        "raw/calibration-short-c8-r1/captures/sla-67fbbf3fe9c24c359651a9fe29d0061c-scheduler-r0-pid8-73423e3230e04fbeabf45dc73ebd51cc.json": "d9eef2b1051deced44df7be774a3392d61476dd0e2518fcc962b6b28ab75219f",
+        "raw/calibration-short-c8-r1/formal-progress.json": "3f408d6dce8b74b6134987ff32470f562c6c64890f395b467e607c6bb796575f",
+        "raw/calibration-short-c8-r1/observed-run.json": "9a9136eb7823cc2d989c0f80e721d679613531a015cfbeca9bf156a40e933ff5",
+        "raw/calibration-short-c8-r1/runner-binding.json": "b07be30c754acb1003139c06443a0342a8b7e51790e0479514e1760bf3bc73c8",
+        "raw/calibration-short-c8-r1/runtime-cost-capture.json": "77c78d6ef2a05e0d82b9813103bb370014e0ce1417372cebf47c5d74dd704e81",
+        "raw/calibration-short-c8-r1/runtime-cost-dataset.json": "4722c022c6aee00a93c27e31cdbdc221220e69447dff3d1deb0ed477cf9c2c9e",
+        "raw/calibration-short-c8-r1/server-trace.json": "a29a159adc323f17a44c322e86effbf5e2dbf13410d4c3145ba2952b2b36c840",
+        "raw/calibration-short-c8-r1/summary.json": "a2500d8dc8d68c4d43bbb82246ed62c99fd17005436d8a080b752a1370719b25"
+      },
+      "path": "audit-calibration-1795504355773677466/calibration-short-c8-r1.tgz",
+      "sha256": "369742c143b78f53db8d3813ff808380a125af5666b869bf2eaab88c958316fc"
+    },
+    {
+      "bytes": 1814012,
+      "member_sha256": {
+        "holdout-baseline-c1-r0.log": "315a820cf051a5b9ded03cdd97571d8fdcd8f5d8b2854ed071729f1ad207ef38",
+        "raw/holdout-baseline-c1-r0/api-feedback.json": "4e53fb1e538ec70e93cb02e2c4c1fca04dbb02d9e4a71c0a3b5be1cba10f7cd8",
+        "raw/holdout-baseline-c1-r0/capture-config.json": "690af98ad3b81c85b6298547049b16e9368bb4e481b00489211d4b04b502c04c",
+        "raw/holdout-baseline-c1-r0/captures/sla-de1fa6f7309b4485befca6377f0198d0-r0-s0-tp0-pid8-ad53ef6d1535487897bfe7ee114bd06f.json": "4bb5dfe6b2b270f67ad82825fb2aa10d15c47fe7c9ea63b3b922eedb6ad32acb",
+        "raw/holdout-baseline-c1-r0/captures/sla-de1fa6f7309b4485befca6377f0198d0-scheduler-r0-pid8-400ab22ccdbe4e658c4dfda9d54780c1.json": "0fab0d6ac8d949a1759f1dd70af0f518ba4fb4e82c781b4c6ce54d2133666493",
+        "raw/holdout-baseline-c1-r0/formal-progress.json": "41621cfc453fc9531046e799c1636a6a312bdeb5d5d3221b44c63ff6e6982e0b",
+        "raw/holdout-baseline-c1-r0/observed-run.json": "7cfd57058c60e26158f05b42f59bf075542f8b035827e4e0fe90f89c3aef0a36",
+        "raw/holdout-baseline-c1-r0/runner-binding.json": "4bb5dfe6b2b270f67ad82825fb2aa10d15c47fe7c9ea63b3b922eedb6ad32acb",
+        "raw/holdout-baseline-c1-r0/runtime-cost-capture.json": "609f6edf8da9b635691e52321ff5e2833aa8950a4769c9b2454d340ebc4fb588",
+        "raw/holdout-baseline-c1-r0/runtime-cost-dataset.json": "4198171a25532cdde6bd391e664199c4c5b5bc8ed18a02c59e2b56d1d3690957",
+        "raw/holdout-baseline-c1-r0/server-trace.json": "1606e86f21c82c83df25fc7c55e1d97ecce12c4ff390ec304e0e3271b0a7bd05",
+        "raw/holdout-baseline-c1-r0/summary.json": "cb30a1b74a4c81aabc92f67b037b07410b4b82898987f50faed4959872288c5d"
+      },
+      "path": "audit-holdout-1795507291898848291/holdout-baseline-c1-r0.tgz",
+      "sha256": "518c11e4c7d61b94f057b3e592fbc88ca60bb532e98861d9e9538a30b4b64822"
+    },
+    {
+      "bytes": 680733,
+      "member_sha256": {
+        "holdout-baseline-c16-r0.log": "38d226204442cbf5a1e7195190bbcbf506b7ece00920b42d26d57ac4eb96c1ef",
+        "raw/holdout-baseline-c16-r0/api-feedback.json": "8f227d207a6cd48cfcbbdc014e6aa895a2af1a7d94e742b940c9f017581b26ff",
+        "raw/holdout-baseline-c16-r0/capture-config.json": "c62944335376a4aafe1379e9380a6aa2b1daaa4349a84466424005390b03ca15",
+        "raw/holdout-baseline-c16-r0/captures/sla-944dfd5b765f416ca6efddf36e4a7b27-r0-s0-tp0-pid8-69cb52d444de40a5a484721ea65f49f3.json": "ad18dd0da0ff0108052c9fed2cfa04404c200f3581c16148b51286fcc175d257",
+        "raw/holdout-baseline-c16-r0/captures/sla-944dfd5b765f416ca6efddf36e4a7b27-scheduler-r0-pid8-e515ec7b589d49c7b0bd474a6621985a.json": "441de20ccc4dda4b055e1df35246390c2b3247098a7b67996131cd3f06209b67",
+        "raw/holdout-baseline-c16-r0/formal-progress.json": "78875e2e79764561827717c84b0afa201617e75ba9305125337bb4806b8c8cc4",
+        "raw/holdout-baseline-c16-r0/observed-run.json": "8b0be679dc98c55b8ae154e3918e503737916d6cdaa4e7a21bec0718cf45950d",
+        "raw/holdout-baseline-c16-r0/runner-binding.json": "ad18dd0da0ff0108052c9fed2cfa04404c200f3581c16148b51286fcc175d257",
+        "raw/holdout-baseline-c16-r0/runtime-cost-capture.json": "618438f9163cafa298e8362fda84ac8727d5aed5b07a0a9b62f3313e234e4ee1",
+        "raw/holdout-baseline-c16-r0/runtime-cost-dataset.json": "2274b3ae000d18eb660f645012ee5f06296396f78df85f65594e442adce8666f",
+        "raw/holdout-baseline-c16-r0/server-trace.json": "2c7179249faef314300781e3edb57b89c1dfa6f0e8cf93ed343a8bd83aa8527e",
+        "raw/holdout-baseline-c16-r0/summary.json": "5bff1f977540079dbb25cf0c66adab8a61ab51bcc22e8b683bbd8f46df2de5b5"
+      },
+      "path": "audit-holdout-1795507291898848291/holdout-baseline-c16-r0.tgz",
+      "sha256": "c2d43ea345b63a18f93838f03bdfc060e1b99c5f3d73e9a7da37ec6050c2f32b"
+    },
+    {
+      "bytes": 1242804,
+      "member_sha256": {
+        "holdout-baseline-c2-r0.log": "b55dceb326d0cfcb041b876bb1b839e6b8c92b9543ab1f268ec22c9e877baf31",
+        "raw/holdout-baseline-c2-r0/api-feedback.json": "5d840e3495ef46e12c79bc01ace5d01cad54531ec627bb62375cdfbd31c3b0f8",
+        "raw/holdout-baseline-c2-r0/capture-config.json": "a5a13fe8881ae1618120587d777af7e1f6dc2d14bde993a275d20c3b5a56da5d",
+        "raw/holdout-baseline-c2-r0/captures/sla-ef4d6e5b0f15451caec3d2b408e740ad-r0-s0-tp0-pid8-60310f9709cd410c9ed97f6e802afedf.json": "2179111f389a1b48b1ef5042ba405e3cc6b2172e9d995076c4efd23221e8acad",
+        "raw/holdout-baseline-c2-r0/captures/sla-ef4d6e5b0f15451caec3d2b408e740ad-scheduler-r0-pid8-b6e681f9cfc94f4fa2951ba6bb0c2da2.json": "05544543736acde768282506cb8293252a6b45b6350dcfb939f7ea477733e047",
+        "raw/holdout-baseline-c2-r0/formal-progress.json": "a68723434cbb96f2b9817ea97350b12f922991e6f1a340a538c19ed247b91f02",
+        "raw/holdout-baseline-c2-r0/observed-run.json": "d0505e9253f203df7a227f5ee0c77bfd998ad33c3e483091c4412eb9629b9f5f",
+        "raw/holdout-baseline-c2-r0/runner-binding.json": "2179111f389a1b48b1ef5042ba405e3cc6b2172e9d995076c4efd23221e8acad",
+        "raw/holdout-baseline-c2-r0/runtime-cost-capture.json": "e7abd6b033739a369cf253db308d6d64aed3fa713c2557b287caf5696b184301",
+        "raw/holdout-baseline-c2-r0/runtime-cost-dataset.json": "2d7dde780c2293d40fbbd110c6f1bc7ff616ee921a86a7ded4958be2629fdab7",
+        "raw/holdout-baseline-c2-r0/server-trace.json": "82a34fb2ce05a227058def0c9340feb42477901fd3de7ec0d469076d110b2b38",
+        "raw/holdout-baseline-c2-r0/summary.json": "ca3bb0237140740ee787751009a49691399c9072177079f55bcb15ef2f1269b0"
+      },
+      "path": "audit-holdout-1795507291898848291/holdout-baseline-c2-r0.tgz",
+      "sha256": "9c08e4e1cdc96da169b8496942effb2b77f0073b25ad0822f67097a438a1f4dc"
+    },
+    {
+      "bytes": 679643,
+      "member_sha256": {
+        "holdout-baseline-c32-r0.log": "6a0d4b37399a747e814c75d3dc8cd12f1c2940098df71b6953249f923be654e5",
+        "raw/holdout-baseline-c32-r0/api-feedback.json": "89f3a46bf11709981d7c01bbf33b374ba5093e5a895dfc0ef8387a3eeacdd56d",
+        "raw/holdout-baseline-c32-r0/capture-config.json": "8cbf1594aa61c7d83b964527aec85656ea51527f9ec29e5704534444718d5cfd",
+        "raw/holdout-baseline-c32-r0/captures/sla-21622e2b57ed494abd5d8012e6dafbbe-r0-s0-tp0-pid8-f2c9b98d4f1e447eadc58953e69fb46b.json": "b5780d711b9b9e3c243ae1d951372243a86691e25f6964e6ce1ae970009c426f",
+        "raw/holdout-baseline-c32-r0/captures/sla-21622e2b57ed494abd5d8012e6dafbbe-scheduler-r0-pid8-9d9d022e403b4d8fbf6ba7b335e06f92.json": "b7416d26ae915f1e77d06589461fb5a2936aa8e630dd73ac42b2115e82b0a2d7",
+        "raw/holdout-baseline-c32-r0/formal-progress.json": "aa5f2c04747e80160abdb216827d47c280b10e566c0d204c7cd9c58a758aaf02",
+        "raw/holdout-baseline-c32-r0/observed-run.json": "feb414e033925b3e41845a36dddfe1fc4ef46e47e81f6a9373bce1cbfaf21e2c",
+        "raw/holdout-baseline-c32-r0/runner-binding.json": "b5780d711b9b9e3c243ae1d951372243a86691e25f6964e6ce1ae970009c426f",
+        "raw/holdout-baseline-c32-r0/runtime-cost-capture.json": "31ba383fcf2bca1c2141c41d6e380c3e1789fab10f6785477b3d57ae35008a90",
+        "raw/holdout-baseline-c32-r0/runtime-cost-dataset.json": "4118f24ee1d8b0aacbe5e6250dfc36f3e7d6e2ea723385f6c6111c18eb1f23f1",
+        "raw/holdout-baseline-c32-r0/server-trace.json": "41d9570fab5eeaae7b61c984e746c5b3bc2ff2fbf74db8926275c8711f768a94",
+        "raw/holdout-baseline-c32-r0/summary.json": "4b8bc177e890cbe2eb427ee4cb9c5de8083ecf0163a634ac33f7c24ba914b05d"
+      },
+      "path": "audit-holdout-1795507291898848291/holdout-baseline-c32-r0.tgz",
+      "sha256": "8bbbe60075e13d77b75eb1f7826d51947067c4bb74fed43deba760c5f812f282"
+    },
+    {
+      "bytes": 902143,
+      "member_sha256": {
+        "holdout-baseline-c4-r0.log": "4e06554f3ef6a79fb089d491f4c96595721ad2b4e7b7da5561359386d35f8944",
+        "raw/holdout-baseline-c4-r0/api-feedback.json": "300b86dececc791345bb5fdeb303ab65543f78b45449e78bd2cbe9369b8fa878",
+        "raw/holdout-baseline-c4-r0/capture-config.json": "c281730fb374c8c68de3e53aa4c9542aced2522fc8afd5adbe5690a0fd88b474",
+        "raw/holdout-baseline-c4-r0/captures/sla-efe18120b31c486bb7a53756ffbb66ef-r0-s0-tp0-pid8-31b7fea896a64242a7b8179f9e4e168b.json": "fff8dacf0cdf80fefab314353c4ce7853493dc4c4ee90f0e109fbc9952aa37c9",
+        "raw/holdout-baseline-c4-r0/captures/sla-efe18120b31c486bb7a53756ffbb66ef-scheduler-r0-pid8-75b0adc2dcfa4dd5aa12a957642fae92.json": "5d389b415035e9d5bdff2273dde41d1a64ad2e884296e54ac860e7c37ef2636f",
+        "raw/holdout-baseline-c4-r0/formal-progress.json": "e807dcd5ec5d4e62863a863d90343e7d7c5509562b61d150492575651e40dc66",
+        "raw/holdout-baseline-c4-r0/observed-run.json": "cce07223de49082cf83b1c3b8c00b60151225309174f5540994161199e8d4e31",
+        "raw/holdout-baseline-c4-r0/runner-binding.json": "fff8dacf0cdf80fefab314353c4ce7853493dc4c4ee90f0e109fbc9952aa37c9",
+        "raw/holdout-baseline-c4-r0/runtime-cost-capture.json": "f9b98c029832daacc62f9187073ab2932f95dbe233e738c7eaf39c0bf8c67427",
+        "raw/holdout-baseline-c4-r0/runtime-cost-dataset.json": "9a4cf7f30bdad4b3cac18054d0741c59f731a84636c928f1468d0bb4f332d234",
+        "raw/holdout-baseline-c4-r0/server-trace.json": "5fe1a82bbcb664b6018217e812ead3a398b95adadde44bf981c39618fcc24cc4",
+        "raw/holdout-baseline-c4-r0/summary.json": "164a3f49ffea9f07bb102547e061c815a4631e4eb18c968d85d888abeed99dda"
+      },
+      "path": "audit-holdout-1795507291898848291/holdout-baseline-c4-r0.tgz",
+      "sha256": "dd4edb12f2426ed361156b6e164a5480455a45bab456787c900c30bc55d1a466"
+    },
+    {
+      "bytes": 734591,
+      "member_sha256": {
+        "holdout-baseline-c8-r0.log": "7006503b05c3a864f43d21698012037841b0a070929edd0296f2d80910f73b2b",
+        "raw/holdout-baseline-c8-r0/api-feedback.json": "519572d0dd317ecc5f15b674b5683d5408ed4cc3e2695bbe1068ba8d9c700274",
+        "raw/holdout-baseline-c8-r0/capture-config.json": "d498b0f48a8ee58338ea6f955759156747ce82acfb42c3a6c78234cdea72befc",
+        "raw/holdout-baseline-c8-r0/captures/sla-025a088ec311458bbc067f7e45172478-r0-s0-tp0-pid8-c31078db51ff40c0b7b8fd23343d955b.json": "a3f9c3996e0b8e4ab9d45265686c3a28ee8e9a6617436a84272a6868a5c98b78",
+        "raw/holdout-baseline-c8-r0/captures/sla-025a088ec311458bbc067f7e45172478-scheduler-r0-pid8-2c99b5468c7d426f8df2455db8a5b850.json": "860883bd6f732bd4abcf57575e9eba9c2fe6be36aa086f224bdcb180c5e2b541",
+        "raw/holdout-baseline-c8-r0/formal-progress.json": "55b1b79a53ba1a9461928be9fe82ec0ef17bab0549595604073bf3788fa2e0fd",
+        "raw/holdout-baseline-c8-r0/observed-run.json": "b6b73f0d296bfdc1410f258df0347490a517fa00f85d9bfce5e2aa6eb41a59b9",
+        "raw/holdout-baseline-c8-r0/runner-binding.json": "a3f9c3996e0b8e4ab9d45265686c3a28ee8e9a6617436a84272a6868a5c98b78",
+        "raw/holdout-baseline-c8-r0/runtime-cost-capture.json": "d1631534fa14b701ed13416f2a2aba9f6cd5500be608f43e3511d435ddf40ffe",
+        "raw/holdout-baseline-c8-r0/runtime-cost-dataset.json": "85c6fdcbddea40b75842856b71fc59244b1f508932511bccd657eea49a3323fb",
+        "raw/holdout-baseline-c8-r0/server-trace.json": "f148c61ed901664deaf0fe493115ac0080f21657f16e4eee5493f0ddef71798d",
+        "raw/holdout-baseline-c8-r0/summary.json": "b92efef288a76e88b3fa30f41c3673b4df9743a8c3a3cda0c9a41dfd7aff3b84"
+      },
+      "path": "audit-holdout-1795507291898848291/holdout-baseline-c8-r0.tgz",
+      "sha256": "3d03d31c76b5b246383c96d70dfdcf79831422aeb18a3145d80053d1ecf48e82"
+    },
+    {
+      "bytes": 1915551,
+      "member_sha256": {
+        "holdout-long-c1-r0.log": "6c45d7f4c7677ef3570bfc92e9c51fbc9d0d1bb27da863eb5fccb81df7d588f4",
+        "raw/holdout-long-c1-r0/api-feedback.json": "60f5ec0bc679f0628f4c4cb05e8f1a8aee21c1474db7efbc5dc37d62917f0190",
+        "raw/holdout-long-c1-r0/capture-config.json": "8272239efed1875bf8e204061d8b686f752337491dd17b937382ede04df4ba85",
+        "raw/holdout-long-c1-r0/captures/sla-1cc490f9e54d435792bc41eb0309cff1-r0-s0-tp0-pid8-d68c09a0f05948bfb2bcf396ea3030f0.json": "9f3b5dd053fe08289decf0dddd9f5c7df263e8498114e46ae4e94d6b028f9e06",
+        "raw/holdout-long-c1-r0/captures/sla-1cc490f9e54d435792bc41eb0309cff1-scheduler-r0-pid8-ca9a4676fbf84077a8173edcd7b7f581.json": "8fa77a2abefb064240448ae6a945d7c0b5d5b11ee1c15c5f8d16e3068e67b73a",
+        "raw/holdout-long-c1-r0/formal-progress.json": "fdea1de3928dfc1da6c4e651e49cf04102a057626aaacda7104af0b82c34d588",
+        "raw/holdout-long-c1-r0/observed-run.json": "9cff5afac5b77c4a95d915bb902bc852cf64e01c81824225448590820b6f0e46",
+        "raw/holdout-long-c1-r0/runner-binding.json": "9f3b5dd053fe08289decf0dddd9f5c7df263e8498114e46ae4e94d6b028f9e06",
+        "raw/holdout-long-c1-r0/runtime-cost-capture.json": "ed80ef07c627e7b1c1a802bb6e45d8e67b7ad5f872c2f5df2923904e9a30a96a",
+        "raw/holdout-long-c1-r0/runtime-cost-dataset.json": "3a574d671f126f81c897667095b215ba2c0d2b9955f21f651e45ed29789ade92",
+        "raw/holdout-long-c1-r0/server-trace.json": "9c82fab545df9c205024e49c03c250629fa0c3ca5bd9b4c4e45b066b6a0de8cd",
+        "raw/holdout-long-c1-r0/summary.json": "11155f190fc621e19ff954dada2e814d738de78fb05a2e4ef163627ceb8e7b4a"
+      },
+      "path": "audit-holdout-1795507291898848291/holdout-long-c1-r0.tgz",
+      "sha256": "1f371d872ecefbd51a6a3afc3cdbbbb75d376622d9a01baf93edf0d359e56477"
+    },
+    {
+      "bytes": 841457,
+      "member_sha256": {
+        "holdout-long-c16-r0.log": "c0f37d50df20846defc5c2717e2b7738b14193865f8fc39a579d728b271d3cef",
+        "raw/holdout-long-c16-r0/api-feedback.json": "664467483257e06b7d2492723e97cf6e2979a130b6cd2f2ce20e735e5b70b302",
+        "raw/holdout-long-c16-r0/capture-config.json": "1d532afd7e768a6540a8b0f71a31830aada836a5e2a673c2d2bfd59b11c15a05",
+        "raw/holdout-long-c16-r0/captures/sla-08294c36bdca43cd9979c1f95115735c-r0-s0-tp0-pid8-d783e4681f63451bb54806394a9659ca.json": "b127c15017a28131bdab38b32fce16815191571d77feee5946444af5eda919ad",
+        "raw/holdout-long-c16-r0/captures/sla-08294c36bdca43cd9979c1f95115735c-scheduler-r0-pid8-30d6991c674143948dfcbd1a01709b13.json": "f12c8f45fbfa0ee188615ffbed4f1992d9aa7b0489bd6c1e64fbd04476d88beb",
+        "raw/holdout-long-c16-r0/formal-progress.json": "4486297bbddc12d896cf1d7eb73e2eec784232143f5831dcd6af3cec69d5b27e",
+        "raw/holdout-long-c16-r0/observed-run.json": "cfc0cbc171121736969c96d405ef5f88b641ee64790eae57d9fc18c3aa9909e9",
+        "raw/holdout-long-c16-r0/runner-binding.json": "b127c15017a28131bdab38b32fce16815191571d77feee5946444af5eda919ad",
+        "raw/holdout-long-c16-r0/runtime-cost-capture.json": "33580c1a3ba723e77cca06e46607586e4723f368fe807d8f520bf9ce6485fa60",
+        "raw/holdout-long-c16-r0/runtime-cost-dataset.json": "41e896b134b5e40c672e252c0fe500ee02025b11a1ac1880e3fcf4af216227a8",
+        "raw/holdout-long-c16-r0/server-trace.json": "a0711a2751b5c5ecd14f77bf40a4939719262e1b2a83ee4e8c09215baf0a2fc7",
+        "raw/holdout-long-c16-r0/summary.json": "8752ab84fba99aac45f8d0bda7e19c1720ea35bd5edcad923b970328fd5167f8"
+      },
+      "path": "audit-holdout-1795507291898848291/holdout-long-c16-r0.tgz",
+      "sha256": "450f3c56fe11a20afad99e3779e6b9741391db25e75e420af5d80fc514b3a81f"
+    },
+    {
+      "bytes": 1379493,
+      "member_sha256": {
+        "holdout-long-c2-r0.log": "a4a1dc8536e9dd39a32c71bcb007b4a25a4cffc0e5d218f547671cd33b94aa05",
+        "raw/holdout-long-c2-r0/api-feedback.json": "de39f55b05a4878115eb8f554044e6fd81a6bfd789a08f3c38a3aac44b3dd8d2",
+        "raw/holdout-long-c2-r0/capture-config.json": "24ebb6f16546fcec9628c2f5b3408fc12a61159ad0559afb0c2442cbc3ddbc8e",
+        "raw/holdout-long-c2-r0/captures/sla-2779eeebec044a5084fd3931c877d324-r0-s0-tp0-pid8-475aeca397a54c7c9632ea97b2ec1309.json": "e849a38c8e098bcf68abd37d042f65d9942e658e83394bd2392ad6e5dd3c85f7",
+        "raw/holdout-long-c2-r0/captures/sla-2779eeebec044a5084fd3931c877d324-scheduler-r0-pid8-e24679084c98454a862b19278a1a4f0c.json": "4243bd583f365b3fa48c0623cdc0d1103f9cd55ce8a5878e7f574fb709abbb39",
+        "raw/holdout-long-c2-r0/formal-progress.json": "b47cc159f42c66d475e3ac57cd29c6007a6745530241b0e9eedeb0060e92278b",
+        "raw/holdout-long-c2-r0/observed-run.json": "c30f1c414ea38dee00b6c751341a93fb7355b23239a3d9ad1df55a08a590df9c",
+        "raw/holdout-long-c2-r0/runner-binding.json": "e849a38c8e098bcf68abd37d042f65d9942e658e83394bd2392ad6e5dd3c85f7",
+        "raw/holdout-long-c2-r0/runtime-cost-capture.json": "46c88faa3eb1bc5d49107fd2f7263350e9b42f9f9afeced6cc4b64c62011b57e",
+        "raw/holdout-long-c2-r0/runtime-cost-dataset.json": "eec75eb2f8fd5b3068f62c7198553a59fd455e6811088331d8737fcb78950698",
+        "raw/holdout-long-c2-r0/server-trace.json": "7b2ccc516bc3b3226ca9d858842a4691f3866509bc0af7a4376b8d275a37123a",
+        "raw/holdout-long-c2-r0/summary.json": "cac26f361e7df7084bd787f9c467aa5c8afd10da3ffadcb37316b126151d8b75"
+      },
+      "path": "audit-holdout-1795507291898848291/holdout-long-c2-r0.tgz",
+      "sha256": "2bd61f3536096db2d8f92afedd40f3fdfc49b89c1083a8dca96a4b21df70b1e3"
+    },
+    {
+      "bytes": 841219,
+      "member_sha256": {
+        "holdout-long-c32-r0.log": "3be6d1585c8921686dbd6bf1b42736a32e37f8cd21231b9a1eaa82d6aa60db12",
+        "raw/holdout-long-c32-r0/api-feedback.json": "831f4c44bc9a53c47c639b976c6d03db4d9a26e7b471cc4dcafea5cbb906bbc2",
+        "raw/holdout-long-c32-r0/capture-config.json": "a516aebea251766652e7ae1e42764c9abdb1eca71e9b5dd77452ab4020676e9f",
+        "raw/holdout-long-c32-r0/captures/sla-3b5f103193ef4af49df8a3a1a4bdf54b-r0-s0-tp0-pid8-f92d95292f20482c8a1ef45c5e3d0a9c.json": "c0a45ab78696b485875832c82b616f89f558e7a4b5a4c0fe7fa5ec4103bcdc78",
+        "raw/holdout-long-c32-r0/captures/sla-3b5f103193ef4af49df8a3a1a4bdf54b-scheduler-r0-pid8-2768106f9d094b3d8b9c20a26432adeb.json": "646f676c34f73fd38e50003f4fed5119ebe7d719e3c43455a091050680d74ec8",
+        "raw/holdout-long-c32-r0/formal-progress.json": "d29a373aa3ba7328f76d9bfc4c3020ab69ff72973e2d18365822589d4f6c6bf5",
+        "raw/holdout-long-c32-r0/observed-run.json": "0bdd761fca2d950ec63ab7c93963b5db9b35bd914675e554b1f06e90ae0fe14d",
+        "raw/holdout-long-c32-r0/runner-binding.json": "c0a45ab78696b485875832c82b616f89f558e7a4b5a4c0fe7fa5ec4103bcdc78",
+        "raw/holdout-long-c32-r0/runtime-cost-capture.json": "3390d6ff2de0615eebf2ecc8c41a343ca2b4eec7ef77f0b302e35ec4227b3f06",
+        "raw/holdout-long-c32-r0/runtime-cost-dataset.json": "0f05b7a8095a9ff854ea7fdf13b4a638109c38a4bc3c8a7e691985d5d743d458",
+        "raw/holdout-long-c32-r0/server-trace.json": "14403577bd1dab7bad55b4c9abbae888a4c24c6a823f886df897b3afeff1a315",
+        "raw/holdout-long-c32-r0/summary.json": "8a5d83f9a1f82150ec9c98c6aa1f188d9fe39d52a53f842421280ff106e12076"
+      },
+      "path": "audit-holdout-1795507291898848291/holdout-long-c32-r0.tgz",
+      "sha256": "edb7032d27dde407261a167a0e82803102aeb59c54b282594aadee6ed4ae3210"
+    },
+    {
+      "bytes": 1138072,
+      "member_sha256": {
+        "holdout-long-c4-r0.log": "d663a42dc5fdb9af3b4604c91c1c5a7fe52d7a7635a3c17ce3299542c7de72c8",
+        "raw/holdout-long-c4-r0/api-feedback.json": "9a0dd4089a1e38f698c2495a0ac7bfaf237c14bae3ee96d1cf9b642673c76db4",
+        "raw/holdout-long-c4-r0/capture-config.json": "63614f168bc798cdca5230d89f606a5db7aeb92b6655915d3d502d141c310138",
+        "raw/holdout-long-c4-r0/captures/sla-be5ec154090b4800bcb9b7fbadd2885c-r0-s0-tp0-pid8-e433af607d134f2f8815cb5cec0b39ab.json": "46cbb0951d8e5942828e6b6286453c6dff42b8515df6cd653af23d7c6c92dccf",
+        "raw/holdout-long-c4-r0/captures/sla-be5ec154090b4800bcb9b7fbadd2885c-scheduler-r0-pid8-07d6869f60eb43dea8ee8cddb2241de3.json": "5321def2bcc8b4a258a9bd4d5f9231da995643cc9c5ce4d2f4c9d59ed9aad38e",
+        "raw/holdout-long-c4-r0/formal-progress.json": "6577d03bf26335901cd7013856995f0cd677a2ff08ddac3f6516a2fdbe10fd42",
+        "raw/holdout-long-c4-r0/observed-run.json": "eca8740e9dc9524c621b5789d328b7d0415382afdc8552cedd8d234da6cab68a",
+        "raw/holdout-long-c4-r0/runner-binding.json": "46cbb0951d8e5942828e6b6286453c6dff42b8515df6cd653af23d7c6c92dccf",
+        "raw/holdout-long-c4-r0/runtime-cost-capture.json": "3a2e022fa4b89cf9a7d41485628514fe3e4a2e0ffdbfc3600f48927c57af108b",
+        "raw/holdout-long-c4-r0/runtime-cost-dataset.json": "d74b54aa06403c0eb9214388e0210e1c0af01a5d68c162d19fc0f0114719c5a3",
+        "raw/holdout-long-c4-r0/server-trace.json": "6e9059b04e8807f04ecfddf5088aa472e02abdeb410cc00bd56bdfe918bf17b2",
+        "raw/holdout-long-c4-r0/summary.json": "85a09d7f7492a90fb3a9dabb6c497eb07714824d6c2984e2ea8a0b7721d73479"
+      },
+      "path": "audit-holdout-1795507291898848291/holdout-long-c4-r0.tgz",
+      "sha256": "bb35963d59b135e324d7266724eb4791a635fb3a2f9f78aab6eade7340f029e9"
+    },
+    {
+      "bytes": 949751,
+      "member_sha256": {
+        "holdout-long-c8-r0.log": "805b020e7d5946c8074f17539c07fa6f7dec7018fbc801ddd44b652f34d6d581",
+        "raw/holdout-long-c8-r0/api-feedback.json": "bd590074ca403fb85204810e2f2733e9c2feab56567886a8174705a126fb2f6b",
+        "raw/holdout-long-c8-r0/capture-config.json": "eccd53de5ca29bb080e5432282940488b69db6e3c612c84bdb08918aef18637c",
+        "raw/holdout-long-c8-r0/captures/sla-bf84a35332a84df9bc63f883545a1aa5-r0-s0-tp0-pid8-92bbbc3ecac04a4081b42a54b8326fc1.json": "3522ccee4c818d8a154f67c6dc84f64c5e9dd07b6feeae39c89e5b0f7365a48c",
+        "raw/holdout-long-c8-r0/captures/sla-bf84a35332a84df9bc63f883545a1aa5-scheduler-r0-pid8-2d730895370a4e42acf340a7941f25c7.json": "052ae3e260c9af79f9e0b35e229f5e33bacf9f11117df24341b5d3894a3579cb",
+        "raw/holdout-long-c8-r0/formal-progress.json": "612c1ef37dfce3d58899c055069dd60851e8aedad78b34b955befabac5d2b1aa",
+        "raw/holdout-long-c8-r0/observed-run.json": "769839b7c6e95c26509554cd431601fd5053288c8a3eebc53b7a949b48f24f24",
+        "raw/holdout-long-c8-r0/runner-binding.json": "3522ccee4c818d8a154f67c6dc84f64c5e9dd07b6feeae39c89e5b0f7365a48c",
+        "raw/holdout-long-c8-r0/runtime-cost-capture.json": "a746a7a3fbe2797beb7e6bb2e96533e4fe2533330117863c33da4261e5d3ce21",
+        "raw/holdout-long-c8-r0/runtime-cost-dataset.json": "5320d210c9f775d5d4de9412f21971b2c3ce2b3f9188135971e2d540665ed431",
+        "raw/holdout-long-c8-r0/server-trace.json": "d181c0541d6e15d31d6f5f6ac5709df92152925ce605e52d751c23e16f7deaa2",
+        "raw/holdout-long-c8-r0/summary.json": "4e0acdcc4ce0c166043e72b9f091110f48ae40099a9ae9c308bdec8567267a94"
+      },
+      "path": "audit-holdout-1795507291898848291/holdout-long-c8-r0.tgz",
+      "sha256": "7a2cb66bd2e9d9fc7025d0b44009cad8ffa3995b1c781934389181002c7d7947"
+    },
+    {
+      "bytes": 1859543,
+      "member_sha256": {
+        "holdout-short-c1-r0.log": "6148f2d57cbaca221d1ac91f29996172a42c94e2447c543e07f012c81ff6d00e",
+        "raw/holdout-short-c1-r0/api-feedback.json": "0f770d167909bc6e301653a999ac02162205c79544f48afbdc11f82a6cd1c10d",
+        "raw/holdout-short-c1-r0/capture-config.json": "bf8aa1cf9c104983708737da5efc87c74aaef9b4838ff169d2240260618def4d",
+        "raw/holdout-short-c1-r0/captures/sla-2e90ac8378f544a59e27bc4bbabd2b95-r0-s0-tp0-pid8-81e59f0b90a940b3a759308d2400c593.json": "a42e8d5919b7f6186d875a9133518f1b691c33f6ceaba770743377cade37a5b5",
+        "raw/holdout-short-c1-r0/captures/sla-2e90ac8378f544a59e27bc4bbabd2b95-scheduler-r0-pid8-2004c89054044184a5d217463b37a8a5.json": "8aff43d9b84bfc922675ac3b6a217bca3a37659c50c0fed1fc18ad30b8ae1e5a",
+        "raw/holdout-short-c1-r0/formal-progress.json": "2f8e98ac1ebbfa700ee813f3731d896f4fd634380c9615653ed0a5074a000efe",
+        "raw/holdout-short-c1-r0/observed-run.json": "b528751fff36fe411b0b2e67ec960b2863f93a9924ee777816c98213bd2628d9",
+        "raw/holdout-short-c1-r0/runner-binding.json": "a42e8d5919b7f6186d875a9133518f1b691c33f6ceaba770743377cade37a5b5",
+        "raw/holdout-short-c1-r0/runtime-cost-capture.json": "797e6b37ba628480c8116e371317889a0706a0db60e58ed4ca2a2a020e415bb3",
+        "raw/holdout-short-c1-r0/runtime-cost-dataset.json": "1d061bdd53c163ffac99e189c72cd9f4003ebcc5088754910c2f38edfae9e91b",
+        "raw/holdout-short-c1-r0/server-trace.json": "cc4291f1e3cece75d4c919caed57324bb3e9276ba17391d65c5bc163f2cca92f",
+        "raw/holdout-short-c1-r0/summary.json": "5fb5689dcfcfe93f9c67d1f5568ff25408da34983c6ebd5d3245df8bfde184e2"
+      },
+      "path": "audit-holdout-1795507291898848291/holdout-short-c1-r0.tgz",
+      "sha256": "9c294ed13d9867c111783196201f56dc6846d8af8933a718b29fd8156c6b67f0"
+    },
+    {
+      "bytes": 668087,
+      "member_sha256": {
+        "holdout-short-c16-r0.log": "7c5c0c9dc45c972e3e714988313e2cf5dfdc68b836df2a5d12f6439493d85f87",
+        "raw/holdout-short-c16-r0/api-feedback.json": "4cffb4877d0d4c7176bdd096a8e216fe5e832a6134736edb2786389492248cf7",
+        "raw/holdout-short-c16-r0/capture-config.json": "5c9f7ec82716d6776283ed23e22518dddb66a45b7720ffdd35eeb7a7e774155f",
+        "raw/holdout-short-c16-r0/captures/sla-b0265f720610495d953672a3825e7a68-r0-s0-tp0-pid8-2f0f9aa4d3e24c42a029b55c5df11dd5.json": "43f1c43afe934bb322e883b5c0d9256d4c06894795ee9fed4ca112bc32d781d4",
+        "raw/holdout-short-c16-r0/captures/sla-b0265f720610495d953672a3825e7a68-scheduler-r0-pid8-d51984c9d9d6476abef60ac9575249eb.json": "ba0b3d478b5f34cda8f77d4d73484f706826c1fa88cfb907c0529f367153bf00",
+        "raw/holdout-short-c16-r0/formal-progress.json": "ab3de531ecc5212ede24e3bb800d5aab445fbca246e1472f4b2d3e859fb1e48d",
+        "raw/holdout-short-c16-r0/observed-run.json": "eb452acc56363c6d5c2c817b2f277e36c0302098099001f7619004c811d1989d",
+        "raw/holdout-short-c16-r0/runner-binding.json": "43f1c43afe934bb322e883b5c0d9256d4c06894795ee9fed4ca112bc32d781d4",
+        "raw/holdout-short-c16-r0/runtime-cost-capture.json": "3f42c5b011dea13104b1498db3bae5159b2fe205eec0699033e7a300dad8510d",
+        "raw/holdout-short-c16-r0/runtime-cost-dataset.json": "4272a579389573afb5ccb7c76f71be0b89c0c8220fad2bcf345c1e6c00dca3b2",
+        "raw/holdout-short-c16-r0/server-trace.json": "69e62dbbbf0f62ff4e70557fe47cb47826bc96e44cf9fd8d79d3838e9170282b",
+        "raw/holdout-short-c16-r0/summary.json": "5ab4875d0be6c6ec5bf8c0ec5f8e93978223eb6b3759cca79ec55378ca1fa72b"
+      },
+      "path": "audit-holdout-1795507291898848291/holdout-short-c16-r0.tgz",
+      "sha256": "d816c85dd71c2a5e025e2b3abf7b3f0daa80d0109bc65243c383fb2a15644875"
+    },
+    {
+      "bytes": 1311765,
+      "member_sha256": {
+        "holdout-short-c2-r0.log": "622fe0a0f927a7567732ac12a58f00afcc8c258f56f61948c16ee0abe73676e3",
+        "raw/holdout-short-c2-r0/api-feedback.json": "c1637efa98d3b7bc82daf976d87abd22e1bb9de2c84a7bd9fecfbde36e60ccab",
+        "raw/holdout-short-c2-r0/capture-config.json": "55b7eaa23cf662e121295da3b1911335ed398a247dbbf2db8006c21419f3d4f4",
+        "raw/holdout-short-c2-r0/captures/sla-69843abe7d7b48d7b0254368aa4b93b4-r0-s0-tp0-pid8-8789d6afe3484cbe8be3c4d2b160bbed.json": "e37d228e71e1030e01eb6d2311570e8b424036619376da5b976037326455aefa",
+        "raw/holdout-short-c2-r0/captures/sla-69843abe7d7b48d7b0254368aa4b93b4-scheduler-r0-pid8-228c46d6a906464a85e175628a2b35d3.json": "28c82d57e74a0dae3a4206df491dcffb0e1e520c6324ca4bf3457e1dcfe3a23f",
+        "raw/holdout-short-c2-r0/formal-progress.json": "eb8cd430c66e12b3438f9f907a694c123df0cf1a16f2934d627589bd8961d69f",
+        "raw/holdout-short-c2-r0/observed-run.json": "4eb4a2d6d3a10090dc0e3def8a6f68ca768f4a2ab997cd353d404b6f74dda8b7",
+        "raw/holdout-short-c2-r0/runner-binding.json": "e37d228e71e1030e01eb6d2311570e8b424036619376da5b976037326455aefa",
+        "raw/holdout-short-c2-r0/runtime-cost-capture.json": "d0d8a78fad091394cba26c8d4803339e0c7a6fe9e521a4e375533f6eb95d544e",
+        "raw/holdout-short-c2-r0/runtime-cost-dataset.json": "fbcc5a4f6bbc96a50814ade1aaeb225095b3f8dc88ab98f25e27f3717a690391",
+        "raw/holdout-short-c2-r0/server-trace.json": "683aff21f7b8a9228d3b8bd93a1ea34d0ba74e4148c60be62d20e32ad4216e7e",
+        "raw/holdout-short-c2-r0/summary.json": "b8af532d8b59d7ad4e0dc1a64c5d469a9698f755204327ae5469268f771c12c4"
+      },
+      "path": "audit-holdout-1795507291898848291/holdout-short-c2-r0.tgz",
+      "sha256": "c8e451d13adc9c1f57e014b8c889fbe0907686d05b373b81c3b6adb67a4d43a5"
+    },
+    {
+      "bytes": 1306065,
+      "member_sha256": {
+        "holdout-short-c2-r1.log": "a974afc6e9e457bfeb44c4c77485c6fdebddc057bf905f50eade0a6abe4428b7",
+        "raw/holdout-short-c2-r1/api-feedback.json": "f4b09b2bad6ea09d19760929dd92617f4b34a9a4c66f71b2f23d93572ffabc31",
+        "raw/holdout-short-c2-r1/capture-config.json": "4d7e4f26d9faddec85989c781e44bc7abeb3308e930930d663cb589dd43e5946",
+        "raw/holdout-short-c2-r1/captures/sla-62d3b68e321e491fbf12ab529d9edce4-r0-s0-tp0-pid8-adac5ac6b65543b6896db5e6d9bc0882.json": "78130b510aeab6a5579d277c36808b5306ba0c74c1203944874257cee3b6198b",
+        "raw/holdout-short-c2-r1/captures/sla-62d3b68e321e491fbf12ab529d9edce4-scheduler-r0-pid8-635314bc500447ce890e69288c2f20bc.json": "59bf92686eff42ea099640079757bb597374cdd225e9215cab3908d503a36eb6",
+        "raw/holdout-short-c2-r1/formal-progress.json": "49a0e7d2540f6c8c3d326a1fce295341de151cb015aef04022d95d72a59239d9",
+        "raw/holdout-short-c2-r1/observed-run.json": "117426c16d4d335b5c1f1d82d13b69b705143edb23dc4fbdfac9000f9d2aec1d",
+        "raw/holdout-short-c2-r1/runner-binding.json": "78130b510aeab6a5579d277c36808b5306ba0c74c1203944874257cee3b6198b",
+        "raw/holdout-short-c2-r1/runtime-cost-capture.json": "4b9fc413cae4eb05229f6f867cd6e4f7fb2693eead5fe4c854e9160d4912e43b",
+        "raw/holdout-short-c2-r1/runtime-cost-dataset.json": "d2520db4404c3ac5b48ff43922b59b813bcda4045e7370408426e1b386b1eb78",
+        "raw/holdout-short-c2-r1/server-trace.json": "9e5ec003e4e69b1dae6c325831e4980652dab72000c37e319864fa350ab5f04b",
+        "raw/holdout-short-c2-r1/summary.json": "21ef768032ea76bfac720cbddca10a02221b0860725ba47ea8ab6c5cc234fc0c"
+      },
+      "path": "audit-holdout-1795507291898848291/holdout-short-c2-r1.tgz",
+      "sha256": "b7cf3f6aadbfd676abac17fc327f634895f319c0cd22a9db3a2ddcbf8cdfac6e"
+    },
+    {
+      "bytes": 1309779,
+      "member_sha256": {
+        "holdout-short-c2-r2.log": "183c42d771f6de964a722e4defaba7c99577ca2b652629aaac452fcc77173c02",
+        "raw/holdout-short-c2-r2/api-feedback.json": "1c3f169dc6e6ee659f35386f6e5c5210143a5a0aa57cd0f0541b4918bfbb3266",
+        "raw/holdout-short-c2-r2/capture-config.json": "48ba2a07017e0d2953bb953f6580a40397a54f6f1b08e4fa1baf4030772698d5",
+        "raw/holdout-short-c2-r2/captures/sla-6585d71ea3424a24bc9761c9e86a0e19-r0-s0-tp0-pid8-c747316649014573bcd20c54b174a5c8.json": "141cc25c458a86879d0cfe5151f3ed7886a78ece5c3acac734667dea6137cbf7",
+        "raw/holdout-short-c2-r2/captures/sla-6585d71ea3424a24bc9761c9e86a0e19-scheduler-r0-pid8-e16d8f10e2fd44139cb8bf12de8565e5.json": "cc948c528e61956070fd02ab3fbc29f8e02c5f57d04adbe6b164f00ea74b5d44",
+        "raw/holdout-short-c2-r2/formal-progress.json": "e49770242161dfd65327366cccd3a16a4000cf0537b86d068bdaaed6c2879995",
+        "raw/holdout-short-c2-r2/observed-run.json": "2ee7569ce2c3da5d181da79903b1ab8f799cefa048eeb86a65aea38ee7d6efdd",
+        "raw/holdout-short-c2-r2/runner-binding.json": "141cc25c458a86879d0cfe5151f3ed7886a78ece5c3acac734667dea6137cbf7",
+        "raw/holdout-short-c2-r2/runtime-cost-capture.json": "f524def91100ae55d979cc7e01d128be9974272966b9ced14224cbbef5cb3e30",
+        "raw/holdout-short-c2-r2/runtime-cost-dataset.json": "8376295c63213baab0f4b0a48d1ec14d4819ac388a49ca62d8dbf3c35eb719ae",
+        "raw/holdout-short-c2-r2/server-trace.json": "c6f9683135e5b080df13b02246c5a9e97025cddb29219e1fc5275e4d697f824d",
+        "raw/holdout-short-c2-r2/summary.json": "bdf0de629ebb95204ce6c025edf265bf923f858fd08dab079227da5ceef7dede"
+      },
+      "path": "audit-holdout-1795507291898848291/holdout-short-c2-r2.tgz",
+      "sha256": "e9964b6c873512bc60550f14fd454cffcb6c786aef2507d26f715e0838cea558"
+    },
+    {
+      "bytes": 670582,
+      "member_sha256": {
+        "holdout-short-c32-r0.log": "d76e976324aea0f89a2a372b39037af52e296d4d3b6926cdb6f4ca5a066be6cb",
+        "raw/holdout-short-c32-r0/api-feedback.json": "fd9cd91effdfaa28929ff183e07fd763d64da022287179d55270d5b28569355a",
+        "raw/holdout-short-c32-r0/capture-config.json": "771d6dffc0c1ffc06c2fc1ce0c33683962fa15ef0be868e6f84f97b827b15520",
+        "raw/holdout-short-c32-r0/captures/sla-313c3dcfd236469cb0788fa9e5f72969-r0-s0-tp0-pid8-46eda4c08d3e4405879dc2c247278af0.json": "bfeebe36b295071366b58cb6ef67dc3275a7fa20164ecb939bf186888870df9f",
+        "raw/holdout-short-c32-r0/captures/sla-313c3dcfd236469cb0788fa9e5f72969-scheduler-r0-pid8-5ac2546e946746eda1261adecb52d59d.json": "92f31e0164e30954fc23c3064a33889dc9c60ee83e5c688bc305a8c88a9d619b",
+        "raw/holdout-short-c32-r0/formal-progress.json": "858e985b9e59f7779cc8e8d92bcef530576f62842cfcc677d698019a7bcafa24",
+        "raw/holdout-short-c32-r0/observed-run.json": "8dbc84aea9d81276225dc572d616daf11df6373afe302c44bd5479d68c97b458",
+        "raw/holdout-short-c32-r0/runner-binding.json": "bfeebe36b295071366b58cb6ef67dc3275a7fa20164ecb939bf186888870df9f",
+        "raw/holdout-short-c32-r0/runtime-cost-capture.json": "e193834287904a584842e1bdb6b56d6e0b4f318e22735283698bf7761b24f54a",
+        "raw/holdout-short-c32-r0/runtime-cost-dataset.json": "0c208230759c3d4f517060279544942054275a18c4d7b54a54982b9d07797528",
+        "raw/holdout-short-c32-r0/server-trace.json": "8b4de5eae626d1df3cce39277452190dc0a4ef315619c0e010ee0273dd3e1937",
+        "raw/holdout-short-c32-r0/summary.json": "de144824f3397d4131cf219ede71831d23fb40be4c3243f8772dff032683d78d"
+      },
+      "path": "audit-holdout-1795507291898848291/holdout-short-c32-r0.tgz",
+      "sha256": "73d4ef087c49289623e2ecd2d58331c5c80d433c9127959e6bf17772e989d6b4"
+    },
+    {
+      "bytes": 991520,
+      "member_sha256": {
+        "holdout-short-c4-r0.log": "fc3264ac600cd2b89c306d6c79ab691d5c0ab3f63e0bf6647f3af34fc31c9635",
+        "raw/holdout-short-c4-r0/api-feedback.json": "d10b087b5e2d724e0bf0bd442c635a5ce575086438a7e6a50929837a6cd35b79",
+        "raw/holdout-short-c4-r0/capture-config.json": "da16a624b4065e7d591264ba642644e4f14b91bcef30238091c58768e542e804",
+        "raw/holdout-short-c4-r0/captures/sla-21f55315eecc40599e0adc793e12f288-r0-s0-tp0-pid8-36142c1c28384ac98989f8238ca261f4.json": "e8cf59793b15a6a49bb4ba0a4e39e2355929d371ec89922ed04dac2ad01faae3",
+        "raw/holdout-short-c4-r0/captures/sla-21f55315eecc40599e0adc793e12f288-scheduler-r0-pid8-ae80e48affc940838db09db5fdcf0158.json": "86140f2893ce59ffcd423d8b641853a5a1b9b201d627e19ac6108d0b83704420",
+        "raw/holdout-short-c4-r0/formal-progress.json": "5c00c895a5459873a019a924ed00bce70c877bd04898244274d7244787c62402",
+        "raw/holdout-short-c4-r0/observed-run.json": "a8febbdda9663fda8fe0e2a796c0472ab0ea63dbb9dbdb24a52a237f56acc004",
+        "raw/holdout-short-c4-r0/runner-binding.json": "e8cf59793b15a6a49bb4ba0a4e39e2355929d371ec89922ed04dac2ad01faae3",
+        "raw/holdout-short-c4-r0/runtime-cost-capture.json": "f87f70dc455d3b796cb2cdd15f4a6e90e08b6a788fc832a386904d100840f727",
+        "raw/holdout-short-c4-r0/runtime-cost-dataset.json": "6a35599410346491d23967cc00b73050518cf5d5685a1be3c71df06530b49759",
+        "raw/holdout-short-c4-r0/server-trace.json": "0103860dfeb412dd19fef455909b250fef897e257e2015767dc6eb7d3c315049",
+        "raw/holdout-short-c4-r0/summary.json": "7b09af3b05db1f8eeafd79e2e72df631ad4542158bdc1a656a988fa8550ac928"
+      },
+      "path": "audit-holdout-1795507291898848291/holdout-short-c4-r0.tgz",
+      "sha256": "ed1f0bbd688f2b8e7d99736efd7f9bbf0704fa68c42525928c0f6b659fb347b6"
+    },
+    {
+      "bytes": 782745,
+      "member_sha256": {
+        "holdout-short-c8-r0.log": "c22745aabc607e5314b138341754351cb9fd6304b4912a5abcc504c431d74e86",
+        "raw/holdout-short-c8-r0/api-feedback.json": "85e72787af09b0b151b8c91fdd7da63591450a01e054c71645b4331ccf1c7084",
+        "raw/holdout-short-c8-r0/capture-config.json": "3982a6d2afcaa14bebd2df4c2e0349c9ea221d720cf2aa106ebe8776d3c7d479",
+        "raw/holdout-short-c8-r0/captures/sla-21f9e634ec214f09af13cb1b2f0dccab-r0-s0-tp0-pid8-8d45f6d5ae22400d8a1619ed111aafcf.json": "dfa68b9fee01a79a40595433d4bcccde8d610c0ab8be7d13c46dd95a8cb61a6c",
+        "raw/holdout-short-c8-r0/captures/sla-21f9e634ec214f09af13cb1b2f0dccab-scheduler-r0-pid8-ed5951e487044a2abc145ad1f998b069.json": "9e5ec19199de728702f572be41d7dc233de837b4f60c98e5df548af2bfdd736b",
+        "raw/holdout-short-c8-r0/formal-progress.json": "af03329a889d2983728709417b70404ca269de8c41076796b66b09d7d8d96d96",
+        "raw/holdout-short-c8-r0/observed-run.json": "24a62adb7a98e5b687bd90d3694c2b99070ba22f5089335cae9764fb0f18d228",
+        "raw/holdout-short-c8-r0/runner-binding.json": "dfa68b9fee01a79a40595433d4bcccde8d610c0ab8be7d13c46dd95a8cb61a6c",
+        "raw/holdout-short-c8-r0/runtime-cost-capture.json": "b3d6dd37a4689090f99343ebeb59e416ce61125828c9b8cb5983e2787048247f",
+        "raw/holdout-short-c8-r0/runtime-cost-dataset.json": "d9fcd669f1f00258f44b55d5e10e723d1ac97511170f78aee78d0cbe6b406c82",
+        "raw/holdout-short-c8-r0/server-trace.json": "cf48f16e92b83c826eda9619b55d499486754c01de1984b6652f29b3f8793e53",
+        "raw/holdout-short-c8-r0/summary.json": "15b464ed1e3a08ea69d55438d5ed751299f92249453f15c5fd32de55a5f415ca"
+      },
+      "path": "audit-holdout-1795507291898848291/holdout-short-c8-r0.tgz",
+      "sha256": "6d2d7195d8d4b4b4e2fdcc8e01f9dc23d3735aef4f263296118a9763af6d5e94"
+    }
+  ],
+  "owned_containers": 0,
+  "raw_sessions": 56,
+  "receipt_sha256": "cb445fdef899f979d034b4c18526e2c5ed09a318539b9c34e01bcd505b367446",
+  "status": {
+    "calibration": "COMPLETED",
+    "holdout": "COMPLETED"
+  }
+}
