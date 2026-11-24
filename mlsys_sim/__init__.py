@@ -30,6 +30,7 @@ from .schema import (
 )
 from .profiles import (ProfileModel, create_performance_model, estimate_profile,
                        load_dataset, load_profile, profile_identity)
+from .short_prefill import fit_short_prefill
 from .runtime_cost import (RuntimeCostModel, fit_runtime_costs, freeze_runtime_cost_policy,
                            load_runtime_cost, runtime_cost_domain, validate_runtime_cost_model)
 from .calibration import (calibrate_dataset, split_dataset, validate_holdout, validate_profile_repeats,
@@ -170,6 +171,7 @@ __all__ = [
     "ProfileModel",
     "RuntimeCostModel",
     "fit_runtime_costs",
+    "fit_short_prefill",
     "freeze_runtime_cost_policy",
     "create_performance_model",
     "estimate_profile",

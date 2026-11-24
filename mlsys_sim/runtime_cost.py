@@ -515,6 +515,9 @@ def validate_runtime_cost_model(artifact: dict, *, experiment: Experiment | None
                                 allow_test_fixture: bool = False) -> dict:
     """Validate immutable raw lineage and executable-domain semantics once."""
     _canonical(artifact)
+    from .short_prefill import KIND, validate_short_prefill
+    if isinstance(artifact, dict) and artifact.get("kind") == KIND:
+        return validate_short_prefill(artifact, experiment, allow_test_fixture)
     required = {"schema_version", "kind", "algorithm", "calibration_id", "domain", "policy", "source",
                 "raw_dataset", "training_dataset_sha256", "training_record_ids", "diagnostics",
                 "parameters", "hardware_validated", "limitations", "model_sha256"}
@@ -626,6 +629,7 @@ class RuntimeCostModel:
         for row in self._model["raw_dataset"]["records"]:
             _, shape = _shape(row["phase"], row["query_tokens"], row["context_lengths"], 0, row.get("request_phases"))
             self._observed_shapes[shape].append(row)
+        self._short_prefill = self._model.get("short_prefill", {}).get("table", {})
         requested = experiment.calibration.profile_version
         if requested != "uncalibrated-v1" and requested != self._model["calibration_id"]:
             _error("Configured runtime profile_version differs from its calibration ID", "CALIBRATION_MISMATCH")
@@ -662,6 +666,14 @@ class RuntimeCostModel:
     def estimate_step(self, phase: str, query_tokens: Sequence[int], context_lengths: Sequence[int],
                       stage_index: int = 0, *, request_phases: Sequence[str] | None = None) -> StepEstimate:
         parameter, shape = self._query(phase, query_tokens, context_lengths, stage_index, request_phases)
+        entry = self._short_prefill.get(shape)
+        if entry is not None:
+            duration = entry["duration_ms"]
+            return StepEstimate(duration, {"runtime_cost": {"duration_ms": duration, "phase": phase,
+                "method": "ordered_shape_median", "batch_size": len(query_tokens),
+                "timing_boundary": RUNTIME_COST_BOUNDARY, "shape_observed_in_training": True,
+                "domain_sha256": self._domain["domain_sha256"], "model_sha256": self._model["model_sha256"],
+                "hardware_validated": False}}, "runtime_cost_calibrated", (self._model["limitations"][-1],))
         nominal = self._nominal.estimate_step(phase, query_tokens, context_lengths, stage_index, request_phases=request_phases)
         duration = parameter["scale"] * nominal.duration_ms + parameter["intercept_ms"]
         _number(duration, "Runtime cost prediction", positive=True)
