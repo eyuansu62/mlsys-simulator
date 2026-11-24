@@ -81,7 +81,10 @@ from .step_cost_calibration import fit_step_costs, freeze_step_fit_spec
 from .step_profile import (calibrate_step_profile, check_step_stationarity,
                            freeze_stationarity_policy, step_wall_domain)
 
+from .tpot_windows import TpotWindowProfile
+
 __all__ = [
+    "TpotWindowProfile",
     "AnalyticalCostSpec",
     "freeze_cost_split",
     "fit_analytical_costs",

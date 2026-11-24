@@ -1,0 +1,624 @@
+{
+  "acceptance": {
+    "individual_relative_error_max": 0.25,
+    "primary": "18 prespecified replication-zero cells equally weighted; all 20 runs subject to individual limit. Report the two additional short/C2 runs separately; no replacements.",
+    "primary_absolute_mean_signed_relative_error_max": 0.02,
+    "primary_absolute_signed_bias_must_improve": true,
+    "primary_mape_must_improve": true,
+    "primary_under_and_over_max_each": 12
+  },
+  "estimator": "For each calibrated cell and process sort native-schedule baseline-replay TPOT by value and stream index. Add each measured complete 15-interval residual to the same rank of the new simulated TPOT vector; take its within-process P99, then median the two process forecasts. No training or tuning on historical or new holdout outcomes.",
+  "expected_checkpoint_sha256": "16539acffdc3fbdd62f6b832a494d80229c3f05a829a3af677c0876e80833efd",
+  "expected_image": "sha256:e0ea9a10b729573ea8598bdc073bda0ea382fe1037eec7c0761b6fa7f46baaf4",
+  "expected_runtime_sha256": "6ceb7969f1f9008abae587bfc922cb07c480539977fc97e48eda33fc70bd1509",
+  "jobs": {
+    "calibration": [
+      {
+        "cohort": "long",
+        "concurrency": 1,
+        "label": "calibration-long-c1-r0",
+        "replication": 0,
+        "spec_file": "calibration-long.json",
+        "stream_sha256": "1d81f3dee0c358e9df30a90445464b74ef4210f8bafd2b3bc13196c9eb0703d5"
+      },
+      {
+        "cohort": "long",
+        "concurrency": 2,
+        "label": "calibration-long-c2-r0",
+        "replication": 0,
+        "spec_file": "calibration-long.json",
+        "stream_sha256": "1d81f3dee0c358e9df30a90445464b74ef4210f8bafd2b3bc13196c9eb0703d5"
+      },
+      {
+        "cohort": "long",
+        "concurrency": 1,
+        "label": "calibration-long-c1-r1",
+        "replication": 1,
+        "spec_file": "calibration-long.json",
+        "stream_sha256": "5bda20f76605018ee7956901fad8d5c5cabc0b2128644284ac5f9d40c1e89fd1"
+      },
+      {
+        "cohort": "baseline",
+        "concurrency": 8,
+        "label": "calibration-baseline-c8-r1",
+        "replication": 1,
+        "spec_file": "calibration-baseline.json",
+        "stream_sha256": "7b0f31aee0e69006e899e430f9ba56cb5b258f83dd0305a3e79cb3bc0da18ba1"
+      },
+      {
+        "cohort": "short",
+        "concurrency": 1,
+        "label": "calibration-short-c1-r0",
+        "replication": 0,
+        "spec_file": "calibration-short.json",
+        "stream_sha256": "a34341675db7b39763edb21425fc62087a871abfdbcb85323f9b858a6c7a6a1b"
+      },
+      {
+        "cohort": "long",
+        "concurrency": 32,
+        "label": "calibration-long-c32-r0",
+        "replication": 0,
+        "spec_file": "calibration-long.json",
+        "stream_sha256": "1d81f3dee0c358e9df30a90445464b74ef4210f8bafd2b3bc13196c9eb0703d5"
+      },
+      {
+        "cohort": "long",
+        "concurrency": 2,
+        "label": "calibration-long-c2-r1",
+        "replication": 1,
+        "spec_file": "calibration-long.json",
+        "stream_sha256": "5bda20f76605018ee7956901fad8d5c5cabc0b2128644284ac5f9d40c1e89fd1"
+      },
+      {
+        "cohort": "short",
+        "concurrency": 1,
+        "label": "calibration-short-c1-r1",
+        "replication": 1,
+        "spec_file": "calibration-short.json",
+        "stream_sha256": "adc68a02eb6890a2f8ab085bcd43d6e0d6b1b90ea0ce8cc1fb34e5f58e3075db"
+      },
+      {
+        "cohort": "short",
+        "concurrency": 32,
+        "label": "calibration-short-c32-r0",
+        "replication": 0,
+        "spec_file": "calibration-short.json",
+        "stream_sha256": "a34341675db7b39763edb21425fc62087a871abfdbcb85323f9b858a6c7a6a1b"
+      },
+      {
+        "cohort": "short",
+        "concurrency": 2,
+        "label": "calibration-short-c2-r0",
+        "replication": 0,
+        "spec_file": "calibration-short.json",
+        "stream_sha256": "a34341675db7b39763edb21425fc62087a871abfdbcb85323f9b858a6c7a6a1b"
+      },
+      {
+        "cohort": "long",
+        "concurrency": 32,
+        "label": "calibration-long-c32-r1",
+        "replication": 1,
+        "spec_file": "calibration-long.json",
+        "stream_sha256": "5bda20f76605018ee7956901fad8d5c5cabc0b2128644284ac5f9d40c1e89fd1"
+      },
+      {
+        "cohort": "long",
+        "concurrency": 4,
+        "label": "calibration-long-c4-r0",
+        "replication": 0,
+        "spec_file": "calibration-long.json",
+        "stream_sha256": "1d81f3dee0c358e9df30a90445464b74ef4210f8bafd2b3bc13196c9eb0703d5"
+      },
+      {
+        "cohort": "short",
+        "concurrency": 8,
+        "label": "calibration-short-c8-r1",
+        "replication": 1,
+        "spec_file": "calibration-short.json",
+        "stream_sha256": "adc68a02eb6890a2f8ab085bcd43d6e0d6b1b90ea0ce8cc1fb34e5f58e3075db"
+      },
+      {
+        "cohort": "baseline",
+        "concurrency": 4,
+        "label": "calibration-baseline-c4-r0",
+        "replication": 0,
+        "spec_file": "calibration-baseline.json",
+        "stream_sha256": "c764ff7b8c36553e78b4bf54ece07a36dd81e529deffd35602a1d9da034de3c3"
+      },
+      {
+        "cohort": "short",
+        "concurrency": 8,
+        "label": "calibration-short-c8-r0",
+        "replication": 0,
+        "spec_file": "calibration-short.json",
+        "stream_sha256": "a34341675db7b39763edb21425fc62087a871abfdbcb85323f9b858a6c7a6a1b"
+      },
+      {
+        "cohort": "long",
+        "concurrency": 16,
+        "label": "calibration-long-c16-r1",
+        "replication": 1,
+        "spec_file": "calibration-long.json",
+        "stream_sha256": "5bda20f76605018ee7956901fad8d5c5cabc0b2128644284ac5f9d40c1e89fd1"
+      },
+      {
+        "cohort": "long",
+        "concurrency": 4,
+        "label": "calibration-long-c4-r1",
+        "replication": 1,
+        "spec_file": "calibration-long.json",
+        "stream_sha256": "5bda20f76605018ee7956901fad8d5c5cabc0b2128644284ac5f9d40c1e89fd1"
+      },
+      {
+        "cohort": "baseline",
+        "concurrency": 32,
+        "label": "calibration-baseline-c32-r0",
+        "replication": 0,
+        "spec_file": "calibration-baseline.json",
+        "stream_sha256": "c764ff7b8c36553e78b4bf54ece07a36dd81e529deffd35602a1d9da034de3c3"
+      },
+      {
+        "cohort": "baseline",
+        "concurrency": 8,
+        "label": "calibration-baseline-c8-r0",
+        "replication": 0,
+        "spec_file": "calibration-baseline.json",
+        "stream_sha256": "c764ff7b8c36553e78b4bf54ece07a36dd81e529deffd35602a1d9da034de3c3"
+      },
+      {
+        "cohort": "baseline",
+        "concurrency": 1,
+        "label": "calibration-baseline-c1-r1",
+        "replication": 1,
+        "spec_file": "calibration-baseline.json",
+        "stream_sha256": "7b0f31aee0e69006e899e430f9ba56cb5b258f83dd0305a3e79cb3bc0da18ba1"
+      },
+      {
+        "cohort": "baseline",
+        "concurrency": 1,
+        "label": "calibration-baseline-c1-r0",
+        "replication": 0,
+        "spec_file": "calibration-baseline.json",
+        "stream_sha256": "c764ff7b8c36553e78b4bf54ece07a36dd81e529deffd35602a1d9da034de3c3"
+      },
+      {
+        "cohort": "baseline",
+        "concurrency": 32,
+        "label": "calibration-baseline-c32-r1",
+        "replication": 1,
+        "spec_file": "calibration-baseline.json",
+        "stream_sha256": "7b0f31aee0e69006e899e430f9ba56cb5b258f83dd0305a3e79cb3bc0da18ba1"
+      },
+      {
+        "cohort": "short",
+        "concurrency": 32,
+        "label": "calibration-short-c32-r1",
+        "replication": 1,
+        "spec_file": "calibration-short.json",
+        "stream_sha256": "adc68a02eb6890a2f8ab085bcd43d6e0d6b1b90ea0ce8cc1fb34e5f58e3075db"
+      },
+      {
+        "cohort": "short",
+        "concurrency": 4,
+        "label": "calibration-short-c4-r0",
+        "replication": 0,
+        "spec_file": "calibration-short.json",
+        "stream_sha256": "a34341675db7b39763edb21425fc62087a871abfdbcb85323f9b858a6c7a6a1b"
+      },
+      {
+        "cohort": "long",
+        "concurrency": 16,
+        "label": "calibration-long-c16-r0",
+        "replication": 0,
+        "spec_file": "calibration-long.json",
+        "stream_sha256": "1d81f3dee0c358e9df30a90445464b74ef4210f8bafd2b3bc13196c9eb0703d5"
+      },
+      {
+        "cohort": "short",
+        "concurrency": 16,
+        "label": "calibration-short-c16-r1",
+        "replication": 1,
+        "spec_file": "calibration-short.json",
+        "stream_sha256": "adc68a02eb6890a2f8ab085bcd43d6e0d6b1b90ea0ce8cc1fb34e5f58e3075db"
+      },
+      {
+        "cohort": "baseline",
+        "concurrency": 2,
+        "label": "calibration-baseline-c2-r0",
+        "replication": 0,
+        "spec_file": "calibration-baseline.json",
+        "stream_sha256": "c764ff7b8c36553e78b4bf54ece07a36dd81e529deffd35602a1d9da034de3c3"
+      },
+      {
+        "cohort": "short",
+        "concurrency": 16,
+        "label": "calibration-short-c16-r0",
+        "replication": 0,
+        "spec_file": "calibration-short.json",
+        "stream_sha256": "a34341675db7b39763edb21425fc62087a871abfdbcb85323f9b858a6c7a6a1b"
+      },
+      {
+        "cohort": "baseline",
+        "concurrency": 16,
+        "label": "calibration-baseline-c16-r1",
+        "replication": 1,
+        "spec_file": "calibration-baseline.json",
+        "stream_sha256": "7b0f31aee0e69006e899e430f9ba56cb5b258f83dd0305a3e79cb3bc0da18ba1"
+      },
+      {
+        "cohort": "baseline",
+        "concurrency": 16,
+        "label": "calibration-baseline-c16-r0",
+        "replication": 0,
+        "spec_file": "calibration-baseline.json",
+        "stream_sha256": "c764ff7b8c36553e78b4bf54ece07a36dd81e529deffd35602a1d9da034de3c3"
+      },
+      {
+        "cohort": "baseline",
+        "concurrency": 4,
+        "label": "calibration-baseline-c4-r1",
+        "replication": 1,
+        "spec_file": "calibration-baseline.json",
+        "stream_sha256": "7b0f31aee0e69006e899e430f9ba56cb5b258f83dd0305a3e79cb3bc0da18ba1"
+      },
+      {
+        "cohort": "short",
+        "concurrency": 4,
+        "label": "calibration-short-c4-r1",
+        "replication": 1,
+        "spec_file": "calibration-short.json",
+        "stream_sha256": "adc68a02eb6890a2f8ab085bcd43d6e0d6b1b90ea0ce8cc1fb34e5f58e3075db"
+      },
+      {
+        "cohort": "long",
+        "concurrency": 8,
+        "label": "calibration-long-c8-r0",
+        "replication": 0,
+        "spec_file": "calibration-long.json",
+        "stream_sha256": "1d81f3dee0c358e9df30a90445464b74ef4210f8bafd2b3bc13196c9eb0703d5"
+      },
+      {
+        "cohort": "baseline",
+        "concurrency": 2,
+        "label": "calibration-baseline-c2-r1",
+        "replication": 1,
+        "spec_file": "calibration-baseline.json",
+        "stream_sha256": "7b0f31aee0e69006e899e430f9ba56cb5b258f83dd0305a3e79cb3bc0da18ba1"
+      },
+      {
+        "cohort": "short",
+        "concurrency": 2,
+        "label": "calibration-short-c2-r1",
+        "replication": 1,
+        "spec_file": "calibration-short.json",
+        "stream_sha256": "adc68a02eb6890a2f8ab085bcd43d6e0d6b1b90ea0ce8cc1fb34e5f58e3075db"
+      },
+      {
+        "cohort": "long",
+        "concurrency": 8,
+        "label": "calibration-long-c8-r1",
+        "replication": 1,
+        "spec_file": "calibration-long.json",
+        "stream_sha256": "5bda20f76605018ee7956901fad8d5c5cabc0b2128644284ac5f9d40c1e89fd1"
+      }
+    ],
+    "holdout": [
+      {
+        "cohort": "baseline",
+        "concurrency": 1,
+        "label": "holdout-baseline-c1-r0",
+        "replication": 0,
+        "spec_file": "holdout-baseline.json",
+        "stream_sha256": "d382a8ab1b657e79630301bb42f0343c39c954b684b881385b080714733eafbf"
+      },
+      {
+        "cohort": "baseline",
+        "concurrency": 4,
+        "label": "holdout-baseline-c4-r0",
+        "replication": 0,
+        "spec_file": "holdout-baseline.json",
+        "stream_sha256": "d382a8ab1b657e79630301bb42f0343c39c954b684b881385b080714733eafbf"
+      },
+      {
+        "cohort": "short",
+        "concurrency": 2,
+        "label": "holdout-short-c2-r0",
+        "replication": 0,
+        "spec_file": "holdout-short.json",
+        "stream_sha256": "3f4e9382d397d567c311d272f893e35e62cfbcf5cd8a66e3d5a46c7d1e3cfac1"
+      },
+      {
+        "cohort": "long",
+        "concurrency": 8,
+        "label": "holdout-long-c8-r0",
+        "replication": 0,
+        "spec_file": "holdout-long.json",
+        "stream_sha256": "ec06bdb020c9369b95630e7ef5b86a5c2ca27f09d610effbf0c79ffad50bfe07"
+      },
+      {
+        "cohort": "long",
+        "concurrency": 16,
+        "label": "holdout-long-c16-r0",
+        "replication": 0,
+        "spec_file": "holdout-long.json",
+        "stream_sha256": "ec06bdb020c9369b95630e7ef5b86a5c2ca27f09d610effbf0c79ffad50bfe07"
+      },
+      {
+        "cohort": "baseline",
+        "concurrency": 8,
+        "label": "holdout-baseline-c8-r0",
+        "replication": 0,
+        "spec_file": "holdout-baseline.json",
+        "stream_sha256": "d382a8ab1b657e79630301bb42f0343c39c954b684b881385b080714733eafbf"
+      },
+      {
+        "cohort": "baseline",
+        "concurrency": 32,
+        "label": "holdout-baseline-c32-r0",
+        "replication": 0,
+        "spec_file": "holdout-baseline.json",
+        "stream_sha256": "d382a8ab1b657e79630301bb42f0343c39c954b684b881385b080714733eafbf"
+      },
+      {
+        "cohort": "short",
+        "concurrency": 4,
+        "label": "holdout-short-c4-r0",
+        "replication": 0,
+        "spec_file": "holdout-short.json",
+        "stream_sha256": "3f4e9382d397d567c311d272f893e35e62cfbcf5cd8a66e3d5a46c7d1e3cfac1"
+      },
+      {
+        "cohort": "short",
+        "concurrency": 1,
+        "label": "holdout-short-c1-r0",
+        "replication": 0,
+        "spec_file": "holdout-short.json",
+        "stream_sha256": "3f4e9382d397d567c311d272f893e35e62cfbcf5cd8a66e3d5a46c7d1e3cfac1"
+      },
+      {
+        "cohort": "long",
+        "concurrency": 1,
+        "label": "holdout-long-c1-r0",
+        "replication": 0,
+        "spec_file": "holdout-long.json",
+        "stream_sha256": "ec06bdb020c9369b95630e7ef5b86a5c2ca27f09d610effbf0c79ffad50bfe07"
+      },
+      {
+        "cohort": "long",
+        "concurrency": 32,
+        "label": "holdout-long-c32-r0",
+        "replication": 0,
+        "spec_file": "holdout-long.json",
+        "stream_sha256": "ec06bdb020c9369b95630e7ef5b86a5c2ca27f09d610effbf0c79ffad50bfe07"
+      },
+      {
+        "cohort": "short",
+        "concurrency": 32,
+        "label": "holdout-short-c32-r0",
+        "replication": 0,
+        "spec_file": "holdout-short.json",
+        "stream_sha256": "3f4e9382d397d567c311d272f893e35e62cfbcf5cd8a66e3d5a46c7d1e3cfac1"
+      },
+      {
+        "cohort": "long",
+        "concurrency": 2,
+        "label": "holdout-long-c2-r0",
+        "replication": 0,
+        "spec_file": "holdout-long.json",
+        "stream_sha256": "ec06bdb020c9369b95630e7ef5b86a5c2ca27f09d610effbf0c79ffad50bfe07"
+      },
+      {
+        "cohort": "baseline",
+        "concurrency": 2,
+        "label": "holdout-baseline-c2-r0",
+        "replication": 0,
+        "spec_file": "holdout-baseline.json",
+        "stream_sha256": "d382a8ab1b657e79630301bb42f0343c39c954b684b881385b080714733eafbf"
+      },
+      {
+        "cohort": "baseline",
+        "concurrency": 16,
+        "label": "holdout-baseline-c16-r0",
+        "replication": 0,
+        "spec_file": "holdout-baseline.json",
+        "stream_sha256": "d382a8ab1b657e79630301bb42f0343c39c954b684b881385b080714733eafbf"
+      },
+      {
+        "cohort": "long",
+        "concurrency": 4,
+        "label": "holdout-long-c4-r0",
+        "replication": 0,
+        "spec_file": "holdout-long.json",
+        "stream_sha256": "ec06bdb020c9369b95630e7ef5b86a5c2ca27f09d610effbf0c79ffad50bfe07"
+      },
+      {
+        "cohort": "short",
+        "concurrency": 2,
+        "label": "holdout-short-c2-r1",
+        "replication": 1,
+        "spec_file": "holdout-short.json",
+        "stream_sha256": "dbb5de8166e3ab86c57dedd1272abd95187431cafd3705c777d05f074303678f"
+      },
+      {
+        "cohort": "short",
+        "concurrency": 16,
+        "label": "holdout-short-c16-r0",
+        "replication": 0,
+        "spec_file": "holdout-short.json",
+        "stream_sha256": "3f4e9382d397d567c311d272f893e35e62cfbcf5cd8a66e3d5a46c7d1e3cfac1"
+      },
+      {
+        "cohort": "short",
+        "concurrency": 8,
+        "label": "holdout-short-c8-r0",
+        "replication": 0,
+        "spec_file": "holdout-short.json",
+        "stream_sha256": "3f4e9382d397d567c311d272f893e35e62cfbcf5cd8a66e3d5a46c7d1e3cfac1"
+      },
+      {
+        "cohort": "short",
+        "concurrency": 2,
+        "label": "holdout-short-c2-r2",
+        "replication": 2,
+        "spec_file": "holdout-short.json",
+        "stream_sha256": "61ff4d41b0b7f901f46641f73f150d7081ee83961d5b97127b0d50ee1c7c1abf"
+      }
+    ]
+  },
+  "kind": "full_request_tpot_transfer_study_v1",
+  "main_thread_cpu": 10,
+  "pci": "0000:32:00.0",
+  "per_job_wall_timeout_s": 900,
+  "previous_receipt_sha256": "2b7bb2c2a3b49613deeb04d97cfd1b22c8d98749b0280ad9bcec40995e471b82",
+  "required_vram_bytes": 17095983104,
+  "specs": {
+    "calibration-baseline.json": {
+      "cohort": "baseline",
+      "concurrency_grid": [
+        1,
+        2,
+        4,
+        8,
+        16,
+        32
+      ],
+      "input_lengths": [
+        256
+      ],
+      "max_run_ms": 900000.0,
+      "output_tokens": 16,
+      "prompt_token_id": 100,
+      "replications": 2,
+      "requests_per_run": 512,
+      "schema_version": 1,
+      "seed": 2026112501,
+      "study_id": "q4b-tpot-calibration",
+      "think_ms": 0.0,
+      "timeout_ms": 30000.0
+    },
+    "calibration-long.json": {
+      "cohort": "long",
+      "concurrency_grid": [
+        1,
+        2,
+        4,
+        8,
+        16,
+        32
+      ],
+      "input_lengths": [
+        512,
+        1024
+      ],
+      "max_run_ms": 900000.0,
+      "output_tokens": 16,
+      "prompt_token_id": 100,
+      "replications": 2,
+      "requests_per_run": 512,
+      "schema_version": 1,
+      "seed": 2026112501,
+      "study_id": "q4b-tpot-calibration",
+      "think_ms": 0.0,
+      "timeout_ms": 30000.0
+    },
+    "calibration-short.json": {
+      "cohort": "short",
+      "concurrency_grid": [
+        1,
+        2,
+        4,
+        8,
+        16,
+        32
+      ],
+      "input_lengths": [
+        64,
+        128
+      ],
+      "max_run_ms": 900000.0,
+      "output_tokens": 16,
+      "prompt_token_id": 100,
+      "replications": 2,
+      "requests_per_run": 512,
+      "schema_version": 1,
+      "seed": 2026112501,
+      "study_id": "q4b-tpot-calibration",
+      "think_ms": 0.0,
+      "timeout_ms": 30000.0
+    },
+    "holdout-baseline.json": {
+      "cohort": "baseline",
+      "concurrency_grid": [
+        1,
+        2,
+        4,
+        8,
+        16,
+        32
+      ],
+      "input_lengths": [
+        256
+      ],
+      "max_run_ms": 900000.0,
+      "output_tokens": 16,
+      "prompt_token_id": 100,
+      "replications": 3,
+      "requests_per_run": 512,
+      "schema_version": 1,
+      "seed": 2026112502,
+      "study_id": "q4b-tpot-holdout",
+      "think_ms": 0.0,
+      "timeout_ms": 30000.0
+    },
+    "holdout-long.json": {
+      "cohort": "long",
+      "concurrency_grid": [
+        1,
+        2,
+        4,
+        8,
+        16,
+        32
+      ],
+      "input_lengths": [
+        512,
+        1024
+      ],
+      "max_run_ms": 900000.0,
+      "output_tokens": 16,
+      "prompt_token_id": 100,
+      "replications": 3,
+      "requests_per_run": 512,
+      "schema_version": 1,
+      "seed": 2026112502,
+      "study_id": "q4b-tpot-holdout",
+      "think_ms": 0.0,
+      "timeout_ms": 30000.0
+    },
+    "holdout-short.json": {
+      "cohort": "short",
+      "concurrency_grid": [
+        1,
+        2,
+        4,
+        8,
+        16,
+        32
+      ],
+      "input_lengths": [
+        64,
+        128
+      ],
+      "max_run_ms": 900000.0,
+      "output_tokens": 16,
+      "prompt_token_id": 100,
+      "replications": 3,
+      "requests_per_run": 512,
+      "schema_version": 1,
+      "seed": 2026112502,
+      "study_id": "q4b-tpot-holdout",
+      "think_ms": 0.0,
+      "timeout_ms": 30000.0
+    }
+  }
+}
