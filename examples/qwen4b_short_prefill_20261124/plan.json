@@ -1,0 +1,137 @@
+{
+  "end_to_end_p99_error_limit": 0.25,
+  "expected_checkpoint_sha256": "16539acffdc3fbdd62f6b832a494d80229c3f05a829a3af677c0876e80833efd",
+  "expected_image": "sha256:e0ea9a10b729573ea8598bdc073bda0ea382fe1037eec7c0761b6fa7f46baaf4",
+  "expected_runtime_sha256": "6ceb7969f1f9008abae587bfc922cb07c480539977fc97e48eda33fc70bd1509",
+  "fit_rule": "median of two independent process medians for each ordered short pure Prefill shape with zero prior context; unchanged base affine for other steps",
+  "main_thread_cpu": 10,
+  "metric": "absolute relative error with measured denominator; all shapes in each process and every end-to-end P99 must pass",
+  "min_shape_steps_per_session": 4,
+  "pci": "0000:32:00.0",
+  "per_job_wall_timeout_s": 900,
+  "phases": {
+    "calibration": {
+      "jobs": [
+        {
+          "concurrency": 4,
+          "label": "calibration-b4-r0",
+          "replication": 0
+        },
+        {
+          "concurrency": 2,
+          "label": "calibration-b2-r0",
+          "replication": 0
+        },
+        {
+          "concurrency": 1,
+          "label": "calibration-b1-r0",
+          "replication": 0
+        },
+        {
+          "concurrency": 1,
+          "label": "calibration-b1-r1",
+          "replication": 1
+        },
+        {
+          "concurrency": 2,
+          "label": "calibration-b2-r1",
+          "replication": 1
+        },
+        {
+          "concurrency": 4,
+          "label": "calibration-b4-r1",
+          "replication": 1
+        }
+      ],
+      "spec": {
+        "cohort": "short",
+        "concurrency_grid": [
+          1,
+          2,
+          4
+        ],
+        "input_lengths": [
+          64,
+          128
+        ],
+        "max_run_ms": 900000.0,
+        "output_tokens": 16,
+        "prompt_token_id": 100,
+        "replications": 2,
+        "requests_per_run": 512,
+        "schema_version": 1,
+        "seed": 2026112406,
+        "study_id": "q4b-short-shapes-calibration",
+        "think_ms": 0.0,
+        "timeout_ms": 30000.0
+      },
+      "streams": {
+        "0": "4f01066b386f36d989ef81b91c4ad2808f47a223969f70c7812e94858adc09d2",
+        "1": "16050dd6f5cc8fe828bd9edd182d67bccd2c151538b2834eac27d25a40fe1362"
+      }
+    },
+    "holdout": {
+      "jobs": [
+        {
+          "concurrency": 4,
+          "label": "holdout-b4-r0",
+          "replication": 0
+        },
+        {
+          "concurrency": 2,
+          "label": "holdout-b2-r0",
+          "replication": 0
+        },
+        {
+          "concurrency": 1,
+          "label": "holdout-b1-r0",
+          "replication": 0
+        },
+        {
+          "concurrency": 1,
+          "label": "holdout-b1-r1",
+          "replication": 1
+        },
+        {
+          "concurrency": 2,
+          "label": "holdout-b2-r1",
+          "replication": 1
+        },
+        {
+          "concurrency": 4,
+          "label": "holdout-b4-r1",
+          "replication": 1
+        }
+      ],
+      "spec": {
+        "cohort": "short",
+        "concurrency_grid": [
+          1,
+          2,
+          4
+        ],
+        "input_lengths": [
+          64,
+          128
+        ],
+        "max_run_ms": 900000.0,
+        "output_tokens": 16,
+        "prompt_token_id": 100,
+        "replications": 2,
+        "requests_per_run": 512,
+        "schema_version": 1,
+        "seed": 2026112408,
+        "study_id": "q4b-short-shapes-holdout",
+        "think_ms": 0.0,
+        "timeout_ms": 30000.0
+      },
+      "streams": {
+        "0": "514b7d590e7ad1c0288c4fed5d553b53c77d39b39762ff523479a9c2886c635d",
+        "1": "1ba10530703316ce4a126b0e2150bb345e3e18074ea1fff5330c3f7304255da6"
+      }
+    }
+  },
+  "previous_receipt_sha256": "2b7bb2c2a3b49613deeb04d97cfd1b22c8d98749b0280ad9bcec40995e471b82",
+  "required_vram_bytes": 17095983104,
+  "shape_error_limit": 0.05
+}

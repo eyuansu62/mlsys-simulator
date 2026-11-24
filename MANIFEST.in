@@ -9,6 +9,7 @@ recursive-include docs/runtime-step-20261117 *.json *.gz *.csv *.svg *.png
 recursive-include docs/prefill-state-20261117 *.json *.gz *.csv *.svg *.png
 recursive-include docs/qwen4b-online-20261117 *.json *.gz *.csv *.svg *.png
 recursive-include examples *.json
+include examples/qwen4b_short_prefill_20261124/README.md
 include examples/course/9070-sla/README.md
 include examples/agent/README.md
 recursive-include examples/runtime_cost_20261116 *.gz *.md

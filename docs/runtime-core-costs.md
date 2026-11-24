@@ -15,6 +15,12 @@ Web／Agent默认值不自动改用这个后端；核心库没有新增运行依
 53/54格满足全部误差门槛；一个短输入C2重复的TTFT P99误差为30.59%，因此整体仍为FAIL。
 这组结果与校准残差分别报告，不自动授权其它运行域。
 
+## 短输入 Prefill 逐形状校准
+
+在同一基础模型上可调用 `fit_short_prefill` 生成 `runtime_cost_short_prefill_v2`。
+新模型使用每进程中位数预测零上下文的 64/128-token 纯 Prefill，覆盖 batch 1/2/4 的每种有序排列。
+逐形状验收与端到端 P99 分开计算。参见[运行与复算方法](../examples/qwen4b_short_prefill_20261124/README.md)。
+
 ## 新计时边界
 
 | 通道 | 本页的用途与范围 |
