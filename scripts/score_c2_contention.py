@@ -75,7 +75,9 @@ def metric(estimate, observation):
 def score(plan_bytes, forecast, evidence, receipt_bytes):
     freeze = json.loads(receipt_bytes)
     receipt_sha = hashlib.sha256(receipt_bytes).hexdigest()
-    pred_bytes = (json.dumps(forecast, sort_keys=True, separators=(",", ":"), allow_nan=False) + "\n").encode()
+    pred_bytes = (
+        json.dumps(forecast, sort_keys=True, separators=(",", ":"), allow_nan=False) + "\n"
+    ).encode()
     expected = [v for k, v in freeze["files_sha256"].items() if k.endswith("-predictions.json")]
     require(expected == [hashlib.sha256(pred_bytes).hexdigest()], "Frozen prediction bytes differ")
     plan = json.loads(plan_bytes)

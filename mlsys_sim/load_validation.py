@@ -140,8 +140,9 @@ def _failed_result(code: str) -> SimulationResult:
 
 
 def _predict_cell(experiment: Experiment, spec: dict, concurrency: int, replication: int,
-                  stream: dict) -> dict:
+                  stream: dict, sibling_contention: dict | None = None) -> dict:
     driver: EventDriver | None = None
+    sibling_model = None
     ledger: list[dict] = []
     owners: dict[str, int] = {}
     seen: set[str] = set()
@@ -171,6 +172,11 @@ def _predict_cell(experiment: Experiment, spec: dict, concurrency: int, replicat
 
     try:
         driver = EventDriver(experiment)
+        if sibling_contention is not None:
+            from .cpu_contention import SiblingExposure
+            engine = driver.local_engines[0]
+            sibling_model = SiblingExposure(engine.performance, sibling_contention, replication)
+            engine.performance = sibling_model
         while True:
             if driver.stopped:
                 reason = driver.stop_reason or "COHORT_TIME_LIMIT"
@@ -241,7 +247,8 @@ def _predict_cell(experiment: Experiment, spec: dict, concurrency: int, replicat
     if not successful and result.result["status"] == "COMPLETED":
         result.result.update(status="UNRESOLVED", error_code=reason or "COHORT_INCOMPLETE")
     token_times = [time for row in result.requests for time in row.get("token_times_ms", [])]
-    return {"concurrency": concurrency, "replication": replication,
+    return {**({"conditional_steps": sibling_model.steps} if sibling_model is not None else {}),
+            "concurrency": concurrency, "replication": replication,
             "status": "COMPLETED" if successful else "UNRESOLVED", "error": error,
             "policy_sha256": closed_loop_policy_sha256(spec, concurrency, replication),
             "request_stream_sha256": stream["request_stream_sha256"], "expected_requests": spec["requests_per_run"],
@@ -256,12 +263,19 @@ def _predict_cell(experiment: Experiment, spec: dict, concurrency: int, replicat
                                 "feedback": "real_terminal_then_think; timeout/failure_release_client_but_veto_success"}}
 
 
-def predict_closed_loop(experiment: Experiment, spec: dict) -> dict:
+def predict_closed_loop(experiment: Experiment, spec: dict, *, sibling_contention: dict | None = None) -> dict:
     """Freeze one finite stream per repetition and predict real completion refill."""
     from .config import validate_experiment
 
     selected = validate_closed_loop_spec(spec)
     validate_experiment(experiment)
+    if sibling_contention is not None:
+        from .cpu_contention import validate_scenario
+        validate_scenario(sibling_contention, selected)
+        if (experiment.calibration.backend != "runtime" or experiment.strategy.replicas != 1
+                or experiment.strategy.tensor_parallel_size != 1 or experiment.strategy.pipeline_parallel_size != 1):
+            _invalid("CPU sibling scenario requires a single calibrated runtime")
+        sibling_contention = deepcopy(sibling_contention)
     if experiment.execution.warmup or experiment.execution.initial_state != "empty_cache":
         _invalid("Finite-cohort prediction requires empty measured KV and no embedded warmup")
     if selected["prompt_token_id"] >= experiment.strategy.model.vocab_size:
@@ -277,7 +291,8 @@ def predict_closed_loop(experiment: Experiment, spec: dict) -> dict:
         total_events = 0
         for concurrency in selected["concurrency_grid"]:
             for replication, stream in enumerate(streams):
-                run = _predict_cell(bound, selected, concurrency, replication, stream)
+                run = _predict_cell(bound, selected, concurrency, replication, stream,
+                                    **({"sibling_contention": sibling_contention} if sibling_contention is not None else {}))
                 total_events += run["result"]["events_processed"]
                 if total_events > 4_000_000:
                     _invalid("Finite-cohort study exceeds four million processed events")
@@ -289,7 +304,8 @@ def predict_closed_loop(experiment: Experiment, spec: dict) -> dict:
                     _invalid("Profile bytes changed during finite-cohort prediction", "INPUT_CHANGED")
                 runs.append(run)
         identity = profile_identity(effective)
-        return {"schema_version": 1, "kind": "closed_loop_predictions", "protocol": PROTOCOL,
+        return {**({"sibling_contention": sibling_contention} if sibling_contention is not None else {}),
+                "schema_version": 1, "kind": "closed_loop_predictions", "protocol": PROTOCOL,
                 "status": "COMPLETED" if all(run["status"] == "COMPLETED" for run in runs) else "UNRESOLVED",
                 "study_id": selected["study_id"], "cohort": selected["cohort"], "spec": selected,
                 "spec_sha256": canonical_sha256(selected), "identity": identity,
