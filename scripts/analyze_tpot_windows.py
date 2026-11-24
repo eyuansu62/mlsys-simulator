@@ -3,6 +3,7 @@
 from bisect import bisect_right
 from collections import defaultdict
 import math
+import random
 from statistics import median
 
 
@@ -21,6 +22,15 @@ def geometry(row):
         tuple(m["context_length"] for m in members),
         roles if phase == "mixed" else None,
     )
+
+
+def _edges(steps, ends, start, end):
+    i = bisect_right(ends, start)
+    while i < len(steps) and steps[i][0] < end:
+        a, b, _, wall = steps[i]
+        clipped = (min(b, end) - max(a, start)) / 1e6
+        yield i, clipped, clipped / wall
+        i += 1
 
 
 def replay_windows(requests, capture, estimate):
@@ -62,16 +72,12 @@ def replay_windows(requests, capture, estimate):
             count == 15 and all(a <= b for a, b in zip(times, times[1:])), "Expected all 15 ordered intervals"
         )
         start, end = times[0], times[-1]
-        i = bisect_right(ends, start)
         inside = denoised = replay = 0.0
-        while i < len(steps) and steps[i][0] < end:
-            a, b, key, wall = steps[i]
-            clipped = (min(b, end) - max(a, start)) / 1e6
-            fraction = clipped / wall
+        for i, clipped, fraction in _edges(steps, ends, start, end):
+            _, _, key, wall = steps[i]
             inside += clipped
             denoised += fraction * (typical[key] if key[0] != "idle" else wall)
             replay += fraction * nominal.get(key, wall)
-            i += 1
         actual = (end - start) / 1e6 / count
         check(
             math.isclose(actual, req["tpot_ms"], abs_tol=1e-7) and actual + 1e-6 >= inside / count,
@@ -79,6 +85,47 @@ def replay_windows(requests, capture, estimate):
         )
         windows.append((req["stream_index"], actual, inside / count, denoised / count, replay / count))
     return windows
+
+
+def chronology_control(requests, capture):
+    """Retrospective permutation control on already audited Core and token clocks."""
+    from mlsys_sim.reporting import _percentiles
+
+    steps = [
+        (r["started_ns"], r["finished_ns"], geometry(r), r["duration_ms"])
+        for r in capture["iterations"]
+        if r["capture_phase"] == "formal"
+    ]
+    ends = [row[1] for row in steps]
+    groups = defaultdict(list)
+    for i, row in enumerate(steps):
+        groups[row[2]].append(i)
+    spans = []
+    for req in requests:
+        times = req["token_ready_ns"]
+        edges = list(_edges(steps, ends, times[0], times[-1]))
+        outside = (times[-1] - times[0]) / 1e6 - sum(steps[i][3] * fraction for i, _, fraction in edges)
+        spans.append((outside, edges, len(times) - 1))
+
+    def quantile(costs):
+        values = [
+            (gap + sum(costs[i] * fraction for i, _, fraction in edges)) / count
+            for gap, edges, count in spans
+        ]
+        return _percentiles(values)["p99"]
+
+    wall = [row[3] for row in steps]
+    shuffled = []
+    for seed in range(11242026, 11242026 + 64):
+        rng = random.Random(seed)
+        costs = wall.copy()
+        for ids in groups.values():
+            values = [wall[i] for i in ids]
+            rng.shuffle(values)
+            for i, v in zip(ids, values):
+                costs[i] = v
+        shuffled.append(quantile(costs))
+    return {"seed_start": 11242026, "original_ms": quantile(wall), "permutation_p99s_ms": shuffled}
 
 
 def main():
@@ -97,6 +144,9 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     for name in ("worker-dir", "experiment", "reference-receipt", "out"):
         parser.add_argument("--" + name, type=Path, required=True)
+    parser.add_argument(
+        "--chronology-control", action="store_true", help="Include the fixed 64 within-shape permutations"
+    )
     args = parser.parse_args()
     path = args.worker_dir
     evaluator = (
@@ -145,6 +195,8 @@ def main():
             (path / "runtime-cost-capture.json").read_bytes()
         ).hexdigest(),
     }
+    if args.chronology_control:
+        doc["chronology_control"] = chronology_control(raw["requests"], capture)
     with args.out.open("x") as f:
         json.dump(doc, f, sort_keys=True, allow_nan=False)
         f.write("\n")

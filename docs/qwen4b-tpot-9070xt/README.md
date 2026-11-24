@@ -17,7 +17,11 @@
 | 同形状中位数与模型形状成本的差 | +0.494 |
 | 原生调度重放与完整预测的剩余差 | −0.012 |
 
+以每组实测 P99 为分母再等权平均，上述四项分别为 +0.470、+3.732、−0.018 和 −0.013 个百分点，合计低估 4.17%。高负载下局部形状偏差较大，跨负载有正负抵消。
+
 这四项逐组相加等于实测 P99 减冻结 P99。它们是保留原生时序的反事实分解，替换顺序会影响单项数值。并发 2 的平均步波动项为 **2.04 ms**。最差的短输入重复，从实测 23.32 ms 除去 Core 外时间得到 23.24 ms，替换为同形状中位数后为 17.56 ms，冻结预测为 17.79 ms。并发 16、32 的长输入则分别有约 5.62、5.81 ms 落在形状成本差这一项。两个高并发组各有 3,220/4,651 步的精确形状只出现过一次，因此这些步的中位数仍包含该次观测的波动。
+
+特别对三份短输入、并发 2 原始 trace 做了时间顺序对照。只在同一进程、同一有序形状和上下文内打乱步耗时，保留每一步与各请求窗口的对应关系及 Core 外差额，使用固定的 64 个随机种子。原始 P99 分别为 20.74、18.60、23.32 ms，打乱后的 P99 中位数为 18.81、18.02、19.03 ms。最差那组的 64 次打乱结果都介于 18.48 和 19.42 ms。这说明慢步在同一个请求窗口内聚集会显著抬高 P99；仅匹配单步耗时直方图仍会漏掉这部分。[顺序对照及全部置换结果](chronology-control.json)
 
 ## 校准方式
 
@@ -32,3 +36,29 @@
 3 种输入分布分别是固定 256 token、64/128 token 和 512/1,024 token，并发网格为 1、2、4、8、16、32。36 个独立校准进程结束后冻结预测。主验收每点预定一个新进程，另外两次短输入并发 2 重复单列并参与最坏误差检查。所有逐组误差以实测值为分母。[完整方案、顺序和请求流 SHA-256](plan.json)
 
 要求全部 20 组的绝对相对误差均不超过 25%。18 个主比较点等权计算，平均绝对相对误差和平均有符号相对误差的绝对值都须优于同一批请求的基础模型，后者还须不超过 2%。主比较中低估和高估都最多允许 12 个点。
+
+在读取留出实测前，18 个主比较点中有 17 个 P99 预测向上修正，固定 256-token、并发 16 的预测向下修正 0.20 ms。短输入并发 2 的基础预测为 17.79 ms，两个校准进程分别给出 19.07、19.14 ms，冻结估计为 19.11 ms。
+
+## 在 Python 中使用
+
+先按[短 Prefill Profile 的说明](../../examples/qwen4b_short_prefill_20261124/README.md)生成基础实验文件。窗口校准数据使用该文件引用的运行时模型。选用窗口预测时，每个完整 run 会提供 `tpot_forecast.p99_ms`、基础账本 P99 和两个校准进程分别给出的估计。
+
+```python
+import gzip
+import json
+from pathlib import Path
+
+from mlsys_sim import TpotWindowProfile, predict_closed_loop
+from mlsys_sim.config import load_experiment
+
+study = Path("docs/qwen4b-tpot-9070xt")
+experiment = load_experiment(Path("runs/short-prefill/experiment.json"))
+with gzip.open(study / "calibration.json.gz", "rt") as f:
+    profile = TpotWindowProfile(json.load(f))
+plan = json.loads((study / "plan.json").read_text())
+spec = dict(plan["specs"]["holdout-short.json"], concurrency_grid=[2], replications=1)
+report = predict_closed_loop(experiment, spec, tpot_window_profile=profile)
+print(report["runs"][0]["tpot_forecast"])
+```
+
+在通用 `validate_closed_loop` 的冻结契约中，`window_tpot_p99_ms` 将此总体预测与实测 TPOT P99 比较，使用它时须登记完整预测的 `prediction_payload_sha256`。`tpot_p99_ms` 和常规 SLA 约束仍从请求账本计算。随研究附带的评分器还会检查独立会话、请求流、冻结时间及系统偏差。

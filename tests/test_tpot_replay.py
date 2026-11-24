@@ -1,5 +1,5 @@
 import unittest
-from scripts.analyze_tpot_windows import replay_windows
+from scripts.analyze_tpot_windows import chronology_control, replay_windows
 
 
 def step(start, end, phase, count=1):
@@ -46,3 +46,19 @@ class WindowReplayTests(unittest.TestCase):
         ]:
             with self.assertRaises(ValueError):
                 replay_windows([req], capture, lambda k: 1.0)
+
+    def test_within_shape_permutation_preserves_values_but_breaks_slow_windows(self):
+        requests, steps = [], []
+        t = 0
+        for i in range(20):
+            tokens = [t]
+            duration = 2_000_000 if i < 3 else 1_000_000
+            for _ in range(15):
+                steps.append(step(t, t + duration, "decode"))
+                t += duration
+                tokens.append(t)
+            requests.append({"stream_index": i, "token_ready_ns": tokens, "tpot_ms": duration / 1e6})
+        result = chronology_control(requests, {"closed": True, "iterations": steps})
+        self.assertEqual(result["original_ms"], 2.0)
+        self.assertEqual(len(result["permutation_p99s_ms"]), 64)
+        self.assertLess(max(result["permutation_p99s_ms"]), 2.0)
