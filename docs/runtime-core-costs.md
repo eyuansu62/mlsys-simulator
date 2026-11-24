@@ -21,6 +21,10 @@ Web／Agent默认值不自动改用这个后端；核心库没有新增运行依
 新模型使用每进程中位数预测零上下文的 64/128-token 纯 Prefill，覆盖 batch 1/2/4 的每种有序排列。
 逐形状验收与端到端 P99 分开计算。参见[运行与复算方法](../examples/qwen4b_short_prefill_20261124/README.md)。
 
+## 并发 2 的已知 CPU 同核占用
+
+对于已测短输入运行域，`predict_closed_loop` 可用 `sibling_contention` 指定外部后台任务占用兄弟逻辑 CPU 的步区间，以及从对照实验得到的阶段增量。两种后台负载的采样、各自验收和自然负载的证据边界见[同核争用研究](qwen4b-c2-shared-tail/README.md)。
+
 ## 新计时边界
 
 | 通道 | 本页的用途与范围 |

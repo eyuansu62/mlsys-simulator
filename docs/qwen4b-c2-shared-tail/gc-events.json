@@ -1,0 +1,29 @@
+[
+  {
+    "core_ms": 29.603861,
+    "gc_ms": 11.639457,
+    "label": "01-stages-r0",
+    "order": 4879,
+    "phase": "decode",
+    "reference_ms": 17.364911499999998,
+    "scope": "runner_execute"
+  },
+  {
+    "core_ms": 29.547313,
+    "gc_ms": 11.434799,
+    "label": "03-stages-r1",
+    "order": 4879,
+    "phase": "decode",
+    "reference_ms": 17.222168,
+    "scope": "runner_execute"
+  },
+  {
+    "core_ms": 30.704089,
+    "gc_ms": 11.596728,
+    "label": "04-stages-r2",
+    "order": 4879,
+    "phase": "decode",
+    "reference_ms": 17.4599525,
+    "scope": "runner_execute"
+  }
+]

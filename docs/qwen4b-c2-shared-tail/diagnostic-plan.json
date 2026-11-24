@@ -1,0 +1,100 @@
+{
+  "expected_checkpoint_sha256": "16539acffdc3fbdd62f6b832a494d80229c3f05a829a3af677c0876e80833efd",
+  "expected_image": "sha256:e0ea9a10b729573ea8598bdc073bda0ea382fe1037eec7c0761b6fa7f46baaf4",
+  "expected_runtime_sha256": "6ceb7969f1f9008abae587bfc922cb07c480539977fc97e48eda33fc70bd1509",
+  "fit_permitted": false,
+  "holdout_permitted": false,
+  "interpretation": "separate nested stage clocks and thread CPU; sensor telemetry is correlation, profiled window only diagnostic; no tail fitting on these sessions",
+  "jobs": [
+    {
+      "concurrency": 2,
+      "label": "01-stages-r0",
+      "mode": "stages",
+      "replication": 0,
+      "spec": "full",
+      "stream": "564c3be4ced78aabc1bcab8635592876500034b8cdd8c45f1e752278bc602189"
+    },
+    {
+      "concurrency": 2,
+      "label": "02-native-r0",
+      "mode": "native",
+      "replication": 0,
+      "spec": "full",
+      "stream": "564c3be4ced78aabc1bcab8635592876500034b8cdd8c45f1e752278bc602189"
+    },
+    {
+      "concurrency": 2,
+      "label": "03-stages-r1",
+      "mode": "stages",
+      "replication": 1,
+      "spec": "full",
+      "stream": "0f55882c8f7744abdb29ca4bf12c4056dad4412067c1b742054c0dd070f3c1ba"
+    },
+    {
+      "concurrency": 2,
+      "label": "04-stages-r2",
+      "mode": "stages",
+      "replication": 2,
+      "spec": "full",
+      "stream": "e9ac4bf9c6b86216299fc91ca9ee73eb4bb518823e0a0f695ebc38c424ab3f68"
+    },
+    {
+      "concurrency": 2,
+      "label": "05-hip-r0",
+      "mode": "hip",
+      "replication": 0,
+      "spec": "hip",
+      "stream": "4fdebe8428ba8532dba830a67cb8eea7b69f7cee854d89f4e85464d85b1cc648"
+    }
+  ],
+  "main_thread_cpu": 10,
+  "paired_definition": "at least one immediately adjacent Decode >=1.30x its same-shape within-session median, diagnose all prefills; no adaptive filtering",
+  "pci": "0000:32:00.0",
+  "per_job_wall_timeout_s": 900,
+  "previous_receipt_sha256": "2b7bb2c2a3b49613deeb04d97cfd1b22c8d98749b0280ad9bcec40995e471b82",
+  "required_vram_bytes": 17095983104,
+  "role": "diagnostic_only",
+  "specs": {
+    "full": {
+      "cohort": "short",
+      "concurrency_grid": [
+        2
+      ],
+      "input_lengths": [
+        64,
+        128
+      ],
+      "max_run_ms": 900000.0,
+      "output_tokens": 16,
+      "prompt_token_id": 100,
+      "replications": 3,
+      "requests_per_run": 1024,
+      "schema_version": 1,
+      "seed": 2026112431,
+      "study_id": "c2-timeline-nov24-full",
+      "think_ms": 0.0,
+      "timeout_ms": 30000.0
+    },
+    "hip": {
+      "cohort": "short",
+      "concurrency_grid": [
+        2
+      ],
+      "input_lengths": [
+        64,
+        128
+      ],
+      "max_run_ms": 900000.0,
+      "output_tokens": 16,
+      "prompt_token_id": 100,
+      "replications": 3,
+      "requests_per_run": 128,
+      "schema_version": 1,
+      "seed": 2026112432,
+      "study_id": "c2-timeline-nov24-hip",
+      "think_ms": 0.0,
+      "timeout_ms": 30000.0
+    }
+  },
+  "target": "prefill >=38ms in-run and neighbor Decode slow versus same ordered q/context/session"
+}

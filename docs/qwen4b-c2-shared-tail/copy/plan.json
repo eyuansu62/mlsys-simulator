@@ -1,0 +1,100 @@
+{
+  "acceptance": "Every independent controlled process: median of each phase/condition and median paired slowdown (sibling-sham) reported; typical condition medians <=10% relative error, TTFT and E2E P99 <=25%. Explicit historical paired threshold >=38 ms in-run Prefill with immediate Decode >=1.30x normal exact geometry. Report missed or absent positives separately; exposure onset is externally provided, never inferred from holdout clocks.",
+  "causal_gate": "Each calibration session: sibling > sham by >=10% for both phases; absolute separate minus sham smaller than sibling effect in each phase.",
+  "expected_checkpoint_sha256": "16539acffdc3fbdd62f6b832a494d80229c3f05a829a3af677c0876e80833efd",
+  "expected_image": "sha256:e0ea9a10b729573ea8598bdc073bda0ea382fe1037eec7c0761b6fa7f46baaf4",
+  "expected_runtime_sha256": "6ceb7969f1f9008abae587bfc922cb07c480539977fc97e48eda33fc70bd1509",
+  "fit_rule": "Within each of two calibration processes and phase, take sibling minus sham median residual relative to v2; pool the two deltas by median. Apply only to declared sibling windows for C2 short Prefill/Decode in this runtime.",
+  "main_thread_cpu": 10,
+  "pci": "0000:32:00.0",
+  "per_job_wall_timeout_s": 900,
+  "previous_receipt_sha256": "2b7bb2c2a3b49613deeb04d97cfd1b22c8d98749b0280ad9bcec40995e471b82",
+  "required_vram_bytes": 17095983104,
+  "roles": {
+    "calibration": {
+      "jobs": [
+        {
+          "concurrency": 2,
+          "label": "copy-calibration-r0",
+          "replication": 0,
+          "schedule_sha256": "32d2d4c8b401b9303968ff790dd23518f72528cee071f8b86411a54b3bfc090e",
+          "stream": "5412f47c18ef79ba238ee11702a9dc71aa745c7901b89b65e5de05147605132a"
+        },
+        {
+          "concurrency": 2,
+          "label": "copy-calibration-r1",
+          "replication": 1,
+          "schedule_sha256": "65b8bece6000eae21d4457f22ff5816e41899d025cb99badd9ae8dfefb63e909",
+          "stream": "72944dd5cbd9e68d71d29214b2567f81943b8c25e5fa5f3990517cdc00bb3687"
+        }
+      ],
+      "spec": {
+        "cohort": "short",
+        "concurrency_grid": [
+          2
+        ],
+        "input_lengths": [
+          64,
+          128
+        ],
+        "max_run_ms": 900000.0,
+        "output_tokens": 16,
+        "prompt_token_id": 100,
+        "replications": 2,
+        "requests_per_run": 512,
+        "schema_version": 1,
+        "seed": 2026112491,
+        "study_id": "c2-copy-sibling-calibration",
+        "think_ms": 0.0,
+        "timeout_ms": 30000.0
+      }
+    },
+    "holdout": {
+      "jobs": [
+        {
+          "concurrency": 2,
+          "label": "copy-holdout-r0",
+          "replication": 0,
+          "schedule_sha256": "8c40932530ee6b77bca6e48770eaaf83a24cb8c65439d274f31e279f9dee5d42",
+          "stream": "7b373fda80192a095948a930e780adaac2ef7b24c94192dcbc8bd00c2fd7194c"
+        },
+        {
+          "concurrency": 2,
+          "label": "copy-holdout-r1",
+          "replication": 1,
+          "schedule_sha256": "a7d77e8c859dcfedc5cd4efb22055a237c8c5736d90d3d43898b7875f20452a7",
+          "stream": "69a0655f26c4797c335c29d670e345eb9dee79d4cff19fc846e5fac8c9e42faa"
+        },
+        {
+          "concurrency": 2,
+          "label": "copy-holdout-r2",
+          "replication": 2,
+          "schedule_sha256": "ebd56f0f93cfa09250c1d8b6d55bef21a26b4671b0e58f69a502b1c76764356a",
+          "stream": "c08ab99a0c47183a04df3bc8790533f838445eee939235507d91be2a4c3fa15b"
+        }
+      ],
+      "spec": {
+        "cohort": "short",
+        "concurrency_grid": [
+          2
+        ],
+        "input_lengths": [
+          64,
+          128
+        ],
+        "max_run_ms": 900000.0,
+        "output_tokens": 16,
+        "prompt_token_id": 100,
+        "replications": 3,
+        "requests_per_run": 512,
+        "schema_version": 1,
+        "seed": 2026112492,
+        "study_id": "c2-copy-sibling-holdout",
+        "think_ms": 0.0,
+        "timeout_ms": 30000.0
+      }
+    }
+  },
+  "strict_tail_gate": "For each controlled run require a measured and a predicted paired event during sibling windows; absolute difference in fraction of sibling windows with paired hit <=0.20. Natural control scored separately.",
+  "study": "CPU10 sibling (22), separate (23), sham crossover; one short task-owned process copying between two private 256KiB buffers"
+}

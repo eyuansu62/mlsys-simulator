@@ -1,0 +1,116 @@
+{
+  "expected_checkpoint_sha256": "16539acffdc3fbdd62f6b832a494d80229c3f05a829a3af677c0876e80833efd",
+  "expected_image": "sha256:e0ea9a10b729573ea8598bdc073bda0ea382fe1037eec7c0761b6fa7f46baaf4",
+  "expected_runtime_sha256": "6ceb7969f1f9008abae587bfc922cb07c480539977fc97e48eda33fc70bd1509",
+  "fit_permitted": false,
+  "holdout_permitted": false,
+  "interpretation": "separate nested stage clocks and thread CPU; sensor telemetry is correlation, profiled window only diagnostic; no tail fitting on these sessions",
+  "jobs": [
+    {
+      "concurrency": 2,
+      "label": "d1-old-diag-r1",
+      "mode": "stages",
+      "replication": 1,
+      "spec": "old-diag",
+      "stream": "7835d8b5b988d6caa4a5cdf5eff7a445e999799ad1a5329b994a1a9a5a8870df"
+    },
+    {
+      "concurrency": 2,
+      "label": "d2-old-formal-r2",
+      "mode": "stages",
+      "replication": 2,
+      "spec": "old-formal",
+      "stream": "ad3d67f0c5cf1ea0db09f444ef49fd01ef1be263a7bd0b4b300e6ca02eed61b4"
+    },
+    {
+      "concurrency": 2,
+      "label": "d3-old-diag-r0",
+      "mode": "stages",
+      "replication": 0,
+      "spec": "old-diag",
+      "stream": "3d767c1b5ee651cce9d051fd76115263ecd4b8b9455439610e1a4819c6ce5d51"
+    },
+    {
+      "concurrency": 2,
+      "label": "d4-old-formal-r0",
+      "mode": "stages",
+      "replication": 0,
+      "spec": "old-formal",
+      "stream": "ca0966ebc038af026421c1a80aae83351d9ed9d72f005a67a7734359854ca77f"
+    },
+    {
+      "concurrency": 2,
+      "label": "d5-old-diag-r2",
+      "mode": "stages",
+      "replication": 2,
+      "spec": "old-diag",
+      "stream": "83fa01d901ed9a3b508a39775e4241db6888eb93e1bda65563956257438fab7c"
+    },
+    {
+      "concurrency": 2,
+      "label": "d6-old-formal-r1",
+      "mode": "stages",
+      "replication": 1,
+      "spec": "old-formal",
+      "stream": "4b2438ce67c999b1b44b3255f1f84560937204e4b8d24add2d7371d2f3e84c39"
+    }
+  ],
+  "main_thread_cpu": 10,
+  "paired_definition": "at least one immediately adjacent Decode >=1.30x its same-shape within-session median, diagnose all prefills; no adaptive filtering",
+  "pci": "0000:32:00.0",
+  "per_job_wall_timeout_s": 900,
+  "previous_receipt_sha256": "2b7bb2c2a3b49613deeb04d97cfd1b22c8d98749b0280ad9bcec40995e471b82",
+  "reason": "prior full-session shared Decode cluster localized to runner_execute; align forward stream timing and CPU preprocessing on the original two short-input streams",
+  "required_vram_bytes": 17095983104,
+  "role": "deep_diagnostic_only",
+  "specs": {
+    "old-diag": {
+      "cohort": "short",
+      "concurrency_grid": [
+        1,
+        2,
+        4
+      ],
+      "input_lengths": [
+        64,
+        128
+      ],
+      "max_run_ms": 900000.0,
+      "output_tokens": 16,
+      "prompt_token_id": 100,
+      "replications": 3,
+      "requests_per_run": 512,
+      "schema_version": 1,
+      "seed": 2026111907,
+      "study_id": "qwen4b-c2-tail-diagnostic-20261119",
+      "think_ms": 0.0,
+      "timeout_ms": 30000.0
+    },
+    "old-formal": {
+      "cohort": "short",
+      "concurrency_grid": [
+        1,
+        2,
+        4,
+        8,
+        16,
+        32
+      ],
+      "input_lengths": [
+        64,
+        128
+      ],
+      "max_run_ms": 900000.0,
+      "output_tokens": 16,
+      "prompt_token_id": 100,
+      "replications": 3,
+      "requests_per_run": 512,
+      "schema_version": 1,
+      "seed": 2026111703,
+      "study_id": "qwen4b-online-20261117",
+      "think_ms": 0.0,
+      "timeout_ms": 30000.0
+    }
+  },
+  "target": "prefill >=38ms in-run and neighbor Decode slow versus same ordered q/context/session"
+}

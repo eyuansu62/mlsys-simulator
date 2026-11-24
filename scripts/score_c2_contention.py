@@ -26,7 +26,7 @@ def measures(steps, windows):
     labels = {}
     by_shape = defaultdict(list)
     by_condition = defaultdict(list)
-    window_counts = Counter()
+    window_counts: Counter[str] = Counter()
     end = 0
     for window in windows:
         start, stop, cond = window["start"], window["stop"], window["condition"]
@@ -50,7 +50,7 @@ def measures(steps, windows):
         else:
             by_shape[shape].append(y)
     normal = {k: median(v) for k, v in by_shape.items()}
-    hits = Counter()
+    hits: Counter[str] = Counter()
     for i, (phase, _, _, y) in enumerate(steps):
         if i == 0 or phase != "prefill" or y < 38:
             continue

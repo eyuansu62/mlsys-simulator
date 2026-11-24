@@ -1,0 +1,180 @@
+{
+  "freeze_sha256": "e4f8b5e601fb48d60c7d56d87d49dbe7a89b69e06853d9fb67e04143b2a9a063",
+  "p99": true,
+  "role": "independent_controlled",
+  "rows": [
+    {
+      "condition_medians": {
+        "decode-separate": {
+          "observed": 17.681663,
+          "predicted": 17.764002529989916,
+          "relative_error": 0.004656775213390141
+        },
+        "decode-sham": {
+          "observed": 17.591194,
+          "predicted": 17.764002529989916,
+          "relative_error": 0.009823581616456245
+        },
+        "decode-sibling": {
+          "observed": 31.163392,
+          "predicted": 31.65473437584005,
+          "relative_error": 0.015766652610859744
+        },
+        "prefill-separate": {
+          "observed": 27.798959500000002,
+          "predicted": 27.117252999999998,
+          "relative_error": 0.024522734385076683
+        },
+        "prefill-sham": {
+          "observed": 27.231715,
+          "predicted": 27.117252999999998,
+          "relative_error": 0.004203260793527064
+        },
+        "prefill-sibling": {
+          "observed": 46.581803,
+          "predicted": 46.995853624999995,
+          "relative_error": 0.008888677516411203
+        }
+      },
+      "historical_paired_gate": "PASS",
+      "label": "copy-holdout-r0",
+      "latency_p99": {
+        "e2e": {
+          "observed": 357.1087404599902,
+          "predicted": 357.1319818358097,
+          "relative_error": 6.508206937061445e-05
+        },
+        "ttft": {
+          "observed": 47.523731390001664,
+          "predicted": 48.68108237499837,
+          "relative_error": 0.024353116877522618
+        }
+      },
+      "observed_hits": {
+        "sibling": 29
+      },
+      "p99_passed": true,
+      "predicted_hits": {
+        "sibling": 29
+      },
+      "sibling_windows": 29,
+      "typical_passed": true
+    },
+    {
+      "condition_medians": {
+        "decode-separate": {
+          "observed": 17.62551,
+          "predicted": 17.764002529989916,
+          "relative_error": 0.007857504831912276
+        },
+        "decode-sham": {
+          "observed": 17.528127,
+          "predicted": 17.764002529989916,
+          "relative_error": 0.013456972897898156
+        },
+        "decode-sibling": {
+          "observed": 31.448798,
+          "predicted": 31.65473437584005,
+          "relative_error": 0.006548306737829801
+        },
+        "prefill-separate": {
+          "observed": 27.6844215,
+          "predicted": 27.077964,
+          "relative_error": 0.021906092565452284
+        },
+        "prefill-sham": {
+          "observed": 27.3037935,
+          "predicted": 27.077964,
+          "relative_error": 0.008270993552599193
+        },
+        "prefill-sibling": {
+          "observed": 47.112283500000004,
+          "predicted": 46.956564625,
+          "relative_error": 0.0033052712250724037
+        }
+      },
+      "historical_paired_gate": "PASS",
+      "label": "copy-holdout-r1",
+      "latency_p99": {
+        "e2e": {
+          "observed": 356.33130359999905,
+          "predicted": 357.1319818358097,
+          "relative_error": 0.002247005041997374
+        },
+        "ttft": {
+          "observed": 48.174548549999066,
+          "predicted": 48.68108237499837,
+          "relative_error": 0.010514552606000649
+        }
+      },
+      "observed_hits": {
+        "sibling": 30
+      },
+      "p99_passed": true,
+      "predicted_hits": {
+        "sibling": 30
+      },
+      "sibling_windows": 30,
+      "typical_passed": true
+    },
+    {
+      "condition_medians": {
+        "decode-separate": {
+          "observed": 17.690464,
+          "predicted": 17.764002529989916,
+          "relative_error": 0.0041569587993801616
+        },
+        "decode-sham": {
+          "observed": 17.554907,
+          "predicted": 17.770318432165656,
+          "relative_error": 0.012270724770325314
+        },
+        "decode-sibling": {
+          "observed": 31.5229305,
+          "predicted": 31.65473437584005,
+          "relative_error": 0.004181206307581453
+        },
+        "prefill-separate": {
+          "observed": 27.486207,
+          "predicted": 27.117252999999998,
+          "relative_error": 0.013423241700828425
+        },
+        "prefill-sham": {
+          "observed": 27.363172,
+          "predicted": 27.117252999999998,
+          "relative_error": 0.008987225603815263
+        },
+        "prefill-sibling": {
+          "observed": 47.142194,
+          "predicted": 46.995853624999995,
+          "relative_error": 0.0031042334389445037
+        }
+      },
+      "historical_paired_gate": "PASS",
+      "label": "copy-holdout-r2",
+      "latency_p99": {
+        "e2e": {
+          "observed": 363.2266558200004,
+          "predicted": 357.1319818358097,
+          "relative_error": 0.0167792585883646
+        },
+        "ttft": {
+          "observed": 47.79883269000155,
+          "predicted": 48.68108237499837,
+          "relative_error": 0.01845755712735997
+        }
+      },
+      "observed_hits": {
+        "sibling": 30
+      },
+      "p99_passed": true,
+      "predicted_hits": {
+        "sibling": 30
+      },
+      "sibling_windows": 30,
+      "typical_passed": true
+    }
+  ],
+  "strict_paired_positive": true,
+  "typical": true
+}
